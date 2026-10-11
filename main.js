@@ -487,7 +487,7 @@ function detectHandsNow() {
     const r = handLandmarker.detectForVideo(video, t0);
     detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
 
-    const palm = $("trackMode").value === "palm" && mode !== "draw";
+    const palm = ($("trackMode").value === "palm" || mode === "box") && mode !== "draw";
     reach = palm ? 32 : 12;
 
     if (r.landmarks && r.landmarks.length > 0) {
@@ -651,15 +651,15 @@ let particles = [], popups = [];
 let globalShake = 0, globalShakePower = 0;
 let shockwaves = [];
 
-function addShake(duration = 0.12, power = 10) {
+function addShake(duration = 0.08, power = 4) {
   globalShake = Math.max(globalShake, duration);
-  globalShakePower = Math.max(globalShakePower, power);
+  globalShakePower = Math.min(5, Math.max(globalShakePower, power));
 }
 
 function burst(x, y, color, n = 22) {
   try {
-    // 1. 타격 시 가슴을 울리는 화면 흔들림(Screen Shake) 자동 인가
-    addShake(0.12, Math.min(16, 7 + n * 0.3));
+    // 1. 화면 깜빡임/점등 없는 부드러운 타격 햅틱 진동 인가
+    addShake(0.08, Math.min(5, 2.5 + n * 0.08));
     sfx.hitHeavy(x);
 
     // 2. 동심원 충격파 링 (Shockwave Ring) 생성
@@ -3160,28 +3160,30 @@ games.box = {
 
     // 웹캠 손인식: 양손 펀치 궤도 & 가속도 피크(Peak Acceleration) 판정
     pointers.forEach((p, i) => {
-      const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = { state: "IDLE", lastSpeed: 0, cool: 0 });
+      const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = { state: "IDLE", lastSpeed: 0, cool: 0, retractT: 0 });
       fsm.cool = Math.max(0, fsm.cool - dt);
+      fsm.retractT = Math.max(0, fsm.retractT - dt);
 
       // 손의 위치에 따라 왼주먹 / 오른주먹 자동 구분
       const isLeftFist = p.x < W / 2;
       const spd = p.speed;
 
-      // 🥊 상태 머신:
-      // 1) IDLE: 속도 < 7.0 (손을 들고 가만히 있거나 천천히 움직이면 타격 0% 절대 발생 안 함!)
-      // 2) PUNCH: 앞으로 주먹을 휙! 뻗는 급격한 가속도 피크 (속도 > 10.2) -> 단 1회 타격 발생!
-      // 3) RETRACT: 한 번 친 후 손을 다시 거둬들일 때까지 잠금 (속도가 6.5 이하로 떨어져야 다음 펀치 대기)
+      // 🥊 피트니스 펀치 상태 머신 (연타 데드락 100% 해소 & 민첩한 타격감):
+      // 1) IDLE: 속도 6.5 이상으로 뻗거나 펀치 가속도 피크 발생 시 즉시 타격!
+      // 2) RETRACT: 타격 후 110ms 최소 쿨다운, 180ms 후 자동 복귀하여 연타 펀치가 절대 막히지 않음
       if (fsm.state === "IDLE") {
-        const isFistStrike = (spd > 10.2 && spd > fsm.lastSpeed * 1.3) || (p.punch && spd > 8.0);
+        const isFistStrike = (spd > 6.5 && spd > fsm.lastSpeed * 1.15) || (p.punch && spd > 5.5) || spd > 8.5;
         if (isFistStrike && fsm.cool <= 0) {
           fsm.state = "RETRACT";
-          fsm.cool = 0.14; // 최소 쿨다운
+          fsm.cool = 0.11;     // 최소 쿨다운 (연타 가능 110ms)
+          fsm.retractT = 0.18; // 타임아웃 가드 (180ms 후 무조건 IDLE 복귀하여 멈춤 현상 차단)
           punchOccurred = true;
           punchHandLeft = isLeftFist;
-          punchIntensity = Math.min(2.5, Math.max(1.0, spd / 9.0)); // 움직임 정도에 따른 펀치 세기
+          punchIntensity = Math.min(2.5, Math.max(1.0, spd / 7.0));
         }
       } else if (fsm.state === "RETRACT") {
-        if (spd < 6.5 && fsm.cool <= 0) {
+        // 속도가 줄어들었거나 타임아웃 경과 시 즉시 다음 펀치 준비!
+        if (fsm.retractT <= 0 || spd < 5.0 || (fsm.cool <= 0 && spd < fsm.lastSpeed)) {
           fsm.state = "IDLE";
         }
       }
@@ -3203,13 +3205,13 @@ games.box = {
         const pts = Math.round(3 * punchIntensity);
         award(cx, cy - 60, pts, "#ffd700");
         popup(cx, cy - 90, `PERFECT HIT!! 💥 +${pts}`, "#ffd700");
-        addShake(0.18, 14);
+        addShake(0.08, 5); // 화면 점등 및 여백 노출 없는 부드러운 햅틱
       } else {
         const pts = punchIntensity > 1.6 ? 2 : 1;
         award(cx, cy, pts, punchHandLeft ? "#00d2ff" : "#ff4b72");
         if (punchIntensity > 1.6) {
           popup(cx, cy - 70, `HEAVY PUNCH!! 🥊 +2`, punchHandLeft ? "#00d2ff" : "#ff4b72");
-          addShake(0.12, 10);
+          addShake(0.06, 4);
         }
       }
 
@@ -3222,13 +3224,13 @@ games.box = {
 
       // 샌드백 물리 틸트: 왼손 펀치는 오른쪽으로, 오른손 펀치는 왼쪽으로 꺾임!
       const tiltDir = punchHandLeft ? 1 : -1;
-      this.tiltVel += tiltDir * (perfect ? 0.60 : 0.42) * punchIntensity;
-      this.flash = 1;
-      this.shake = perfect ? 0.20 : 0.12;
+      this.tiltVel += tiltDir * (perfect ? 0.55 : 0.38) * punchIntensity;
+      this.flash = 0.8;
+      this.shake = perfect ? 0.12 : 0.08;
 
       // 샌드백 타격점에 화려한 파티클 버스트
       const impactCol = punchHandLeft ? "#00d2ff" : "#ff4b72";
-      burst(cx + tiltDir * 20, cy, perfect ? "#ffd700" : impactCol, perfect ? 36 : 22);
+      burst(cx + tiltDir * 20, cy, perfect ? "#ffd700" : impactCol, perfect ? 32 : 18);
 
       if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성! 골든 피버 러시!`, true);
     }
@@ -3242,7 +3244,7 @@ games.box = {
     const bw = 175, bh = Math.min(H * 0.52, 335);
 
     ctx.save();
-    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
 
     // 1. 샌드백 본체 렌더링
     Art.drawPunchBag(cx, cy, bw, bh, this.tilt, this.flash);
@@ -3383,12 +3385,16 @@ function drawReadyCountdown(t, isBodyGame) {
 
 function drawBackground(color, camAlpha = 0.85) {
   if (!mode) { ctx.clearRect(0, 0, W, H); return; }   // 메뉴에서는 캔버스를 투명하게 → 아케이드 허브 배경이 보임
-  ctx.fillStyle = color; ctx.fillRect(0, 0, W, H);
-  if (!useMouse && video.readyState >= 2) {
-    const vw = video.videoWidth, vh = video.videoHeight, s = Math.max(W / vw, H / vh);
+  // 화면 흔들림 시에도 가장자리 여백이 드러나 점등되지 않도록 안전 패딩 채움
+  ctx.fillStyle = color; ctx.fillRect(-24, -24, W + 48, H + 48);
+  if (!useMouse && video && video.readyState >= 2) {
+    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+    const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1);
     ctx.globalAlpha = camAlpha;
-    ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+    try {
+      ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+    } catch {}
     ctx.restore(); ctx.globalAlpha = 1;
   }
 }
