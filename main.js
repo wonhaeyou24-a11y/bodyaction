@@ -1297,40 +1297,101 @@ const Art = {
   },
 
   // 8. 네온 비트 큐브 노트 (화살표 없는 자유 슬래시 3D 네온 크리스탈 큐브)
-  drawBeatNote(x, y, r, color, half = 0) {
+  // 8. 🎮 비트세이버 PSVR 스타일 3D 입체 네온 큐브 블록 (NotebookLM & Stitch 최적화)
+  drawBeatNote(x, y, r, color, half = 0, rot = 0) {
     try {
       ctx.save();
       ctx.translate(x, y);
+      if (rot !== 0) ctx.rotate(rot);
+
+      // 절단 시 반쪽 분리 클리핑
       if (half !== 0) {
         ctx.beginPath();
-        ctx.rect(half < 0 ? -r * 1.5 : 0, -r * 1.5, r * 1.5, r * 3);
+        ctx.rect(half < 0 ? -r * 2.2 : 0, -r * 2.2, r * 2.2, r * 4.4);
         ctx.clip();
       }
-      ctx.shadowColor = color; ctx.shadowBlur = 18;
-      ctx.fillStyle = "rgba(16, 8, 32, 0.9)";
-      ctx.strokeStyle = color; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.roundRect(-r, -r, r * 2, r * 2, 12); ctx.fill(); ctx.stroke();
 
-      // 내부 광택 그라디언트
-      const g = ctx.createLinearGradient(-r, -r, r, r);
-      g.addColorStop(0, color); g.addColorStop(1, "transparent");
-      ctx.fillStyle = g; ctx.globalAlpha = 0.35;
-      ctx.beginPath(); ctx.roundRect(-r + 4, -r + 4, r * 2 - 8, r * 2 - 8, 8); ctx.fill();
-      ctx.globalAlpha = 1;
+      // 1. 3D 큐브 입체 원근 면 오프셋 (Bevel Offset)
+      const bOff = r * 0.28; // 상단 및 측면 깊이 오프셋
+      const mainW = r * 1.7, mainH = r * 1.7;
+      const ox = -mainW / 2, oy = -mainH / 2 + bOff * 0.5;
 
-      // 중앙 네온 코어 크리스탈 (방향 없이 자유롭게 베는 타겟)
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 12;
+      // 2. 큐브 외곽 강렬한 네온 블룸 글로우
+      ctx.shadowColor = color;
+      ctx.shadowBlur = Math.min(32, r * 0.85);
+
+      // A. [상단 입체면 (Top Face)] - 부드러운 상단 반사광
+      ctx.fillStyle = color === "#00d2ff" ? "rgba(77, 222, 255, 0.45)" : "rgba(255, 99, 160, 0.45)";
       ctx.beginPath();
-      ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2);
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + bOff, oy - bOff);
+      ctx.lineTo(ox + mainW + bOff, oy - bOff);
+      ctx.lineTo(ox + mainW, oy);
+      ctx.closePath();
       ctx.fill();
 
-      // 코어 내부 십자 스타 반짝임
-      ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      // B. [우측 입체면 (Right Face)] - 측면 음영
+      ctx.fillStyle = color === "#00d2ff" ? "rgba(0, 140, 200, 0.55)" : "rgba(180, 20, 80, 0.55)";
       ctx.beginPath();
-      ctx.moveTo(-r * 0.22, 0); ctx.lineTo(r * 0.22, 0);
-      ctx.moveTo(0, -r * 0.22); ctx.lineTo(0, r * 0.22);
+      ctx.moveTo(ox + mainW, oy);
+      ctx.lineTo(ox + mainW + bOff, oy - bOff);
+      ctx.lineTo(ox + mainW + bOff, oy + mainH - bOff);
+      ctx.lineTo(ox + mainW, oy + mainH);
+      ctx.closePath();
+      ctx.fill();
+
+      // C. [전면부 메인 바디 (Front Face)] - 딥 다크 네온 하우징
+      const bodyGrad = ctx.createLinearGradient(ox, oy, ox + mainW, oy + mainH);
+      bodyGrad.addColorStop(0, "rgba(18, 10, 36, 0.94)");
+      bodyGrad.addColorStop(1, "rgba(8, 4, 18, 0.98)");
+      ctx.fillStyle = bodyGrad;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(3, r * 0.1);
+      ctx.beginPath();
+      ctx.roundRect(ox, oy, mainW, mainH, Math.max(6, r * 0.16));
+      ctx.fill();
       ctx.stroke();
+
+      // D. [내부 림 라이트 (Fresnel Rim)] - 고휘도 발광 테두리
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.lineWidth = Math.max(1.5, r * 0.045);
+      ctx.beginPath();
+      ctx.roundRect(ox + 3, oy + 3, mainW - 6, mainH - 6, Math.max(4, r * 0.12));
+      ctx.stroke();
+
+      // E. [중앙 크리스탈 코어 타깃] - 백색 고휘도 발광 펄스
+      const coreR = r * 0.36;
+      const coreGrad = ctx.createRadialGradient(0, oy + mainH * 0.5, 0, 0, oy + mainH * 0.5, coreR);
+      coreGrad.addColorStop(0, "#ffffff");
+      coreGrad.addColorStop(0.55, color);
+      coreGrad.addColorStop(1, "transparent");
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(0, oy + mainH * 0.5, coreR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // F. [중앙 타깃 십자 크로스 헤어 & 다이아몬드]
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = Math.max(2, r * 0.06);
+      ctx.shadowColor = "#ffffff";
+      ctx.shadowBlur = 10;
+      const cy = oy + mainH * 0.5;
+      const chLen = r * 0.22;
+      ctx.beginPath();
+      ctx.moveTo(-chLen, cy); ctx.lineTo(chLen, cy);
+      ctx.moveTo(0, cy - chLen); ctx.lineTo(0, cy + chLen);
+      ctx.stroke();
+
+      // 절단 시 절단면 고열 플라즈마 이펙트
+      if (half !== 0) {
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 5;
+        ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.moveTo(0, oy - bOff);
+        ctx.lineTo(0, oy + mainH);
+        ctx.stroke();
+      }
 
       ctx.restore();
     } catch {}
@@ -2469,6 +2530,11 @@ games.beat = {
 
     this.halves = [];
     this.walls = [];
+    this.sparkRings = []; // 컷팅 충격파 팽창 링 (NotebookLM)
+    this.saberTrails = [[], []]; // 듀얼 세이버 네온 잔상 리본 트레일 (PSVR)
+    this.laserAngle = 0; // 소실점 회전 레이저 각도
+    this.beatFlash = 0; // 비트 싱크 플래시 & 페이드 조명
+
     this.lastSwingT = [0, 0];
     this.lastCutT = [0, 0]; // 스윙 모멘텀 쿨다운 (손을 뱅글뱅글 돌리는 잔동작 무력화)
     this.prevWrist = [{ x: W * 0.35, y: H * 0.6 }, { x: W * 0.65, y: H * 0.6 }];
@@ -2502,11 +2568,10 @@ games.beat = {
     const targetX = targetXList[laneIdx];
 
     // 높이 레이어: 상단(머리 위/공중) 32%, 중단(가슴/배) 36%, 하단(허리/아래) 32%
-    // 위, 아래, 좌, 우 전방위로 노트를 쏘아 보내어 온몸으로 역동적인 슬래시를 유도!
     const heightRand = Math.random();
     let targetY = H * 0.52; // 중단
     if (heightRand < 0.32) {
-      targetY = H * 0.28; // 상단 (위쪽 공중으로 솟구침! 만세하듯 위로 올려베기/가로베기!)
+      targetY = H * 0.28; // 상단 (만세하듯 위로 올려베기/가로베기!)
     } else if (heightRand > 0.68) {
       targetY = H * 0.75; // 하단 (허리/아래쪽으로 시원하게 내려베기!)
     }
@@ -2543,6 +2608,8 @@ games.beat = {
     const now = performance.now();
     const swing = [false, false];
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
+    this.beatFlash = Math.max(0, this.beatFlash - dt * 2.8);
+    this.laserAngle += dt * 0.95;
 
     // 콤보 배수
     if (combo >= 14) this.multiplier = 8;
@@ -2625,6 +2692,18 @@ games.beat = {
       }
     }
 
+    // [PSVR 비트세이버 세이버 리본 트레일 기록]
+    [0, 1].forEach((i) => {
+      const s = this.sabers[i];
+      if (s && s.base && s.tip) {
+        this.saberTrails[i].unshift({
+          bx: s.base.x, by: s.base.y,
+          tx: s.tip.x, ty: s.tip.y
+        });
+        if (this.saberTrails[i].length > 8) this.saberTrails[i].pop();
+      }
+    });
+
     // 2. 네온 벽 장애물 (Walls)
     for (const w of this.walls) {
       w.z += w.speed * dt * (0.8 + w.z * 1.5);
@@ -2657,7 +2736,7 @@ games.beat = {
         const handIdx = o.isLeft ? 0 : 1;
         const saber = this.sabers[handIdx];
 
-        // 1. [위치 일치] 광선검 검신 선분(saber blade) 또는 손목이 큐브 위치에 실제로 닿았는가?
+        // 1. [위치 일치] 광선검 검신 선분 또는 손목이 큐브 위치에 실제로 닿았는가?
         const isSaberTouch = saber && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 36);
         const curWrist = this.prevWrist[handIdx];
         const wristDist = Math.hypot(curWrist.x - o.x, curWrist.y - o.y);
@@ -2665,7 +2744,6 @@ games.beat = {
 
         let isInPosition = Boolean(isSaberTouch || isWristTouch);
 
-        // 마우스 모드 호환 판정
         if (useMouse) {
           const mDist = Math.hypot(mouse.x - o.x, mouse.y - o.y);
           const mSaberTouch = (this.sabers[0] && segHitsCircle(this.sabers[0].base.x, this.sabers[0].base.y, this.sabers[0].tip.x, this.sabers[0].tip.y, o.x, o.y, o.r + 36)) ||
@@ -2686,13 +2764,14 @@ games.beat = {
             o.dead = true;
             this.energy = Math.max(0, this.energy - 12);
             this.screenShake = 0.35;
+            this.beatFlash = 0.8;
             combo = 0; this.multiplier = 1;
             sfx.incoming(o.x);
             burst(o.x, o.y, "#ff0055", 35);
             popup(o.x, o.y, "BOMB HIT! 💥 -12", "#ff0055");
           }
         } else {
-          // [B] 일반 비트 큐브: 반드시 광선검이 그 위치에 닿았고(isInPosition) + 스윙 액션(isSwinging)이 실려야 베어짐!
+          // [B] 일반 비트 큐브: 광선검 터치 + 스윙 액션 + 쿨다운 만족 시 통쾌한 절단!
           if (isInPosition && isSwinging && isCooldownOk) {
             this.lastCutT[handIdx] = now;
             o.dead = true;
@@ -2701,7 +2780,7 @@ games.beat = {
             comboTimer = 2.0;
             if (combo > maxCombo) maxCombo = combo;
 
-            // 휘두른 스윙 속도와 타이밍 정밀도에 따른 점수 부여 (최대 115점 x 배수)
+            // 휘두른 스윙 속도와 타이밍 정밀도에 따른 점수 산출
             const speedScore = Math.min(70, Math.round(35 + wVel.spd * 3.5));
             const zDiff = Math.abs(o.z - judgeZ);
             const timingScore = zDiff < 0.05 ? 30 : (zDiff < 0.09 ? 22 : 15);
@@ -2711,10 +2790,14 @@ games.beat = {
             score += finalScore;
 
             this.energy = Math.min(100, this.energy + 2.8);
-            this.screenShake = 0.08;
+            this.screenShake = 0.10;
+            this.beatFlash = 1.0; // 비트 펄스 조명 즉시 점등!
 
             sfx.saber(o.x, o.isLeft);
-            burst(o.x, o.y, o.color, baseScore >= 105 ? 36 : 22);
+            burst(o.x, o.y, o.color, baseScore >= 105 ? 40 : 26);
+
+            // 컷팅 스파크 팽창 링 생성
+            this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.3, vr: o.r * 6.5, color: o.color, life: 1.0 });
 
             const isPerfect = baseScore >= 105;
             award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
@@ -2722,9 +2805,10 @@ games.beat = {
             const cutLabel = isPerfect ? `PERFECT! +${finalScore} [${this.multiplier}x]` : `SLASH! +${finalScore} [${this.multiplier}x]`;
             popup(o.x, o.y - 40, cutLabel, isPerfect ? "#ffd700" : o.color);
 
+            // 입체 회전 물리 파편 (Halves)
             this.halves.push(
-              { x: o.x - 16, y: o.y, r: o.r, color: o.color, vx: -7, vy: -3, half: -1, life: 1 },
-              { x: o.x + 16, y: o.y, r: o.r, color: o.color, vx: 7, vy: -3, half: 1, life: 1 }
+              { x: o.x - 14, y: o.y, r: o.r, color: o.color, vx: -8, vy: -4, rot: 0, vRot: -0.25, half: -1, life: 1 },
+              { x: o.x + 14, y: o.y, r: o.r, color: o.color, vx: 8, vy: -3, rot: 0, vRot: 0.22, half: 1, life: 1 }
             );
           }
         }
@@ -2743,8 +2827,19 @@ games.beat = {
     }
 
     objs = objs.filter((o) => !o.dead && o.z < 1.35);
+
+    // 충격파 링 시뮬레이션
+    for (const ring of this.sparkRings) {
+      ring.r += ring.vr * dt;
+      ring.life -= dt * 2.5;
+    }
+    this.sparkRings = this.sparkRings.filter((r) => r.life > 0);
+
+    // 쪼개진 큐브 반쪽 파편 물리 이동 & 회전
     for (const h of this.halves) {
-      h.x += h.vx; h.y += h.vy; h.vy += dt * 32; h.life -= 0.04;
+      h.x += h.vx; h.y += h.vy; h.vy += dt * 32;
+      h.rot += (h.vRot || 0) * dt * 45;
+      h.life -= 0.04;
     }
     this.halves = this.halves.filter((h) => h.life > 0);
   },
@@ -2753,16 +2848,75 @@ games.beat = {
 
     ctx.save();
     if (this.screenShake > 0) {
-      ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+      ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
     }
 
-    // 1. 전방위 3D 네온 가이드 레일 (상단/중단/하단 12개 방사형 레일)
+    // 1. 🌟 [PSVR 비트세이버 3D 무대 터널 & BBS 런웨이 트랙]
+    // A. 바닥 런웨이 사다리꼴 플랫폼
+    const rwTopW = 70, rwBotW = W * 0.88;
+    const rwGrad = ctx.createLinearGradient(originX, originY, originX, H);
+    rwGrad.addColorStop(0, "rgba(8, 4, 24, 0.4)");
+    rwGrad.addColorStop(0.5, "rgba(18, 8, 38, 0.7)");
+    rwGrad.addColorStop(1, "rgba(28, 10, 50, 0.95)");
+    ctx.fillStyle = rwGrad;
+    ctx.beginPath();
+    ctx.moveTo(originX - rwTopW * 0.5, originY + 10);
+    ctx.lineTo(originX + rwTopW * 0.5, originY + 10);
+    ctx.lineTo(originX + rwBotW * 0.5, H);
+    ctx.lineTo(originX - rwBotW * 0.5, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // B. 바닥 트랙 좌우 네온 에지 라인 (BBS Side Lights)
+    ctx.save();
+    ctx.shadowBlur = 22;
+    // 좌측 에지 (Cyan)
+    ctx.strokeStyle = "#00d2ff"; ctx.shadowColor = "#00d2ff"; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(originX - rwTopW * 0.5, originY + 10); ctx.lineTo(originX - rwBotW * 0.5, H); ctx.stroke();
+    // 우측 에지 (Magenta)
+    ctx.strokeStyle = "#ff3377"; ctx.shadowColor = "#ff3377"; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(originX + rwTopW * 0.5, originY + 10); ctx.lineTo(originX + rwBotW * 0.5, H); ctx.stroke();
+    ctx.restore();
+
+    // C. 바닥 수평 원근 네온 라인들 (비트 펄스 연동)
+    const flashAlpha = 0.2 + this.beatFlash * 0.45;
+    for (let zi = 0.15; zi <= 1.0; zi += 0.14) {
+      const ly = originY + 10 + (H - (originY + 10)) * (zi * zi);
+      const lw = rwTopW + (rwBotW - rwTopW) * zi;
+      ctx.strokeStyle = `rgba(180, 220, 255, ${flashAlpha * (0.3 + zi * 0.7)})`;
+      ctx.lineWidth = 1.2 + zi * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(originX - lw * 0.5, ly);
+      ctx.lineTo(originX + lw * 0.5, ly);
+      ctx.stroke();
+    }
+
+    // D. 소실점 'X'자형 정적 백 레이저 (Back Lasers)
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const laserAlpha = 0.25 + this.beatFlash * 0.4;
+    // 좌상 -> 우하 대각선 빔 (Cyan)
+    ctx.strokeStyle = `rgba(0, 210, 255, ${laserAlpha})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, H * 0.05); ctx.lineTo(originX, originY); ctx.lineTo(W, H * 0.85); ctx.stroke();
+    // 우상 -> 좌하 대각선 빔 (Magenta)
+    ctx.strokeStyle = `rgba(255, 51, 119, ${laserAlpha})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(W, H * 0.05); ctx.lineTo(originX, originY); ctx.lineTo(0, H * 0.85); ctx.stroke();
+
+    // E. 소실점 회전 레이저 빔 (Spinning Lasers)
+    const cosL = Math.cos(this.laserAngle) * 350, sinL = Math.sin(this.laserAngle) * 220;
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.35)"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(originX, originY); ctx.lineTo(originX + cosL, originY + sinL); ctx.stroke();
+    ctx.strokeStyle = "rgba(255, 51, 119, 0.35)"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(originX, originY); ctx.lineTo(originX - cosL, originY - sinL); ctx.stroke();
+    ctx.restore();
+
+    // 2. 전방위 12개 방사형 네온 가이드 레일
     const targetXList = [W * 0.16, W * 0.38, W * 0.62, W * 0.84];
     const targetYList = [H * 0.28, H * 0.52, H * 0.75];
 
     targetXList.forEach((tx, col) => {
       targetYList.forEach((ty, row) => {
-        ctx.strokeStyle = (col < 2 ? "rgba(0, 210, 255, 0.22)" : "rgba(255, 51, 119, 0.22)");
+        ctx.strokeStyle = (col < 2 ? "rgba(0, 210, 255, 0.20)" : "rgba(255, 51, 119, 0.20)");
         ctx.lineWidth = (row === 1 ? 1.8 : 1.2);
         ctx.beginPath();
         ctx.moveTo(originX, originY);
@@ -2771,28 +2925,23 @@ games.beat = {
       });
     });
 
-    // 2. 비트세이버 전방위 네온 타격 링 / 스트라이크 라인
-    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.8)";
-    ctx.lineWidth = 4; ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 20;
-    // 상단 스트라이크 가이드
+    // 3. 비트세이버 타격 가이드 스트라이크 라인
+    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 3.5; ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 18;
     ctx.beginPath(); ctx.moveTo(W * 0.10, H * 0.28); ctx.lineTo(W * 0.90, H * 0.28); ctx.stroke();
-    // 중단 스트라이크 가이드
     ctx.beginPath(); ctx.moveTo(W * 0.06, H * 0.52); ctx.lineTo(W * 0.94, H * 0.52); ctx.stroke();
-    // 하단 스트라이크 가이드
     ctx.beginPath(); ctx.moveTo(W * 0.10, H * 0.75); ctx.lineTo(W * 0.90, H * 0.75); ctx.stroke();
 
-    // 3. 네온 벽 장애물 (Walls) 렌더링
+    // 4. 네온 벽 장애물 (Walls) 렌더링
     for (const w of this.walls) {
       const scale = w.z;
-      const wallW = w.w * scale;
-      const wallH = w.h * scale;
+      const wallW = w.w * scale, wallH = w.h * scale;
       const wallX = w.side < 0 ? (W * 0.2 - wallW * 0.5) : (W * 0.8 - wallW * 0.5);
       const wallY = H * 0.48 - wallH * 0.4;
 
       ctx.save();
       ctx.fillStyle = w.hit ? "rgba(255, 51, 102, 0.45)" : "rgba(255, 30, 80, 0.25)";
-      ctx.strokeStyle = "#ff2266";
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#ff2266"; ctx.lineWidth = 4;
       ctx.shadowColor = "#ff2266"; ctx.shadowBlur = 20;
       ctx.fillRect(wallX, wallY, wallW, wallH);
       ctx.strokeRect(wallX, wallY, wallW, wallH);
@@ -2804,7 +2953,7 @@ games.beat = {
       ctx.restore();
     }
 
-    // 4. 3D 큐브 및 네온 폭탄 렌더링 (Z축 깊이 순)
+    // 5. 3D 입체 큐브 및 네온 폭탄 렌더링 (Z축 깊이 순)
     const sorted = [...objs].sort((a, b) => a.z - b.z);
     for (const o of sorted) {
       if (o.isBomb) {
@@ -2813,40 +2962,92 @@ games.beat = {
         Art.drawBeatNote(o.x, o.y, o.r, o.color, 0);
       }
     }
+    // 잘린 큐브 파편 렌더링 (회전 효과 포함)
     for (const h of this.halves) {
       ctx.save(); ctx.globalAlpha = Math.max(h.life, 0);
-      Art.drawBeatNote(h.x, h.y, h.r, h.color, h.half);
+      Art.drawBeatNote(h.x, h.y, h.r, h.color, h.half, h.rot || 0);
       ctx.restore();
     }
 
-    // 5. 전신 포즈 스켈레톤 (몸 모션 액션 비주얼)
-    const skel = getBody();
-    if (!useMouse && skel) {
-      drawSkeleton(skel, "rgba(0, 210, 255, 0.45)", 0.6);
+    // 6. 컷팅 충격파 팽창 링 FX
+    for (const ring of this.sparkRings) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, ring.life);
+      ctx.strokeStyle = ring.color;
+      ctx.lineWidth = Math.max(1, 4 * ring.life);
+      ctx.shadowColor = ring.color; ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // 6. 비트세이버 양팔 듀얼 광선검 (Saber Blade) 렌더링
-    const saberCols = ["#00d2ff", "#ff3377"]; // 왼팔 파랑 🔵, 오른팔 분홍 🔴
+    // 7. 전신 포즈 스켈레톤
+    const skel = getBody();
+    if (!useMouse && skel) {
+      drawSkeleton(skel, "rgba(0, 210, 255, 0.40)", 0.55);
+    }
+
+    // 8. 🌟 [PSVR 세이버 잔상 리본 트레일 (Saber Ribbon Trails)]
+    const saberCols = ["#00d2ff", "#ff3377"];
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    [0, 1].forEach((i) => {
+      const trail = this.saberTrails[i];
+      if (!trail || trail.length < 2) return;
+      const col = saberCols[i];
+      for (let k = 0; k < trail.length - 1; k++) {
+        const p1 = trail[k], p2 = trail[k + 1];
+        const alpha = (1 - k / trail.length) * 0.45;
+        ctx.fillStyle = col;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(p1.bx, p1.by);
+        ctx.lineTo(p1.tx, p1.ty);
+        ctx.lineTo(p2.tx, p2.ty);
+        ctx.lineTo(p2.bx, p2.by);
+        ctx.closePath();
+        ctx.fill();
+      }
+    });
+    ctx.restore();
+
+    // 9. 🌟 [PSVR 정통 듀얼 라이트세이버 블레이드 렌더링]
     this.sabers.forEach((s, i) => {
       if (!s || !s.base || !s.tip) return;
       const col = saberCols[i];
       ctx.save();
-      ctx.strokeStyle = col; ctx.lineWidth = 14; ctx.lineCap = "round";
-      ctx.shadowColor = col; ctx.shadowBlur = 28;
+
+      // A. 손잡이 (Hilt) - 메탈릭 바
+      const dx = s.tip.x - s.base.x, dy = s.tip.y - s.base.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const hiltLen = 22;
+      const hx = s.base.x - (dx / len) * hiltLen, hy = s.base.y - (dy / len) * hiltLen;
+      ctx.strokeStyle = "#404452"; ctx.lineWidth = 10; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(s.base.x, s.base.y); ctx.stroke();
+
+      // B. 가드 링 & 이미터
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(s.base.x, s.base.y, 6, 0, Math.PI * 2); ctx.fill();
+
+      // C. 플라즈마 블레이드 외곽 네온 글로우
+      ctx.strokeStyle = col; ctx.lineWidth = 15; ctx.lineCap = "round";
+      ctx.shadowColor = col; ctx.shadowBlur = 32;
       ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 6; ctx.shadowBlur = 8;
+
+      // D. 고열 순백색 코어 빔
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 5.5; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
-      ctx.fillStyle = "#222233"; ctx.beginPath(); ctx.arc(s.base.x, s.base.y, 8, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
 
-    // 7. UI: 콤보 배수(Multiplier x1~x8) 링 & 에너지 바
+    // 10. 아케이드 HUD: 콤보 멀티플라이어 x1~x8 링
     const multX = W * 0.12, multY = H * 0.86;
     ctx.save();
-    ctx.fillStyle = "rgba(10, 10, 25, 0.75)";
+    ctx.fillStyle = "rgba(10, 10, 25, 0.80)";
     ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = this.multiplier >= 8 ? "#ffd700" : (this.multiplier >= 4 ? "#b04dff" : "#00d2ff");
-    ctx.lineWidth = 5; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 16;
+    ctx.lineWidth = 5; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 18;
     ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.stroke();
 
     ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -2860,25 +3061,23 @@ games.beat = {
     const barW = Math.min(W * 0.44, 380), barH = 10;
     const barX = W / 2 - barW / 2, barY = H * 0.88;
     ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
     ctx.fillRect(barX, barY, barW, barH);
     const engColor = this.energy > 50 ? "#00e676" : (this.energy > 25 ? "#ffd166" : "#ff3366");
-    ctx.fillStyle = engColor;
-    ctx.shadowColor = engColor; ctx.shadowBlur = 12;
+    ctx.fillStyle = engColor; ctx.shadowColor = engColor; ctx.shadowBlur = 14;
     ctx.fillRect(barX, barY, barW * (this.energy / 100), barH);
     ctx.restore();
 
-    // 8. 현재 재생 중인 사운드트랙 네온 배지
+    // 11. 현재 재생 중인 사운드트랙 배지
     if (this.currentTrack) {
       const trk = this.currentTrack;
       ctx.save();
-      const badgeW = Math.min(W * 0.44, 320), badgeH = 26;
+      const badgeW = Math.min(W * 0.46, 340), badgeH = 26;
       const badgeX = W / 2 - badgeW / 2, badgeY = 62;
-      ctx.fillStyle = "rgba(10, 6, 24, 0.82)";
+      ctx.fillStyle = "rgba(10, 6, 24, 0.86)";
       ctx.strokeStyle = trk.tagColor || "#00d2ff";
-      ctx.lineWidth = 1.6;
-      ctx.shadowColor = trk.tagColor || "#00d2ff";
-      ctx.shadowBlur = 14;
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = trk.tagColor || "#00d2ff"; ctx.shadowBlur = 16;
       ctx.beginPath();
       ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 13);
       ctx.fill(); ctx.stroke();
@@ -2893,7 +3092,7 @@ games.beat = {
     ctx.restore(); // screenShake restore
 
     const trackName = this.currentTrack ? `[${this.currentTrack.title}]` : "";
-    topHud(`🕺 ${trackName} 위·아래·좌·우 사방으로 날아오는 비트를 자유롭게 베어내세요! (폭탄 ✕ 주의)`);
+    topHud(`🕺 ${trackName} 3D 네온 터널로 날아오는 비트를 자유롭게 베어내세요! (폭탄 ✕ 주의)`);
     bodyHint();
   }
 };
