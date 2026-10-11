@@ -18,12 +18,113 @@ function resize() {
 addEventListener("resize", resize); resize();
 
 // ---------- 소리 (효과음 · 배경음악 · 음성) ----------
+// ---------- 소리 (효과음 · 배경음악 · 음성) ----------
 let actx, master, bgmBus, noiseBuf, soundOn = true, voiceOn = true;
+
+// ============================================================================
+// ⚙️ Stitch 아케이드 플레이어 프로필 & 게임 환경 설정 시스템 (Player Settings Manager)
+// ============================================================================
+const PLAYER_SETTINGS_STORAGE_KEY = "kinetickaboom_player_profile_v1";
+
+const DEFAULT_PLAYER_SETTINGS = {
+  nickname: "P1 Leo",
+  title: "PARTY LEADER",
+  avatar: "assets/avatar.jpg",
+  avatarId: "leo",
+  level: 14,
+  heightMode: "adult", // "adult" | "child"
+  reach: 35, // 20 ~ 65 px
+  mirror: true,
+  skeleton: true,
+  mouseMode: false,
+  bgmVol: 80, // 0 ~ 100
+  sfxVol: 90, // 0 ~ 100
+  soundOn: true,
+  voiceGuide: true
+};
+
+let playerSettings = { ...DEFAULT_PLAYER_SETTINGS };
+
+// 🔒 Zero-Trust Validation & 안전한 설정 로드 함수
+function loadPlayerSettings() {
+  try {
+    const raw = localStorage.getItem(PLAYER_SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.nickname === "string") {
+          playerSettings.nickname = parsed.nickname.replace(/[<>&"']/g, "").trim().slice(0, 14) || DEFAULT_PLAYER_SETTINGS.nickname;
+        }
+        if (typeof parsed.title === "string") {
+          playerSettings.title = parsed.title.slice(0, 30);
+        }
+        if (typeof parsed.avatar === "string" && (parsed.avatar.startsWith("assets/") || parsed.avatar.startsWith("data:image/"))) {
+          playerSettings.avatar = parsed.avatar;
+          playerSettings.avatarId = parsed.avatarId || "leo";
+        }
+        if (["adult", "child"].includes(parsed.heightMode)) {
+          playerSettings.heightMode = parsed.heightMode;
+        }
+        if (typeof parsed.reach === "number") {
+          playerSettings.reach = Math.max(20, Math.min(65, parsed.reach));
+        }
+        if (typeof parsed.mirror === "boolean") playerSettings.mirror = parsed.mirror;
+        if (typeof parsed.skeleton === "boolean") playerSettings.skeleton = parsed.skeleton;
+        if (typeof parsed.mouseMode === "boolean") playerSettings.mouseMode = parsed.mouseMode;
+        if (typeof parsed.bgmVol === "number") playerSettings.bgmVol = Math.max(0, Math.min(100, parsed.bgmVol));
+        if (typeof parsed.sfxVol === "number") playerSettings.sfxVol = Math.max(0, Math.min(100, parsed.sfxVol));
+        if (typeof parsed.soundOn === "boolean") playerSettings.soundOn = parsed.soundOn;
+        if (typeof parsed.voiceGuide === "boolean") playerSettings.voiceGuide = parsed.voiceGuide;
+      }
+    }
+  } catch (err) {
+    console.warn("플레이어 설정 로드 실패, 기본값 사용:", err);
+  }
+  applyPlayerSettings();
+}
+
+function savePlayerSettings() {
+  try {
+    localStorage.setItem(PLAYER_SETTINGS_STORAGE_KEY, JSON.stringify(playerSettings));
+  } catch (err) {
+    console.warn("플레이어 설정 저장 실패:", err);
+  }
+  applyPlayerSettings();
+}
+
+function applyPlayerSettings() {
+  // 1. 헤더 프로필 UI 업데이트
+  const elAvatar = $("headerAvatarImg");
+  const elName = $("headerPlayerName");
+  const elTitle = $("headerPlayerTitle");
+  if (elAvatar) elAvatar.src = playerSettings.avatar;
+  if (elName) elName.textContent = playerSettings.nickname;
+  if (elTitle) elTitle.textContent = playerSettings.title;
+
+  // 2. 사운드 볼륨 & 플래그 동기화
+  soundOn = playerSettings.soundOn;
+  voiceOn = playerSettings.voiceGuide;
+  if (master && master.gain) {
+    master.gain.value = soundOn ? (playerSettings.sfxVol / 100) : 0;
+  }
+  if (bgmBus && bgmBus.gain) {
+    bgmBus.gain.value = soundOn ? (playerSettings.bgmVol / 100) * 0.9 : 0;
+  }
+  if (bgmAudio) {
+    bgmAudio.volume = soundOn ? (playerSettings.bgmVol / 100) * 0.95 : 0;
+  }
+
+  // 3. 마우스 조작 모드 동기화
+  useMouse = playerSettings.mouseMode;
+  const chkMouse = $("useMouse");
+  if (chkMouse) chkMouse.checked = useMouse;
+}
+
 function ac() {
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     master = actx.createGain();
-    const comp = actx.createDynamicsCompressor();          // 소리가 겹쳐도 깨지지 않고 웅장하게 마스터링
+    const comp = actx.createDynamicsCompressor();
     comp.threshold.setValueAtTime(-14, actx.currentTime);
     comp.knee.setValueAtTime(30, actx.currentTime);
     comp.ratio.setValueAtTime(5, actx.currentTime);
@@ -31,11 +132,11 @@ function ac() {
     comp.release.setValueAtTime(0.25, actx.currentTime);
     master.connect(comp).connect(actx.destination);
     bgmBus = actx.createGain();
-    bgmBus.gain.value = 0.85; // 웅장하고 선명하게 들리도록 BGM 게인 상향 (기존 0.5)
+    bgmBus.gain.value = soundOn ? (playerSettings.bgmVol / 100) * 0.9 : 0;
     bgmBus.connect(master);
   }
   if (actx.state === "suspended") actx.resume();
-  master.gain.value = soundOn ? 1 : 0;
+  master.gain.value = soundOn ? (playerSettings.sfxVol / 100) : 0;
   return actx;
 }
 // 소리가 나는 위치(화면 x)에 따라 좌우로 퍼지게 해서 입체감을 줌
@@ -551,7 +652,9 @@ function videoToScreen(lm) {
   const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
   const s = Math.max(W / vw, H / vh);
   const ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
-  return { x: W - (lm.x * vw * s + ox), y: lm.y * vh * s + oy };   // 거울 반전
+  const rawX = lm.x * vw * s + ox;
+  const isMirror = playerSettings ? playerSettings.mirror !== false : true;
+  return { x: isMirror ? (W - rawX) : rawX, y: lm.y * vh * s + oy };
 }
 
 let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
@@ -700,7 +803,9 @@ function detectHandsNow() {
     detectMs = detectMs * 0.85 + (performance.now() - inferStart) * 0.15;
 
     const palm = ($("trackMode").value === "palm" || mode === "box") && mode !== "draw";
-    reach = palm ? 32 : 12;
+    const reachBonus = (playerSettings?.reach ? playerSettings.reach - 35 : 0);
+    const childBonus = (playerSettings?.heightMode === "child" ? 14 : 0);
+    reach = Math.max(10, (palm ? 32 : 12) + reachBonus + childBonus);
 
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0;
@@ -2766,7 +2871,7 @@ function mockBody(x) {
 const getBody = () => (useMouse ? mockBody(mouse.x || W / 2) : body);
 const bv = (b, i, min = 0.5) => !!(b && b[i] && b[i].v >= min);
 function drawSkeleton(b, color = "#7df9ff", alpha = 1) {
-  if (!b) return;
+  if (!b || (playerSettings && playerSettings.skeleton === false)) return;
   ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 8; ctx.lineCap = "round";
   ctx.shadowColor = color; ctx.shadowBlur = 14;
   for (const [a, c] of BODY_LINES) if (bv(b, a, 0.3) && bv(b, c, 0.3)) { ctx.beginPath(); ctx.moveTo(b[a].x, b[a].y); ctx.lineTo(b[c].x, b[c].y); ctx.stroke(); }
@@ -5588,5 +5693,224 @@ function setTab(t) {
 document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
 setTab((() => { try { return localStorage.getItem("tab") || "all"; } catch { return "all"; } })());
 
+// ============================================================================
+// 🎮 플레이어 설정 모달 (Player Settings Modal) UI 컨트롤러 & 이벤트 바인딩
+// ============================================================================
+const RANDOM_ARCADE_NICKS = [
+  "P1 Leo", "네온닌자 Leo", "비트슬래셔 Jin", "사이버워커 Sora", 
+  "광속질주 Kai", "스타로드 Mina", "메가비트 Rex", "하이퍼점퍼 Luna", 
+  "질주폭풍 Zack", "블레이즈 Aron", "스피드스타 Ryu", "펄스헌터 Yuna"
+];
+
+function setupPlayerSettingsModalUI() {
+  const modal = $("playerSettingsModal");
+  if (!modal) return;
+
+  const btnProfile = $("btnPlayerProfile");
+  const btnClose = $("settingsModalClose");
+  const btnSave = $("btnSettingsSave");
+  const btnReset = $("btnSettingsReset");
+  const btnRandom = $("btnRandomNick");
+
+  // 1. 모달 열기 & 현재 설정값으로 폼 동기화
+  function openModal() {
+    loadPlayerSettings(); // 저장된 최신 상태 동기화
+
+    // 프로필 탭 동기화
+    const nickInp = $("cfgNickname");
+    if (nickInp) nickInp.value = playerSettings.nickname || "P1 Leo";
+    const titleSel = $("cfgTitle");
+    if (titleSel) titleSel.value = playerSettings.title || "PARTY LEADER";
+
+    // 아바타 카드 활성화 상태 동기화
+    document.querySelectorAll(".avatar-option-card").forEach((card) => {
+      const isMatch = card.dataset.avatarId === playerSettings.avatarId;
+      card.classList.toggle("active", isMatch);
+    });
+
+    // 신장/체격 라디오 동기화
+    const isChild = playerSettings.heightMode === "child";
+    const rAdult = document.querySelector('input[name="cfgHeightMode"][value="adult"]');
+    const rChild = document.querySelector('input[name="cfgHeightMode"][value="child"]');
+    if (rAdult) rAdult.checked = !isChild;
+    if (rChild) rChild.checked = isChild;
+    $("cardHeightAdult")?.classList.toggle("active", !isChild);
+    $("cardHeightChild")?.classList.toggle("active", isChild);
+
+    // 모션 슬라이더 & 체크박스 동기화
+    const reachInp = $("cfgReach");
+    if (reachInp) {
+      reachInp.value = playerSettings.reach;
+      if ($("cfgReachVal")) $("cfgReachVal").textContent = `${playerSettings.reach}px`;
+    }
+    const chkMirror = $("cfgMirror");
+    if (chkMirror) chkMirror.checked = playerSettings.mirror !== false;
+    const chkSkel = $("cfgSkeleton");
+    if (chkSkel) chkSkel.checked = playerSettings.skeleton !== false;
+    const chkMouse = $("cfgMouse");
+    if (chkMouse) chkMouse.checked = !!playerSettings.mouseMode;
+
+    // 사운드 슬라이더 & 스위치 동기화
+    const bgmInp = $("cfgBgmVol");
+    if (bgmInp) {
+      bgmInp.value = playerSettings.bgmVol;
+      if ($("cfgBgmVolVal")) $("cfgBgmVolVal").textContent = `${playerSettings.bgmVol}%`;
+    }
+    const sfxInp = $("cfgSfxVol");
+    if (sfxInp) {
+      sfxInp.value = playerSettings.sfxVol;
+      if ($("cfgSfxVolVal")) $("cfgSfxVolVal").textContent = `${playerSettings.sfxVol}%`;
+    }
+    const chkMaster = $("cfgMasterSound");
+    if (chkMaster) chkMaster.checked = playerSettings.soundOn !== false;
+    const chkVoice = $("cfgVoiceGuide");
+    if (chkVoice) chkVoice.checked = playerSettings.voiceGuide !== false;
+
+    // 기본 첫 탭(프로필) 활성화
+    switchSettingsTab("profile");
+
+    modal.classList.remove("hidden");
+    try { tone(520, actx?.currentTime || 0, 0.05, "sine", 0.12); } catch {}
+  }
+
+  function closeModal() {
+    modal.classList.add("hidden");
+  }
+
+  // 2. 탭 전환 핸들러
+  function switchSettingsTab(tabName) {
+    document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.tab === tabName);
+    });
+    const paneMap = {
+      profile: "tabPaneProfile",
+      motion: "tabPaneMotion",
+      sound: "tabPaneSound"
+    };
+    Object.entries(paneMap).forEach(([k, paneId]) => {
+      const pane = $(paneId);
+      if (pane) pane.classList.toggle("active", k === tabName);
+    });
+  }
+
+  document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      switchSettingsTab(btn.dataset.tab);
+      try { tone(480, actx?.currentTime || 0, 0.03, "sine", 0.08); } catch {}
+    });
+  });
+
+  // 3. 아바타 카드 선택 인터랙션
+  document.querySelectorAll(".avatar-option-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      document.querySelectorAll(".avatar-option-card").forEach((c) => c.classList.remove("active"));
+      card.classList.add("active");
+      try { tone(620, actx?.currentTime || 0, 0.04, "triangle", 0.1); } catch {}
+    });
+  });
+
+  // 4. 신장 라디오 카드 선택 인터랙션
+  document.querySelectorAll('input[name="cfgHeightMode"]').forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      const isAdult = e.target.value === "adult";
+      $("cardHeightAdult")?.classList.toggle("active", isAdult);
+      $("cardHeightChild")?.classList.toggle("active", !isAdult);
+    });
+  });
+
+  // 5. 실시간 슬라이더 값 라벨 동기화
+  $("cfgReach")?.addEventListener("input", (e) => {
+    if ($("cfgReachVal")) $("cfgReachVal").textContent = `${e.target.value}px`;
+  });
+  $("cfgBgmVol")?.addEventListener("input", (e) => {
+    if ($("cfgBgmVolVal")) $("cfgBgmVolVal").textContent = `${e.target.value}%`;
+  });
+  $("cfgSfxVol")?.addEventListener("input", (e) => {
+    if ($("cfgSfxVolVal")) $("cfgSfxVolVal").textContent = `${e.target.value}%`;
+  });
+
+  // 6. 주사위 🎲 랜덤 닉네임 생성 버튼
+  btnRandom?.addEventListener("click", () => {
+    const nickInp = $("cfgNickname");
+    if (nickInp) {
+      const rand = RANDOM_ARCADE_NICKS[Math.floor(Math.random() * RANDOM_ARCADE_NICKS.length)];
+      nickInp.value = rand;
+      try { tone(740, actx?.currentTime || 0, 0.05, "triangle", 0.14); } catch {}
+    }
+  });
+
+  // 7. 설정 저장 및 실시간 적용
+  btnSave?.addEventListener("click", () => {
+    // 🔒 Zero-Trust Sanitization: 닉네임 XSS 방지
+    const rawNick = $("cfgNickname")?.value || DEFAULT_PLAYER_SETTINGS.nickname;
+    playerSettings.nickname = rawNick.replace(/[<>&"']/g, "").trim().slice(0, 14) || DEFAULT_PLAYER_SETTINGS.nickname;
+    playerSettings.title = $("cfgTitle")?.value || DEFAULT_PLAYER_SETTINGS.title;
+
+    // 선택된 아바타 추출
+    const activeAvatarCard = document.querySelector(".avatar-option-card.active");
+    if (activeAvatarCard) {
+      playerSettings.avatar = activeAvatarCard.dataset.avatar || DEFAULT_PLAYER_SETTINGS.avatar;
+      playerSettings.avatarId = activeAvatarCard.dataset.avatarId || DEFAULT_PLAYER_SETTINGS.avatarId;
+    }
+
+    // 신장/체격 모드 추출
+    const selHeightRadio = document.querySelector('input[name="cfgHeightMode"]:checked');
+    playerSettings.heightMode = selHeightRadio?.value === "child" ? "child" : "adult";
+
+    // 도달 범위 및 모션 설정 추출
+    playerSettings.reach = Math.max(20, Math.min(65, parseInt($("cfgReach")?.value || 35, 10)));
+    playerSettings.mirror = $("cfgMirror")?.checked !== false;
+    playerSettings.skeleton = $("cfgSkeleton")?.checked !== false;
+    playerSettings.mouseMode = !!$("cfgMouse")?.checked;
+
+    // 사운드 설정 추출
+    playerSettings.bgmVol = Math.max(0, Math.min(100, parseInt($("cfgBgmVol")?.value || 80, 10)));
+    playerSettings.sfxVol = Math.max(0, Math.min(100, parseInt($("cfgSfxVol")?.value || 90, 10)));
+    playerSettings.soundOn = $("cfgMasterSound")?.checked !== false;
+    playerSettings.voiceGuide = $("cfgVoiceGuide")?.checked !== false;
+
+    // 로컬 스토리지 안전 저장 및 전역 엔진 적용
+    savePlayerSettings();
+
+    // 저장 완료 피드백 사운드
+    try {
+      tone(523, actx?.currentTime || 0, 0.06, "sine", 0.15);
+      tone(659, (actx?.currentTime || 0) + 0.06, 0.08, "sine", 0.18);
+      tone(784, (actx?.currentTime || 0) + 0.12, 0.14, "sine", 0.22);
+    } catch {}
+
+    closeModal();
+  });
+
+  // 8. 설정 초기화 버튼
+  btnReset?.addEventListener("click", () => {
+    playerSettings = { ...DEFAULT_PLAYER_SETTINGS };
+    savePlayerSettings();
+    openModal(); // 초기화된 값으로 모달 다시 동기화
+    try { tone(400, actx?.currentTime || 0, 0.08, "sawtooth", 0.15); } catch {}
+  });
+
+  // 9. 모달 오픈 / 닫기 트리거 등록
+  btnProfile?.addEventListener("click", openModal);
+  btnClose?.addEventListener("click", closeModal);
+
+  // 모달 바깥 딤 클릭 시 닫기
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // ESC 키로 닫기
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+      closeModal();
+    }
+  });
+}
+
+// 초기화 시점 실행
+loadPlayerSettings();
+setupPlayerSettingsModalUI();
+
 showBest();
 requestAnimationFrame((t) => { last = t; frame(t); });
+

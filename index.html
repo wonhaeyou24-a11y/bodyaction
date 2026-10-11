@@ -206,12 +206,12 @@
       </button>
       <div class="coin-pill">⭐ <span id="totalBest">0</span></div>
       <div class="ticket-pill">🎟️ <span>120</span></div>
-      <div class="profile">
+      <div class="profile interactive-profile" id="btnPlayerProfile" role="button" tabindex="0" title="플레이어 설정 열기">
         <div class="avatar-wrap">
-          <img src="assets/avatar.jpg" alt="플레이어 캐릭터">
-          <span class="lvl-badge">14</span>
+          <img id="headerAvatarImg" src="assets/avatar.jpg" alt="플레이어 캐릭터">
+          <span id="headerPlayerLvl" class="lvl-badge">14</span>
         </div>
-        <div><b>P1 Leo</b><small>PARTY LEADER</small></div>
+        <div><b id="headerPlayerName">P1 Leo</b><small id="headerPlayerTitle">PARTY LEADER</small></div>
       </div>
     </div>
   </header>
@@ -620,6 +620,183 @@
           <span class="btn-text">이 곡으로 시작하기 (START)</span>
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ⚙️ Stitch 아케이드 스타일 플레이어 프로필 & 게임 환경 설정 모달 -->
+<div id="playerSettingsModal" class="beat-modal-backdrop hidden">
+  <div class="settings-modal-card">
+    <div class="settings-modal-header">
+      <div class="settings-title-group">
+        <span class="settings-badge">ARCADE PROFILE & PREFERENCES</span>
+        <h2 class="settings-title">⚙️ 플레이어 설정 & 게임 환경</h2>
+      </div>
+      <button id="settingsModalClose" class="beat-modal-close-btn" title="닫기">✕</button>
+    </div>
+
+    <!-- 탭 네비게이션 버튼 그룹 -->
+    <div class="settings-tabs-nav">
+      <button class="settings-tab-btn active" data-stab="profile">👤 프로필 & 아바타</button>
+      <button class="settings-tab-btn" data-stab="motion">🖐 모션 & 카메라</button>
+      <button class="settings-tab-btn" data-stab="sound">🔊 사운드 & 볼륨</button>
+    </div>
+
+    <!-- 탭 1: 프로필 & 아바타 -->
+    <div id="stabProfile" class="settings-tab-content active">
+      <div class="settings-field-group">
+        <label class="settings-field-label">플레이어 닉네임</label>
+        <div class="settings-input-wrap">
+          <input type="text" id="settingNickname" maxlength="14" placeholder="닉네임을 입력하세요" value="P1 Leo" class="settings-text-input">
+          <button id="btnRandomNick" class="settings-sub-btn" title="랜덤 닉네임 생성">🎲 랜덤</button>
+        </div>
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-field-label">플레이어 칭호 (Title)</label>
+        <select id="settingTitle" class="settings-select-input">
+          <option value="PARTY LEADER">👑 PARTY LEADER (파티 리더)</option>
+          <option value="SPEED RUNNER">⚡ SPEED RUNNER (스피드 러너)</option>
+          <option value="NEON SLASHER">⚔️ NEON SLASHER (네온 슬래셔)</option>
+          <option value="KINETIC MASTER">🏆 KINETIC MASTER (모션 마스터)</option>
+          <option value="COMBO KING">🔥 COMBO KING (콤보 킹)</option>
+        </select>
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-field-label">마스코트 아바타 선택</label>
+        <div class="settings-avatar-grid" id="settingsAvatarGrid">
+          <div class="avatar-option-card active" data-avatar="assets/avatar.jpg" data-avatar-id="leo">
+            <img src="assets/avatar.jpg" alt="레오">
+            <span>🦁 사이버 레오</span>
+          </div>
+          <div class="avatar-option-card" data-avatar="assets/runner.jpg" data-avatar-id="bunny">
+            <img src="assets/runner.jpg" alt="아스트로 버니">
+            <span>🐰 아스트로 버니</span>
+          </div>
+          <div class="avatar-option-card" data-avatar="assets/ninja.jpg" data-avatar-id="cat">
+            <img src="assets/ninja.jpg" alt="수염 사범">
+            <span>🐱 닌자 캣</span>
+          </div>
+          <div class="avatar-option-card" data-avatar="assets/box.jpg" data-avatar-id="boxer">
+            <img src="assets/box.jpg" alt="메카 복서">
+            <span>🥊 메카 복서</span>
+          </div>
+          <div class="avatar-option-card" data-avatar="assets/space.jpg" data-avatar-id="pilot">
+            <img src="assets/space.jpg" alt="우주 조종사">
+            <span>🤖 우주 조종사</span>
+          </div>
+          <div class="avatar-option-card" data-avatar="assets/balloon.jpg" data-avatar-id="penny">
+            <img src="assets/balloon.jpg" alt="펭귄 페니">
+            <span>🐧 펭귄 페니</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭 2: 모션 & 카메라 -->
+    <div id="stabMotion" class="settings-tab-content hidden">
+      <div class="settings-field-group">
+        <label class="settings-field-label">플레이어 체형 & 신장 최적화</label>
+        <div class="settings-toggle-row">
+          <label class="settings-radio-card active" id="cardHeightAdult">
+            <input type="radio" name="settingHeightMode" value="adult" checked>
+            <span class="radio-title">🧑 청소년 / 성인 표준</span>
+            <span class="radio-desc">표준 신장에 맞춘 모션 및 점프 감도</span>
+          </label>
+          <label class="settings-radio-card" id="cardHeightChild">
+            <input type="radio" name="settingHeightMode" value="child">
+            <span class="radio-title">🧒 어린이 모드 (Child)</span>
+            <span class="radio-desc">낮은 키와 짧은 팔에 맞춘 고감도 인식</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-field-group">
+        <div class="settings-slider-label-row">
+          <label class="settings-field-label">팔 도달 범위 (Reach Sensitivity)</label>
+          <b id="settingReachVal" class="settings-slider-val">표준 (35px)</b>
+        </div>
+        <input type="range" id="settingReachSlider" min="20" max="65" value="35" class="settings-range-slider">
+        <div class="slider-helper-row">
+          <span>넓은 거실 (정밀)</span>
+          <span>좁은 방 / 근거리 (고감도)</span>
+        </div>
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-field-label">카메라 디스플레이 옵션</label>
+        <div class="settings-switch-list">
+          <label class="settings-switch-item">
+            <div class="switch-info">
+              <b>카메라 거울 모드 (Mirror View)</b>
+              <span>화면을 거울처럼 좌우 반전하여 직관적으로 움직여요</span>
+            </div>
+            <input type="checkbox" id="settingMirror" checked class="settings-checkbox">
+          </label>
+          <label class="settings-switch-item">
+            <div class="switch-info">
+              <b>신체 네온 스켈레톤(뼈대) 표시</b>
+              <span>카메라 위에 실시간 감지 관절선을 표시해요</span>
+            </div>
+            <input type="checkbox" id="settingSkeleton" checked class="settings-checkbox">
+          </label>
+          <label class="settings-switch-item">
+            <div class="switch-info">
+              <b>마우스 조작 모드 (테스트용)</b>
+              <span>웹캠 대신 마우스 클릭/드래그로 플레이해요</span>
+            </div>
+            <input type="checkbox" id="settingMouseMode" class="settings-checkbox">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭 3: 사운드 & 볼륨 -->
+    <div id="stabSound" class="settings-tab-content hidden">
+      <div class="settings-field-group">
+        <div class="settings-slider-label-row">
+          <label class="settings-field-label">배경음악 (BGM) 볼륨</label>
+          <b id="settingBgmVal" class="settings-slider-val">80%</b>
+        </div>
+        <input type="range" id="settingBgmSlider" min="0" max="100" value="80" class="settings-range-slider">
+      </div>
+
+      <div class="settings-field-group">
+        <div class="settings-slider-label-row">
+          <label class="settings-field-label">효과음 (SFX) 볼륨</label>
+          <b id="settingSfxVal" class="settings-slider-val">90%</b>
+        </div>
+        <input type="range" id="settingSfxSlider" min="0" max="100" value="90" class="settings-range-slider">
+      </div>
+
+      <div class="settings-field-group">
+        <div class="settings-switch-list">
+          <label class="settings-switch-item">
+            <div class="switch-info">
+              <b>마스터 사운드 출력</b>
+              <span>게임의 모든 소리를 켜거나 음소거해요</span>
+            </div>
+            <input type="checkbox" id="settingSoundOn" checked class="settings-checkbox">
+          </label>
+          <label class="settings-switch-item">
+            <div class="switch-info">
+              <b>AI 한국어 음성 코치 가이드 (TTS)</b>
+              <span>게임 시작 시와 플레이 중 음성 피드백을 들려줘요</span>
+            </div>
+            <input type="checkbox" id="settingVoiceGuide" checked class="settings-checkbox">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모달 하단 액션 버튼 -->
+    <div class="settings-modal-footer">
+      <button id="btnSettingsReset" class="btn-modal-cancel">기본값 복원</button>
+      <button id="btnSettingsSave" class="btn-modal-start">
+        <span class="btn-icon">💾</span>
+        <span class="btn-text">설정 저장 및 완료</span>
+      </button>
     </div>
   </div>
 </div>
