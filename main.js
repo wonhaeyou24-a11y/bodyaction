@@ -201,7 +201,109 @@ const INTRO = {
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
 // 🎵 네온 노트 슬래시 전용 랜덤 멀티 사운드트랙 (시작할 때마다 다양한 비트와 리듬 제공)
+// 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
+// 🎵 네온 노트 슬래시 전용 대중적인 명곡 & EDM 사운드트랙 라인업
 const BEAT_TRACKS = [
+  {
+    id: "radetzky",
+    title: "🎺 라데츠키 행진곡 (Radetzky March)",
+    genre: "MARCH EDM DANCE",
+    bpm: 140,
+    root: 293.66, // D4
+    // 빰-빰-빰빰빰! 온 국민이 아는 요한 슈트라우스의 대표 행진곡 멜로디
+    melody: [
+      0, 2, 4, 5,   9, null, 9, null,   9, null, 9, null,   11, null, 7, null,
+      7, null, 7, null,   5, null, 4, null,   2, null, 0, null,   0, 2, 4, 5,
+      9, null, 9, null,   9, null, 9, null,   12, null, 11, null,   9, null, 7, null,
+      5, null, 4, null,   2, null, 0, null,   -1, null, 0, null,   2, null, 4, null
+    ],
+    bassSeq: [0, 0, 7, 7, 0, 0, 7, 0],
+    wave: "sawtooth",
+    drums: "edm",
+    vol: 0.90,
+    noteSpeed: 1.12,
+    tagColor: "#ffcc00"
+  },
+  {
+    id: "virus",
+    title: "⚡ 베토벤 바이러스 (Beethoven Virus)",
+    genre: "CLASSIC ROCK DANCE",
+    bpm: 152,
+    root: 261.63, // C4
+    // 펌프 잇 업 및 리듬게임의 영원한 레전드! 비창 소나타 3악장
+    melody: [
+      7, 12, 14, 15,   14, 12, 11, 12,   14, null, 7, null,   11, 12, 14, null,
+      12, 11, 8, 11,   12, null, 7, null,   12, 14, 15, 17,   15, 14, 12, null,
+      7, 12, 14, 15,   14, 12, 11, 12,   14, null, 7, null,   11, 12, 14, null,
+      12, 11, 8, 11,   12, null, 0, null,   3, 2, 0, 2,   0, null, null, null
+    ],
+    bassSeq: [0, 0, 7, 0, 0, 0, 7, 0],
+    wave: "sawtooth",
+    drums: "edm",
+    vol: 0.92,
+    noteSpeed: 1.25,
+    tagColor: "#ff3366"
+  },
+  {
+    id: "turkish",
+    title: "⚜️ 터키 행진곡 (Turkish March Cyber)",
+    genre: "NEO CYBER MOZART",
+    bpm: 138,
+    root: 220, // A3
+    // 모차르트 터키 행진곡 시그니처 멜로디
+    melody: [
+      2, 0, -1, 0,   3, null, null, null,   5, 3, 2, 3,   7, null, null, null,
+      8, 7, 6, 7,   14, 12, 11, 12,   14, null, 14, null,   12, 11, 9, 7,
+      2, 0, -1, 0,   3, null, null, null,   5, 3, 2, 3,   7, null, null, null,
+      8, 7, 6, 7,   14, 12, 11, 12,   14, null, 11, null,   12, null, null, null
+    ],
+    bassSeq: [0, 0, 0, 0, 0, 0, 7, 0],
+    wave: "square",
+    drums: "edm",
+    vol: 0.88,
+    noteSpeed: 1.10,
+    tagColor: "#00ffcc"
+  },
+  {
+    id: "saints",
+    title: "🥁 성자의 행진 (When the Saints)",
+    genre: "BIG BAND MARCH EDM",
+    bpm: 132,
+    root: 261.63, // C4
+    // 누구나 흥얼거리는 흥겨운 재즈 행진곡
+    melody: [
+      0, null, 4, null,   5, null, 7, null,   null, null, null, null,   null, null, null, null,
+      0, null, 4, null,   5, null, 7, null,   null, null, null, null,   null, null, null, null,
+      0, null, 4, null,   5, null, 7, null,   4, null, 0, null,   4, null, 2, null,
+      null, null, null, null,   null, null, null, null,   null, null, null, null,   null, null, null, null
+    ],
+    bassSeq: [0, 0, 0, 0, 0, 0, 7, 0],
+    wave: "triangle",
+    drums: "edm",
+    vol: 0.88,
+    noteSpeed: 1.05,
+    tagColor: "#ff9900"
+  },
+  {
+    id: "canon",
+    title: "✨ 캐논 록 (Canon Rock EDM)",
+    genre: "NEO BAROQUE DANCE",
+    bpm: 134,
+    root: 293.66, // D4
+    // 전 세계인이 사랑하는 파헬벨의 캐논 변주곡
+    melody: [
+      9, null, 7, null,   5, null, 4, null,   2, null, 0, null,   2, null, 4, null,
+      5, null, 4, null,   2, null, 0, null,   -1, null, -3, null,   -1, null, 0, null,
+      2, 4, 5, 7,   9, 7, 5, 4,   2, 4, 5, 4,   2, 0, 2, 4,
+      5, 4, 2, 0,   -1, 0, 2, 0,   -1, -3, -1, 0,   2, 0, 2, 4
+    ],
+    bassSeq: [0, -5, -3, -8, -7, -12, -7, -5],
+    wave: "sawtooth",
+    drums: "edm",
+    vol: 0.88,
+    noteSpeed: 1.06,
+    tagColor: "#70a1ff"
+  },
   {
     id: "overdrive",
     title: "⚡ Cyber Overdrive",
@@ -229,48 +331,6 @@ const BEAT_TRACKS = [
     vol: 0.85,
     noteSpeed: 1.0,
     tagColor: "#ff3377"
-  },
-  {
-    id: "laser",
-    title: "🔥 Glitch Laser Blast",
-    genre: "HARDSTYLE DNB",
-    bpm: 150,
-    root: 196,
-    scale: [0, 1, 5, 7, 8],
-    prog: [0, 0, 5, 3],
-    wave: "sawtooth",
-    drums: "edm",
-    vol: 0.88,
-    noteSpeed: 1.25,
-    tagColor: "#ffd700"
-  },
-  {
-    id: "bounce",
-    title: "✨ Future Bass Bounce",
-    genre: "FUTURE BASS",
-    bpm: 124,
-    root: 293.66,
-    scale: [0, 3, 5, 7, 8],
-    prog: [0, 5, 7, 0],
-    wave: "triangle",
-    drums: "edm",
-    vol: 0.85,
-    noteSpeed: 0.95,
-    tagColor: "#00ffaa"
-  },
-  {
-    id: "cyberpunk",
-    title: "🌙 Midnight Cyberpunk",
-    genre: "DARK TECHNO",
-    bpm: 134,
-    root: 174.61,
-    scale: [0, 3, 5, 6, 7, 10],
-    prog: [0, 3, 5, 7],
-    wave: "sawtooth",
-    drums: "edm",
-    vol: 0.86,
-    noteSpeed: 1.08,
-    tagColor: "#b04dff"
   }
 ];
 let lastBeatTrackIdx = -1;
@@ -300,21 +360,34 @@ function bgmTick(isIntro = false) {
   const c = BGM[mode];
   if (!c || !playing || !actx) return;
   while (bgmNext < actx.currentTime + 0.25) {
-    const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = c.prog[bar % 4], t = bgmNext, v = (c.vol ?? 0.8) * (isIntro ? 0.75 : 1.0);
+    const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = (c.prog ? c.prog[bar % (c.prog.length || 4)] : 0), t = bgmNext, v = (c.vol ?? 0.8) * (isIntro ? 0.75 : 1.0);
     const speed = 1 + (isIntro ? 0 : Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0));
     bgmNext += 60 / (c.bpm * speed) / 2;
     const f = (semi, oct = 1) => c.root * oct * 2 ** ((semi + ch) / 12);
 
-    // 1. 묵직한 서브 베이스라인 (Triangle & Sawtooth)
+    // 1. 묵직한 서브 베이스라인 (행진곡 베이스 시퀀스 or 코드 톤)
     if (s % 2 === 0) {
-      tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
+      if (c.bassSeq && c.bassSeq.length > 0) {
+        const bassSemi = c.bassSeq[bar % c.bassSeq.length];
+        tone(c.root * 0.5 * 2 ** (bassSemi / 12), t, 0.28, "triangle", 0.28 * v, undefined, undefined, bgmBus);
+      } else {
+        tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
+      }
     }
 
-    // 2. 신스 리드 멜로디 (인기 EDM 아르페지오) - 인트로 동안에는 은은하게 서포트
+    // 2. 신스 리드 멜로디 (유명 행진곡 실제 멜로디 시퀀스 or EDM 아르페지오)
     if (!isIntro || (bar >= 1 && s % 4 === 0)) {
-      if ((c.drums !== "drone" || s % 4 === 0) && Math.random() < 0.82) {
-        const idx = (ARP[s] + (bar % 2)) % c.scale.length;
-        tone(f(c.scale[idx], 2), t, 0.18, c.wave, 0.14 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+      if (c.melody && c.melody.length > 0) {
+        const noteIdx = e % c.melody.length;
+        const semi = c.melody[noteIdx];
+        if (semi !== null && semi !== undefined) {
+          tone(c.root * 2 ** (semi / 12), t, 0.20, c.wave || "sawtooth", 0.19 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+        }
+      } else if (c.scale && c.scale.length > 0) {
+        if ((c.drums !== "drone" || s % 4 === 0) && Math.random() < 0.82) {
+          const idx = (ARP[s] + (bar % 2)) % c.scale.length;
+          tone(f(c.scale[idx], 2), t, 0.18, c.wave || "sawtooth", 0.14 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+        }
       }
     }
 
