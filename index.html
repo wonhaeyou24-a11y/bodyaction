@@ -213,6 +213,13 @@
         </div>
         <div><b id="headerPlayerName">P1 Leo</b><small id="headerPlayerTitle">PARTY LEADER</small></div>
       </div>
+      <!-- 👨‍👩‍👧 가족 프로필 빠른 전환 -->
+      <button id="btnProfileSwitch" class="profile-switch" type="button" title="플레이어 바꾸기 (가족 프로필)" aria-label="플레이어 바꾸기">🔄</button>
+      <div id="profileMenu" class="profile-menu hidden" role="menu">
+        <div class="profile-menu-title">누가 플레이할까요?</div>
+        <div id="profileMenuList" class="profile-menu-list"></div>
+        <button id="btnProfileMenuAdd" class="profile-menu-add" type="button">＋ 새 프로필</button>
+      </div>
     </div>
   </header>
 
@@ -526,6 +533,10 @@
   <div id="resultTop10" class="top10-wrap hidden">
     <div id="t10Confetti" class="t10-confetti" aria-hidden="true"></div>
     <div class="top10-title">🏅 <span id="top10Game">게임</span> TOP 10</div>
+    <div id="t10Tabs" class="t10-tabs hidden">
+      <button id="t10Mine" class="active" type="button">내 기록</button>
+      <button id="t10Family" type="button">👨‍👩‍👧 가족 전체</button>
+    </div>
     <ol id="top10List" class="top10-list"></ol>
   </div>
   </div><!-- /result-body -->
@@ -615,6 +626,15 @@
 
     <!-- 탭 1: 프로필 & 아바타 -->
     <div id="stabProfile" class="settings-tab-content active">
+      <div id="profileSection" class="settings-field-group">
+        <label class="settings-field-label">👨‍👩‍👧 가족 프로필 <small class="settings-help">— 최고 기록과 순위표가 사람마다 따로 저장돼요</small></label>
+        <div id="profileChips" class="profile-chips"></div>
+        <div class="profile-actions">
+          <button id="btnProfileAdd" class="settings-sub-btn" type="button">＋ 새 프로필</button>
+          <button id="btnProfileDelete" class="settings-sub-btn" type="button">🗑 이 프로필 삭제</button>
+        </div>
+      </div>
+
       <div class="settings-field-group">
         <label class="settings-field-label">플레이어 닉네임</label>
         <div class="settings-input-wrap">
@@ -822,6 +842,6 @@
 <!-- 대결 중 상대 점수 (게임 화면 위에 작게) -->
 <div id="onlineHud" class="online-hud hidden">👤 <span id="ohName">상대</span> <b id="ohScore">0</b></div>
 
-<script type="module" src="main.js?v=20261012_0430"></script>
+<script type="module" src="main.js?v=20261012_0455"></script>
 </body>
 </html>

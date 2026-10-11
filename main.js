@@ -3,6 +3,11 @@ import { FilesetResolver, HandLandmarker, PoseLandmarker }
 import { bus } from "./online/bus.js";
 import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
+import { ProfileStore } from "./profiles.js";
+
+// 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
+let profiles = null;
+const recKey = (base, pid) => (profiles ? profiles.recKey(base, pid) : base);
 
 // 게임 속 "난수". 혼자 할 때는 매번 다른 Math.random, 온라인 대결에서는 같은 시드로 같은 판(장애물/음표 배치)이 나오게 시드 난수를 써요.
 // (스폰처럼 판의 내용을 정하는 곳에서만 rng()를 쓰고, 반짝이 같은 꾸밈 효과는 Math.random 그대로예요)
@@ -98,6 +103,7 @@ function savePlayerSettings() {
   } catch (err) {
     console.warn("플레이어 설정 저장 실패:", err);
   }
+  profiles?.update(profiles.activeId, { nickname: playerSettings.nickname, title: playerSettings.title, avatar: playerSettings.avatar, avatarId: playerSettings.avatarId });
   applyPlayerSettings();
 }
 
@@ -4697,11 +4703,12 @@ const RANK_THRESHOLDS = {
 const RANK_DEFAULT = [35, 70, 120, 180, 260];   // 기준이 없는 게임용 기본값 (예전 기준)
 
 // 🏅 게임별 점수 순위표 (1등~10등). 이번 점수를 넣고 정렬해서 저장하고, 몇 등인지 알려 줌
-async function recordTop10(modeId, sc) {
-  const key = "top10-" + modeId;
+// prevBest: 이번 판 전의 최고 기록. 순위표가 아직 없을 때만 1등 후보로 옮겨 와요 (이미 이번 점수로 덮어쓴 값을 다시 읽으면 같은 점수가 두 번 들어가요)
+async function recordTop10(modeId, sc, pid, prevBest = 0) {
+  const key = recKey("top10-" + modeId, pid);
   let list = await SecureStore.loadCheckpoint(key, null);
   if (!Array.isArray(list)) {
-    const oldBest = +(await SecureStore.loadCheckpoint("best-" + modeId, 0)) || 0;   // 예전 최고 기록은 순위표로 옮김
+    const oldBest = +prevBest || 0;                      // 예전 최고 기록은 순위표로 옮김
     list = oldBest > 0 ? [oldBest] : [];
   }
   list = list.map(Number).filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => b - a).slice(0, 10);
@@ -4716,24 +4723,53 @@ async function recordTop10(modeId, sc) {
   }
   return { list, myIdx };
 }
-function renderTop10(modeId, list, myIdx) {
+function renderTop10(modeId, list, myIdx, names = null) {
   const wrap = $("resultTop10"), ol = $("top10List");
   if (!wrap || !ol) return;
   const name = document.querySelector(`.mode[data-mode="${modeId}"]`)?.closest(".card")?.querySelector("h3")?.textContent?.trim() || "";
   $("top10Game").textContent = name;
   const medals = ["🥇", "🥈", "🥉"];
-  // 내 점수가 들어간 자리에서 "쾅!" 하고 박히고, 그 아래 순위들은 한 칸씩 밀려 내려오는 연출 (숫자만 들어가므로 안전)
+  // 내 점수가 들어간 자리에서 "쾅!" 하고 박히고, 그 아래 순위들은 한 칸씩 밀려 내려오는 연출 (이름은 escapeHtml로 안전하게)
   ol.innerHTML = Array.from({ length: 10 }, (_, i) => {
     const v = list[i], me = i === myIdx;
     const cls = [me ? (i === 0 ? "me first" : "me") : "", myIdx >= 0 && i > myIdx ? "push" : "", v == null ? "empty" : ""].filter(Boolean).join(" ");
     const delay = myIdx >= 0 && i > myIdx ? ` style="animation-delay:${0.1 + (i - myIdx) * 0.05}s"` : "";
-    return `<li class="${cls}"${delay}><span class="t10-rank">${me && i === 0 ? "👑" : (medals[i] ?? i + 1)}</span><span class="t10-score">${v == null ? "-" : Number(v).toLocaleString() + "점"}</span>${me ? '<em class="t10-new">NEW</em>' : ""}</li>`;
+    const who = names && v != null ? `<span class="t10-name">${escapeHtml(names[i] ?? "")}</span>` : "";
+    return `<li class="${cls}"${delay}><span class="t10-rank">${me && i === 0 ? "👑" : (medals[i] ?? i + 1)}</span>${who}<span class="t10-score">${v == null ? "-" : Number(v).toLocaleString() + "점"}</span>${me ? '<em class="t10-new">NEW</em>' : ""}</li>`;
   }).join("");
   // 1등이면 순위표 전체가 금빛으로 빛나고 색종이가 쏟아짐
   const conf = $("t10Confetti");
   wrap.classList.toggle("champion", myIdx === 0);
   if (conf) conf.innerHTML = myIdx === 0 ? Array.from({ length: 16 }, (_, k) => `<i style="left:${(k * 6.4 + (k % 3) * 2).toFixed(1)}%;animation-delay:${((k * 0.17) % 1.6).toFixed(2)}s">${["🎉", "✨", "🎊", "⭐"][k % 4]}</i>`).join("") : "";
   wrap.classList.remove("hidden");
+}
+
+// 👨‍👩‍👧 가족 전체 순위: 모든 프로필의 TOP 10을 합쳐서 다시 1~10등
+let lastTop = null;
+async function loadFamilyTop(modeId) {
+  const all = [];
+  for (const p of profiles?.list ?? []) {
+    const l = await SecureStore.loadCheckpoint(recKey("top10-" + modeId, p.id), []);
+    if (Array.isArray(l)) for (const v of l) { const n = Number(v); if (Number.isFinite(n) && n > 0) all.push({ score: n, name: p.nickname, pid: p.id }); }
+  }
+  all.sort((x, y) => y.score - x.score);                 // 같은 점수면 프로필 순서 유지
+  return all.slice(0, 10);
+}
+async function showTop10Tab(which) {
+  const t = lastTop;
+  if (!t) return;
+  const multi = (profiles?.list.length ?? 0) > 1;
+  $("t10Tabs")?.classList.toggle("hidden", !multi);          // 프로필이 한 명뿐이면 탭을 숨김
+  $("t10Mine")?.classList.toggle("active", which !== "family" || !multi);
+  $("t10Family")?.classList.toggle("active", which === "family" && multi);
+  if (which === "family" && multi) {
+    const entries = await loadFamilyTop(t.modeId);
+    if (lastTop !== t) return;                               // 기다리는 사이 다른 판이 끝났으면 무시
+    const idx = t.score > 0 ? entries.findIndex((e) => e.pid === t.pid && e.score === t.score) : -1;
+    renderTop10(t.modeId, entries.map((e) => e.score), idx, entries.map((e) => e.name));
+  } else {
+    renderTop10(t.modeId, t.mine.list, t.mine.myIdx);
+  }
 }
 
 function endGame() {
@@ -4773,7 +4809,7 @@ function endGame() {
   else if (score >= tA) { rank = "A"; rankClass = "a"; rankLabel = "GREAT PERFORMANCE! ⚡"; gradeTitle = "PRO"; }
   else if (score >= tB) { rank = "B"; rankClass = "b"; rankLabel = "GOOD EFFORT! 👏"; gradeTitle = "AMATEUR"; }
 
-  const key = "best-" + mode, modeId = mode;
+  const pid = profiles?.activeId, key = recKey("best-" + mode, pid), modeId = mode;
   SecureStore.loadCheckpoint(key, 0).then(async (savedBest) => {
     const curBest = +savedBest || 0;
     const isNewRecord = score > curBest && score > 0;
@@ -4781,9 +4817,10 @@ function endGame() {
     SecureStore.saveCheckpoint(key, best);
 
     // 🏅 TOP 10 순위표 기록 & 표시 (이번 판이 몇 등인지 NEW 표시)
-    const top = await recordTop10(modeId, score);
+    const top = await recordTop10(modeId, score, pid, curBest);
     if (mode !== modeId) return;                     // 순위표 저장 중에 메뉴로 나갔으면 결과 화면은 띄우지 않음
-    renderTop10(modeId, top.list, top.myIdx);
+    lastTop = { modeId, mine: top, pid, score };
+    showTop10Tab("mine");
     // 순위 발표 음성: 숫자 차이 같은 설명 없이 짧고 임팩트 있게
     const placeSay = score <= 0 ? "다시 도전!" : top.myIdx === 0 ? "1등! 새로운 최고 기록!" : top.myIdx > 0 ? `${top.myIdx + 1}등!` : "아쉽게 순위권 밖!";
 
@@ -4845,7 +4882,7 @@ async function showBest() {
     ["keeper", "골키퍼"], ["box", "펀치백"]
   ];
   const items = await Promise.all(modesList.map(async ([m, n]) => {
-    const val = await SecureStore.loadCheckpoint("best-" + m, 0);
+    const val = await SecureStore.loadCheckpoint(recKey("best-" + m), 0);
     document.querySelectorAll(`[data-best="${m}"]`).forEach((e) => { e.textContent = (val || 0) + "점"; });   // 카드별 최고 기록
     return `${n} ${val || 0}`;
   }));
@@ -5404,6 +5441,7 @@ function setupPlayerSettingsModalUI() {
     // 기본 첫 탭(프로필) 활성화
     switchSettingsTab("profile");
 
+    renderProfileUI();
     modal.classList.remove("hidden");
     try { tone(520, actx?.currentTime || 0, 0.05, "sine", 0.12); } catch {}
   }
@@ -5411,26 +5449,22 @@ function setupPlayerSettingsModalUI() {
   function closeModal() {
     modal.classList.add("hidden");
   }
+  document.addEventListener("profile:changed", () => { if (!modal.classList.contains("hidden")) openModal(); });
 
   // 2. 탭 전환 핸들러
   function switchSettingsTab(tabName) {
     document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.tab === tabName);
+      btn.classList.toggle("active", btn.dataset.stab === tabName);
     });
-    const paneMap = {
-      profile: "tabPaneProfile",
-      motion: "tabPaneMotion",
-      sound: "tabPaneSound"
-    };
+    const paneMap = { profile: "stabProfile", motion: "stabMotion", sound: "stabSound" };
     Object.entries(paneMap).forEach(([k, paneId]) => {
-      const pane = $(paneId);
-      if (pane) pane.classList.toggle("active", k === tabName);
+      $(paneId)?.classList.toggle("hidden", k !== tabName);
     });
   }
 
   document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      switchSettingsTab(btn.dataset.tab);
+      switchSettingsTab(btn.dataset.stab);
       try { tone(480, actx?.currentTime || 0, 0.03, "sine", 0.08); } catch {}
     });
   });
@@ -5542,9 +5576,70 @@ function setupPlayerSettingsModalUI() {
   });
 }
 
+// ---------- 👨‍👩‍👧 가족 프로필 전환 / 추가 / 삭제 ----------
+function switchProfile(id) {
+  if (!profiles || !profiles.setActive(id)) return false;
+  const p = profiles.active;
+  playerSettings.nickname = p.nickname; playerSettings.title = p.title; playerSettings.avatar = p.avatar; playerSettings.avatarId = p.avatarId;
+  savePlayerSettings();                      // 헤더의 닉네임/아바타에 반영
+  showBest();                                // 카드의 최고 기록도 이 사람 것으로
+  renderProfileUI();
+  document.dispatchEvent(new CustomEvent("profile:changed"));
+  return true;
+}
+function addProfile() {
+  const p = profiles?.add();
+  if (!p) { popup(W / 2, H * 0.4, "프로필은 최대 6명까지예요", "#ffd166"); return; }
+  switchProfile(p.id);
+}
+function deleteProfile(id) {
+  if (!profiles || profiles.list.length <= 1) return;
+  const name = profiles.get(id)?.nickname ?? "";
+  if (!confirm(`'${name}' 프로필과 그 사람의 기록을 모두 지울까요?\n(되돌릴 수 없어요)`)) return;
+  const next = profiles.remove(id);
+  if (next) { switchProfile(next); showBest(); }
+}
+function renderProfileUI() {
+  const chips = $("profileChips"), menu = $("profileMenuList");
+  const multi = !!profiles;
+  $("profileSection")?.classList.toggle("hidden", !multi);
+  $("btnProfileSwitch")?.classList.toggle("hidden", !multi);
+  if (!multi) return;
+  const fill = (host, withDelete) => {
+    if (!host) return;
+    host.textContent = "";
+    for (const p of profiles.list) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "profile-chip" + (p.id === profiles.activeId ? " active" : "");
+      const img = document.createElement("img"); img.src = p.avatar; img.alt = ""; img.width = 28; img.height = 28;
+      const nm = document.createElement("span"); nm.textContent = p.nickname;
+      b.append(img, nm);
+      b.addEventListener("click", () => { switchProfile(p.id); if (!withDelete) $("profileMenu")?.classList.add("hidden"); });
+      host.append(b);
+    }
+  };
+  fill(chips, true); fill(menu, false);
+  const del = $("btnProfileDelete"); if (del) del.disabled = profiles.list.length <= 1;
+  const add = $("btnProfileAdd"); if (add) add.disabled = profiles.list.length >= 6;
+}
+function setupProfileSwitcher() {
+  $("btnProfileAdd")?.addEventListener("click", addProfile);
+  $("btnProfileDelete")?.addEventListener("click", () => deleteProfile(profiles.activeId));
+  $("btnProfileSwitch")?.addEventListener("click", (e) => { e.stopPropagation(); renderProfileUI(); $("profileMenu")?.classList.toggle("hidden"); });
+  $("btnProfileMenuAdd")?.addEventListener("click", () => { $("profileMenu")?.classList.add("hidden"); addProfile(); });
+  document.addEventListener("click", (e) => { if (!e.target.closest?.("#profileMenu, #btnProfileSwitch")) $("profileMenu")?.classList.add("hidden"); });
+  $("t10Mine")?.addEventListener("click", () => showTop10Tab("mine"));
+  $("t10Family")?.addEventListener("click", () => showTop10Tab("family"));
+  renderProfileUI();
+}
+
 // 초기화 시점 실행
 loadPlayerSettings();
+// 처음이면 지금 닉네임/아바타로 첫 프로필(p1)을 만들고, 이후엔 마지막으로 쓴 프로필을 이어서 써요 (예전 기록은 p1이 그대로 이어받음)
+try { profiles = new ProfileStore(localStorage, playerSettings); } catch { profiles = null; }
+if (profiles) { const p = profiles.active; playerSettings.nickname = p.nickname; playerSettings.title = p.title; playerSettings.avatar = p.avatar; playerSettings.avatarId = p.avatarId; applyPlayerSettings(); }
 setupPlayerSettingsModalUI();
+setupProfileSwitcher();
 
 // 👥 온라인 대결(친구와 대결) 화면 연결. 이 한 줄을 지워도 혼자 하기는 그대로 동작해요.
 initOnline({
