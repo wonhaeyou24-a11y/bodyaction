@@ -2176,46 +2176,105 @@ const GestureMatcher = {
 };
 
 // ============================================================================
-// 1. 🎵 네온 노트 슬래시 (beat): 전신 모션 액션 비트세이버 (Body Pose 기반)
+// 1. 🎵 네온 노트 슬래시 (beat): 비트세이버 정통 게임플레이 디자인 (Body Motion & Parity Flow)
 // ============================================================================
 games.beat = {
-  body: true, bg: "#080416", camAlpha: 0.38,
+  body: true, bg: "#060312", camAlpha: 0.38,
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
     this.halves = [];
-    this.lanes = [-1.5, -0.5, 0.5, 1.5]; // 4개 3D 네온 레인
+    this.walls = []; // 비트세이버 네온 벽 장애물 (Walls)
+    this.lanes = [-1.5, -0.5, 0.5, 1.5]; // 4개 3D 레인 (가로 4슬롯)
     this.dirs = ["down", "up", "left", "right", "any"];
     this.lastSwingT = [0, 0];
     this.prevWrist = [{ x: W * 0.35, y: H * 0.6 }, { x: W * 0.65, y: H * 0.6 }];
+    this.wristVel = [{ x: 0, y: 0, spd: 0 }, { x: 0, y: 0, spd: 0 }];
     this.sabers = [
       { base: { x: W * 0.35, y: H * 0.6 }, tip: { x: W * 0.3, y: H * 0.4 } },
       { base: { x: W * 0.65, y: H * 0.6 }, tip: { x: W * 0.7, y: H * 0.4 } }
     ];
     this.swingPower = [0, 0];
+
+    // 비트세이버 게임플레이 디자인 코어:
+    // 1) 패리티 플로우(Parity Flow): 이전 컷 방향에 따른 자연스러운 포핸드/백핸드 교대
+    this.lastDir = { left: "down", right: "down" };
+    // 2) 에너지 시스템 (50% 시작, 0~100%)
+    this.energy = 50;
+    // 3) 콤보 배수 (1x -> 2x -> 4x -> 8x)
+    this.multiplier = 1;
+    this.wallTimer = 0;
+    this.screenShake = 0;
+    this.flashColor = null;
   },
   spawn() {
+    // 1. 인체공학적 패리티(Parity) 원리에 따른 노트 생성 (시계추 포핸드-백핸드 교대)
     const lane = this.lanes[(Math.random() * this.lanes.length) | 0];
-    const isLeft = lane < 0; // 왼쪽 레인은 왼팔 파랑(0), 오른쪽 레인은 오른팔 분홍(1)
-    const dir = this.dirs[(Math.random() * this.dirs.length) | 0];
+    const isLeft = lane < 0; // 왼쪽 2개 레인은 왼팔 파랑(0), 오른쪽 2개 레인은 오른팔 분홍(1)
+    const handKey = isLeft ? "left" : "right";
+
+    // 이전 방향과 반대/대각선으로 이어지도록 패리티 플로우 자동 선택
+    let dir = "down";
+    const prev = this.lastDir[handKey];
+    if (Math.random() < 0.2) {
+      dir = "any"; // 점(Dot) 노트
+    } else if (prev === "down") {
+      dir = Math.random() < 0.7 ? "up" : (isLeft ? "right" : "left");
+    } else if (prev === "up") {
+      dir = Math.random() < 0.7 ? "down" : (isLeft ? "left" : "right");
+    } else {
+      dir = Math.random() < 0.5 ? "down" : "up";
+    }
+    this.lastDir[handKey] = dir;
+
+    // 높이 레이어 (바닥/중단 2단 구조)
+    const layer = Math.random() < 0.35 ? -0.15 : 0.05;
     const speed = (0.34 + elapsed() * 0.005) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
+
     objs.push({
-      z: 0.05, speed, lane, isLeft, dir,
+      z: 0.05, speed, lane, layer, isLeft, dir,
       color: isLeft ? "#00d2ff" : "#ff3377",
       dead: false, cut: false
     });
+
+    // 2. 비트세이버 전신 벽 장애물 (Walls) 스폰 (온몸으로 좌우 피하기 강제)
+    this.wallTimer++;
+    if (this.wallTimer >= 9 && Math.random() < 0.6) {
+      this.wallTimer = 0;
+      const wallSide = Math.random() < 0.5 ? -1 : 1; // -1: 왼쪽 벽, 1: 오른쪽 벽
+      this.walls.push({
+        z: 0.04, speed: speed * 0.95, side: wallSide,
+        w: W * 0.38, h: H * 0.65, dead: false
+      });
+    }
   },
-  interval: () => Math.max(0.32, 0.72 - elapsed() * 0.006),
+  interval: () => Math.max(0.30, 0.68 - elapsed() * 0.006),
   update(dt) {
     const judgeZ = 0.94; // 비트세이버 타격 최적 판정선
     const now = performance.now();
     const swing = [false, false];
     const swingDir = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+    this.screenShake = Math.max(0, this.screenShake - dt * 3);
+
+    // 콤보 배수(Multiplier) 갱신: 1x -> 2x(2콤보) -> 4x(6콤보) -> 8x(14콤보)
+    if (combo >= 14) this.multiplier = 8;
+    else if (combo >= 6) this.multiplier = 4;
+    else if (combo >= 2) this.multiplier = 2;
+    else this.multiplier = 1;
 
     // 1. 전신 포즈 인식 (MediaPipe Pose 33개 관절) 양팔 세이버 & 스윙 가속도 감지
     const skel = getBody();
+    let headX = W / 2, headY = H * 0.35;
 
     if (!useMouse && skel) {
-      // 왼팔: 어깨(11), 팔꿈치(13), 손목(15) / 오른팔: 어깨(12), 팔꿈치(14), 손목(16)
+      // 머리(코 0번 또는 어깨 중심) 좌표 추출 (벽 충돌 판정용)
+      if (skel[0] && (skel[0].v ?? 1) > 0.3) {
+        headX = skel[0].x; headY = skel[0].y;
+      } else if (skel[11] && skel[12]) {
+        headX = (skel[11].x + skel[12].x) / 2;
+        headY = (skel[11].y + skel[12].y) / 2 - 60;
+      }
+
+      // 왼팔(11, 13, 15), 오른팔(12, 14, 16)
       const armIndices = [
         { shoulder: 11, elbow: 13, wrist: 15 },
         { shoulder: 12, elbow: 14, wrist: 16 }
@@ -2231,11 +2290,11 @@ games.beat = {
           const vy = wPt.y - prev.y;
           const spd = Math.hypot(vx, vy);
 
-          // 손목 이전 위치 업데이트
+          this.wristVel[i] = { x: vx, y: vy, spd };
           this.prevWrist[i] = { x: wPt.x, y: wPt.y };
-          this.swingPower[i] = Math.max(0, this.swingPower[i] - dt * 4) + spd * 0.15;
+          this.swingPower[i] = Math.max(0, this.swingPower[i] - dt * 3.5) + spd * 0.18;
 
-          // 팔꿈치 -> 손목 방향 벡터로 광선검 검신(Blade) 길이 약 140px 연장
+          // 팔꿈치 -> 손목 방향 벡터로 광선검 검신(Blade) 길이 약 145px 연장
           let dirX = vx, dirY = vy;
           if (ePt && (ePt.v ?? 1) > 0.3) {
             dirX = wPt.x - ePt.x;
@@ -2244,15 +2303,15 @@ games.beat = {
           const len = Math.hypot(dirX, dirY) || 1;
           const nx = (dirX / len) || (i === 0 ? -0.5 : 0.5);
           const ny = (dirY / len) || -0.86;
-          const bladeLen = 145 + Math.min(this.swingPower[i] * 6, 40);
+          const bladeLen = 145 + Math.min(this.swingPower[i] * 5, 45);
 
           this.sabers[i] = {
             base: { x: wPt.x, y: wPt.y },
             tip: { x: wPt.x + nx * bladeLen, y: wPt.y + ny * bladeLen }
           };
 
-          // 전신 스윙 감지 (손목 가속도 8.5px 이상 또는 강한 스윙)
-          if (spd > 8.5 && now - this.lastSwingT[i] > 110) {
+          // 비트세이버 스윙 판정 (가속도 및 각도 피크 감지)
+          if (spd > 8.0 && now - this.lastSwingT[i] > 110) {
             swing[i] = true;
             this.lastSwingT[i] = now;
             swingDir[i] = { x: vx, y: vy };
@@ -2261,51 +2320,90 @@ games.beat = {
       });
     }
 
-    // 마우스 모드 호환 지원 (마우스 클릭 또는 빠른 이동 시 양팔 스윙)
+    // 마우스 모드 호환 지원
     if (useMouse) {
+      headX = mouse.x; headY = mouse.y;
       const prevM = this.prevWrist[0];
       const mx = mouse.x, my = mouse.y;
       const mSpd = Math.hypot(mx - prevM.x, my - prevM.y);
       this.prevWrist[0] = { x: mx, y: my };
       this.prevWrist[1] = { x: mx, y: my };
+      this.wristVel[0] = { x: mx - prevM.x, y: my - prevM.y, spd: mSpd };
+      this.wristVel[1] = { x: mx - prevM.x, y: my - prevM.y, spd: mSpd };
 
-      this.sabers[0] = { base: { x: mx - 25, y: my + 20 }, tip: { x: mx - 70, y: my - 100 } };
-      this.sabers[1] = { base: { x: mx + 25, y: my + 20 }, tip: { x: mx + 70, y: my - 100 } };
+      this.sabers[0] = { base: { x: mx - 25, y: my + 20 }, tip: { x: mx - 70, y: my - 105 } };
+      this.sabers[1] = { base: { x: mx + 25, y: my + 20 }, tip: { x: mx + 70, y: my - 105 } };
 
       const isMouseSwing = (mouse.down && mSpd > 3) || mSpd > 12;
       if (isMouseSwing && now - this.lastSwingT[0] > 110) {
-        swing[0] = true;
-        swing[1] = true;
+        swing[0] = true; swing[1] = true;
         this.lastSwingT[0] = now;
         swingDir[0] = { x: mx - prevM.x, y: my - prevM.y };
         swingDir[1] = { x: mx - prevM.x, y: my - prevM.y };
       }
     }
 
-    // 2. 노트 전진 및 판정
+    // 2. 비트세이버 벽 장애물 (Walls) 진행 및 머리 충돌 판정
+    for (const w of this.walls) {
+      w.z += w.speed * dt * (0.8 + w.z * 1.5);
+      const wallX = w.side < 0 ? W * 0.22 * w.z : W - (W * 0.22 * w.z);
+
+      // 플레이어 판정선(z: 0.82 ~ 1.05) 통과 시 머리(헤드) 충돌 검사
+      if (!w.dead && w.z >= 0.82 && w.z <= 1.05) {
+        const isInWall = (w.side < 0 && headX < W * 0.42) || (w.side > 0 && headX > W * 0.58);
+        if (isInWall) {
+          w.hit = true;
+          this.energy = Math.max(0, this.energy - 6);
+          this.screenShake = 0.25;
+          combo = 0; this.multiplier = 1;
+          sfx.incoming(headX);
+          popup(headX, H * 0.35, "WALL HIT! 피하세요! ⚡", "#ff3366");
+        }
+      }
+      if (w.z > 1.25) w.dead = true;
+    }
+    this.walls = this.walls.filter((w) => !w.dead);
+
+    // 3. 큐브 노트 전진 및 정통 비트세이버 스코어링 (최대 115점 x 배수)
     for (const o of objs) {
       o.z += o.speed * dt * (0.8 + o.z * 1.5);
       o.x = W / 2 + o.lane * (W * 0.22) * o.z;
-      o.y = H * 0.45 + (H * 0.32) * o.z;
+      o.y = (H * 0.46 + o.layer * H) + (H * 0.30) * o.z;
       o.r = 16 + o.z * 52;
 
       // 비트세이버 타격 판정 윈도우 (z: 0.80 ~ 1.08)
       if (!o.dead && !o.cut && o.z >= 0.80 && o.z <= 1.08) {
         let isHit = false;
-        let perfect = false;
+        let preSwingScore = 50;  // Pre-swing (최대 70점)
+        let postSwingScore = 20; // Post-swing (최대 30점)
+        let centerScore = 10;    // Center Cut (최대 15점)
         const handIdx = o.isLeft ? 0 : 1;
 
-        // A. 몸 모션액션 타이밍 스윙 판정: 해당 손(왼팔/오른팔)을 비트에 맞춰 크게 휘둘렀을 때
+        // A. 몸 모션액션 타이밍 스윙 판정 (해당 손의 스윙 발생)
         if (swing[handIdx] || (useMouse && (swing[0] || swing[1]))) {
           isHit = true;
           const sDir = swingDir[handIdx];
-          // 베는 방향 일치도 검사
-          if (o.dir === "any") perfect = true;
-          else if (o.dir === "down" && sDir.y > 2.5) perfect = true;
-          else if (o.dir === "up" && sDir.y < -2.5) perfect = true;
-          else if (o.dir === "left" && sDir.x < -2.5) perfect = true;
-          else if (o.dir === "right" && sDir.x > 2.5) perfect = true;
-          else perfect = Math.abs(o.z - judgeZ) < 0.07; // 음악 타이밍이 정확하면 퍼펙트
+          const wVel = this.wristVel[handIdx];
+
+          // 1) Pre-swing 각도 평가: 강한 속도 및 각도 확보 시 70점 만점
+          if (wVel.spd > 12) preSwingScore = 70;
+          else if (wVel.spd > 8.5) preSwingScore = 60;
+          else preSwingScore = 45;
+
+          // 2) 컷 방향 일치도 검사 (Post-swing 30점 만점)
+          let dirMatch = false;
+          if (o.dir === "any") { dirMatch = true; postSwingScore = 30; }
+          else if (o.dir === "down" && sDir.y > 2.5) { dirMatch = true; postSwingScore = 30; }
+          else if (o.dir === "up" && sDir.y < -2.5) { dirMatch = true; postSwingScore = 30; }
+          else if (o.dir === "left" && sDir.x < -2.5) { dirMatch = true; postSwingScore = 30; }
+          else if (o.dir === "right" && sDir.x > 2.5) { dirMatch = true; postSwingScore = 30; }
+          else { postSwingScore = 15; }
+
+          // 3) Center Cut 정밀도 (타이밍이 정확할수록 만점 15점)
+          const zDiff = Math.abs(o.z - judgeZ);
+          if (zDiff < 0.05) centerScore = 15;
+          else if (zDiff < 0.09) centerScore = 10;
+          else centerScore = 5;
         }
 
         // B. 광선검 검신(Blade Line) 직접 충돌 판정
@@ -2313,19 +2411,36 @@ games.beat = {
           const saber = this.sabers[handIdx] || this.sabers[0];
           if (saber && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 35)) {
             isHit = true;
-            perfect = true;
+            preSwingScore = 60; postSwingScore = 25; centerScore = 15;
           }
         }
 
-        // 충돌 성공 시 타격 연출
+        // 충돌 성공 시 정통 비트세이버 타격 판정 및 배수(Multiplier) 점수 부여
         if (isHit) {
           o.dead = true;
           o.cut = true;
+          combo++;
+          comboTimer = 2.0;
+          if (combo > maxCombo) maxCombo = combo;
+
+          // 기본 115점 체계 x 콤보 배수(x1~x8)
+          const baseScore = preSwingScore + postSwingScore + centerScore; // 최대 115점
+          const finalScore = baseScore * this.multiplier;
+          score += finalScore;
+
+          // 에너지 회복
+          this.energy = Math.min(100, this.energy + 2.8);
+          this.screenShake = 0.08;
+
           sfx.saber(o.x, o.isLeft);
-          burst(o.x, o.y, o.color, perfect ? 34 : 20);
-          const pts = perfect ? 3 : 2;
-          award(o.x, o.y, pts, perfect ? "#ffd700" : o.color);
-          popup(o.x, o.y - 40, perfect ? "PERFECT SLICE!! ⚡ +3" : "GREAT CUT! +2", perfect ? "#ffd700" : o.color);
+          burst(o.x, o.y, o.color, baseScore >= 105 ? 36 : 22);
+
+          const isPerfect = baseScore >= 105;
+          award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
+
+          const cutLabel = isPerfect ? `PERFECT! +${finalScore} [${this.multiplier}x]` : `CUT! +${finalScore} [${this.multiplier}x]`;
+          popup(o.x, o.y - 40, cutLabel, isPerfect ? "#ffd700" : o.color);
+
           this.halves.push(
             { x: o.x - 16, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -7, vy: -3, half: -1, life: 1 },
             { x: o.x + 16, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 7, vy: -3, half: 1, life: 1 }
@@ -2337,7 +2452,9 @@ games.beat = {
       if (!o.dead && !o.cut && o.z > 1.08) {
         o.dead = true;
         combo = 0;
-        popup(o.x, o.y, "MISS", "#ff3366");
+        this.multiplier = 1;
+        this.energy = Math.max(0, this.energy - 7);
+        popup(o.x, o.y, "MISS (1x)", "#ff3366");
       }
     }
 
@@ -2348,17 +2465,22 @@ games.beat = {
     this.halves = this.halves.filter((h) => h.life > 0);
   },
   draw() {
-    const judgeY = H * 0.45 + (H * 0.32) * 0.94;
+    const judgeY = H * 0.46 + (H * 0.30) * 0.94;
 
-    // 1. 3D 원근 네온 터널 레인 그리기
     ctx.save();
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.25)"; ctx.lineWidth = 2;
+    // 타격 순간 미세 화면 진동 (햅틱 진감 연출)
+    if (this.screenShake > 0) {
+      ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+    }
+
+    // 1. 3D 원근 네온 터널 레인 및 레이저 조명 그리기
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.28)"; ctx.lineWidth = 2;
     for (const lane of this.lanes) {
       const farX = W / 2 + lane * (W * 0.22) * 0.08;
       const nearX = W / 2 + lane * (W * 0.22) * 1.15;
       ctx.beginPath();
-      ctx.moveTo(farX, H * 0.45 + (H * 0.32) * 0.08);
-      ctx.lineTo(nearX, H * 0.45 + (H * 0.32) * 1.15);
+      ctx.moveTo(farX, H * 0.46 + (H * 0.30) * 0.08);
+      ctx.lineTo(nearX, H * 0.46 + (H * 0.30) * 1.15);
       ctx.stroke();
     }
 
@@ -2368,9 +2490,31 @@ games.beat = {
     ctx.beginPath();
     ctx.moveTo(W * 0.06, judgeY); ctx.lineTo(W * 0.94, judgeY);
     ctx.stroke();
-    ctx.restore();
 
-    // 3. 3D 큐브 노트 렌더링 (Z축 깊이 순)
+    // 3. 네온 벽 장애물 (Walls) 렌더링
+    for (const w of this.walls) {
+      const scale = w.z;
+      const wallW = w.w * scale;
+      const wallH = w.h * scale;
+      const wallX = w.side < 0 ? (W * 0.2 - wallW * 0.5) : (W * 0.8 - wallW * 0.5);
+      const wallY = H * 0.48 - wallH * 0.4;
+
+      ctx.save();
+      ctx.fillStyle = w.hit ? "rgba(255, 51, 102, 0.45)" : "rgba(255, 30, 80, 0.25)";
+      ctx.strokeStyle = "#ff2266";
+      ctx.lineWidth = 4;
+      ctx.shadowColor = "#ff2266"; ctx.shadowBlur = 20;
+      ctx.fillRect(wallX, wallY, wallW, wallH);
+      ctx.strokeRect(wallX, wallY, wallW, wallH);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 20px 'Rubik', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("DODGE! ⚠️", wallX + wallW / 2, wallY + 30);
+      ctx.restore();
+    }
+
+    // 4. 3D 큐브 노트 렌더링 (Z축 깊이 순)
     const sorted = [...objs].sort((a, b) => a.z - b.z);
     for (const o of sorted) {
       Art.drawBeatNote(o.x, o.y, o.r, o.dir, o.color, 0);
@@ -2381,48 +2525,59 @@ games.beat = {
       ctx.restore();
     }
 
-    // 4. 전신 포즈 스켈레톤 (몸 모션 액션 비주얼)
+    // 5. 전신 포즈 스켈레톤 (몸 모션 액션 비주얼)
     const skel = getBody();
     if (!useMouse && skel) {
       drawSkeleton(skel, "rgba(0, 210, 255, 0.45)", 0.6);
     }
 
-    // 5. 비트세이버 양팔 듀얼 광선검 (Saber Blade) 렌더링
-    const saberCols = ["#00d2ff", "#ff3377"]; // 왼팔 파랑, 오른팔 분홍
+    // 6. 비트세이버 양팔 듀얼 광선검 (Saber Blade) 렌더링
+    const saberCols = ["#00d2ff", "#ff3377"]; // 왼팔 파랑 🔵, 오른팔 분홍 🔴
     this.sabers.forEach((s, i) => {
       if (!s || !s.base || !s.tip) return;
       const col = saberCols[i];
       ctx.save();
-
-      // 외부 네온 글로우
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 14;
-      ctx.lineCap = "round";
-      ctx.shadowColor = col;
-      ctx.shadowBlur = 28;
-      ctx.beginPath();
-      ctx.moveTo(s.base.x, s.base.y);
-      ctx.lineTo(s.tip.x, s.tip.y);
-      ctx.stroke();
-
-      // 내부 순백 코어 블레이드
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 6;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.moveTo(s.base.x, s.base.y);
-      ctx.lineTo(s.tip.x, s.tip.y);
-      ctx.stroke();
-
-      // 검 손잡이(Hilt)
-      ctx.fillStyle = "#333344";
-      ctx.beginPath();
-      ctx.arc(s.base.x, s.base.y, 8, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 14; ctx.lineCap = "round";
+      ctx.shadowColor = col; ctx.shadowBlur = 28;
+      ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 6; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
+      ctx.fillStyle = "#222233"; ctx.beginPath(); ctx.arc(s.base.x, s.base.y, 8, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
 
-    topHud("🕺 온몸으로 역동적인 슬래시! 음악 타이밍에 맞춰 양팔을 시원하게 휘두르세요!");
+    // 7. 비트세이버 정통 UI: 콤보 배수(Multiplier x1~x8) 링 & 에너지(Life) 바
+    // A) 콤보 배수 뱃지 (화면 좌측 하단)
+    const multX = W * 0.12, multY = H * 0.86;
+    ctx.save();
+    ctx.fillStyle = "rgba(10, 10, 25, 0.75)";
+    ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = this.multiplier >= 8 ? "#ffd700" : (this.multiplier >= 4 ? "#b04dff" : "#00d2ff");
+    ctx.lineWidth = 5; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "900 28px 'Rubik', sans-serif";
+    ctx.fillText(`${this.multiplier}X`, multX, multY - 4);
+    ctx.font = "700 12px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText("MULTIPLIER", multX, multY + 18);
+    ctx.restore();
+
+    // B) 에너지 바 (판정선 바로 밑)
+    const barW = Math.min(W * 0.44, 380), barH = 10;
+    const barX = W / 2 - barW / 2, barY = judgeY + 18;
+    ctx.save();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillRect(barX, barY, barW, barH);
+    const engColor = this.energy > 50 ? "#00e676" : (this.energy > 25 ? "#ffd166" : "#ff3366");
+    ctx.fillStyle = engColor;
+    ctx.shadowColor = engColor; ctx.shadowBlur = 12;
+    ctx.fillRect(barX, barY, barW * (this.energy / 100), barH);
+    ctx.restore();
+
+    ctx.restore(); // screenShake restore
+
+    topHud("🕺 비트세이버 플로우! 음악에 맞춰 크게 스윙하고 벽(DODGE)은 피하세요!");
     bodyHint();
   }
 };
