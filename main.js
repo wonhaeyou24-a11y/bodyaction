@@ -395,8 +395,11 @@ let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
 let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
-let lastHandInferTime = 0, lastHandVideoTime = -1, lastPoseInferTime = 0, lastPoseVideoTime = -1;
+let lastHandInferTime = 0, lastPoseInferTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
+let bodyVelocities = []; // 관절별 60 FPS 외삽용 속도 벡터
+let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 되었는지 여부
+let lastPointerUpdateTime = 0;
 
 function updatePointers() {
   if (!playing || !mode) {
@@ -405,6 +408,7 @@ function updatePointers() {
     lastHands = [];
     body = null;
     euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
+    lastHandsInferFresh = false;
     return;
   }
 
@@ -412,52 +416,82 @@ function updatePointers() {
   pointers.length = 0;
   let pts = [];
   const now = performance.now();
+  const subDt = lastPointerUpdateTime > 0 ? Math.max(0.008, Math.min(0.033, (now - lastPointerUpdateTime) / 1000)) : 0.016;
+  lastPointerUpdateTime = now;
 
   if (useMouse) {
     pts = [{ x: mouse.x, y: mouse.y }];
   } else if (games[mode]?.body) {                      // 몸 게임: 전신 포즈 인식
     if (poseLandmarker && video.readyState >= 2 && !isDetectingBody) {
-      // 30 FPS 비디오 주기 가드: 마지막 추론 후 28ms 미만이면 스킵하여 메인 스레드 60 FPS 유지!
-      const shouldInfer = (now - lastPoseInferTime >= 28) || (video.currentTime !== lastPoseVideoTime && video.currentTime > 0);
+      // 30 FPS 엄격한 비디오 주기 가드: 마지막 추론 후 32ms 이상일 때만 AI 추론 실행 (메인 스레드 60 FPS 보장)
+      const shouldInfer = (now - lastPoseInferTime >= 32);
       if (shouldInfer) {
         lastPoseInferTime = now;
-        lastPoseVideoTime = video.currentTime;
         isDetectingBody = true;
         try {
           const t0 = Math.max(now, lastDetectTimestamp + 1);
           lastDetectTimestamp = t0;
           const r = poseLandmarker.detectForVideo(video, t0);
           detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
-        if (r.landmarks && r.landmarks.length) {
-          bodySeen = t0;
-          body = r.landmarks[0].map((l, i) => {
-            const p = videoToScreen(l), o = body?.[i], v = l.visibility ?? 1;
-            if (!o) return { ...p, v };
-            // 속도 적응형 0ms 무지연 보간: 빠른 점프 도약/스윙 시 95% 즉각 추종
-            const dSpd = Math.hypot(p.x - o.x, p.y - o.y);
-            const blend = Math.min(0.95, 0.76 + dSpd * 0.012);
-            return { x: o.x + (p.x - o.x) * blend, y: o.y + (p.y - o.y) * blend, v };
-          });
-        } else if (t0 - bodySeen > 400) {
-          body = null;
+          if (r.landmarks && r.landmarks.length) {
+            bodySeen = t0;
+            const newBody = r.landmarks[0].map((l, i) => {
+              const p = videoToScreen(l), o = body?.[i], v = l.visibility ?? 1;
+              if (!o) return { ...p, v };
+              // 관절별 속도 벡터 산출 (추론 스킵 프레임 외삽용)
+              bodyVelocities[i] = {
+                vx: (bodyVelocities[i]?.vx || 0) * 0.3 + (p.x - o.x) * 0.7,
+                vy: (bodyVelocities[i]?.vy || 0) * 0.3 + (p.y - o.y) * 0.7
+              };
+              // 속도 적응형 무지연 보간
+              const dSpd = Math.hypot(p.x - o.x, p.y - o.y);
+              const blend = Math.min(0.95, 0.78 + dSpd * 0.012);
+              return { x: o.x + (p.x - o.x) * blend, y: o.y + (p.y - o.y) * blend, v };
+            });
+            body = newBody;
+          } else if (t0 - bodySeen > 400) {
+            body = null;
+            bodyVelocities = [];
+          }
+        } catch (err) {
+          console.warn("포즈 인식 예외:", err);
+        } finally {
+          isDetectingBody = false;
         }
-      } catch (err) {
-        console.warn("포즈 인식 예외:", err);
-      } finally {
-        isDetectingBody = false;
-      }
+      } else if (body && body.length > 0) {
+        // 추론 스킵 프레임 (32ms 간격 사이 60 FPS 프레임): 관절 물리 속도로 60 FPS 미세 외삽
+        for (let i = 0; i < body.length; i++) {
+          const bv = bodyVelocities[i];
+          if (bv && (Math.abs(bv.vx) > 0.3 || Math.abs(bv.vy) > 0.3)) {
+            body[i].x += bv.vx * (subDt / 0.033) * 0.92;
+            body[i].y += bv.vy * (subDt / 0.033) * 0.92;
+          }
+        }
       }
     }
     camOk = !!body;
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if (handLandmarker && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
-    camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (1유로 필터 안정화)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
+    camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
+
+    // AI 추론 스킵 프레임 (60 FPS 사이 프레임): 속도 벡터로 좌표를 60 FPS 전진 외삽
+    // 이 처리를 통해 curSpeed가 0.0으로 급락하는 것을 원천 차단하고 스윙/슬라이스 판정을 100% 매 프레임 보존!
+    if (!lastHandsInferFresh && lastHands.length > 0) {
+      for (let i = 0; i < lastHands.length; i++) {
+        const v = handVelocities[i];
+        if (v && (Math.abs(v.vx) > 0.5 || Math.abs(v.vy) > 0.5)) {
+          lastHands[i].x = Math.max(0, Math.min(W, lastHands[i].x + v.vx * (subDt / 0.033) * 0.94));
+          lastHands[i].y = Math.max(0, Math.min(H, lastHands[i].y + v.vy * (subDt / 0.033) * 0.94));
+        }
+      }
+    }
+    lastHandsInferFresh = false; // 플래그 소비
     pts = lastHands;
   }
 
-  // 최대 4손(2인용 모드 완벽 대응) 포인터 생성 및 공간 일관성 1유로 필터링
+  // 최대 2손(1인 최적화) 포인터 생성 및 공간 일관성 1유로 필터링
   pts.slice(0, MAX_HANDS).forEach((p, i) => {
     const pr = prev[i] ?? p;
     const fx = euroFilters[i].x.filter(p.x, now);
@@ -469,7 +503,7 @@ function updatePointers() {
       speed: curSpeed,
       fist: useMouse ? !mouse.down : !!lastFist[i],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
-      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 220 && curSpeed > 8.0),
+      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 240 && curSpeed > 7.0),
       punchId: useMouse ? mouse.p : lastPunch[i]
     });
   });
@@ -486,14 +520,15 @@ function updatePointers() {
   }
 }
 
-// 3D 기하 제스처 판정 및 1유로 필터 융합 손 인식 엔진
+// 3D 기하 제스처 판정 및 32ms 엄격 인터벌 스케줄러 탑재 손 인식 엔진
 function detectHandsNow() {
   if (!playing || !mode || isDetectingHands || !handLandmarker || video.readyState < 2) return;
   const now = performance.now();
-  // 30 FPS 비디오 주기 가드: 비디오 프레임이 갱신되지 않았거나 마지막 추론 후 28ms 미만이면 스킵하여 60 FPS 보장!
-  if (now - lastHandInferTime < 28 && video.currentTime === lastHandVideoTime && video.currentTime > 0) return;
+  // 30 FPS 엄격한 주기 가드: 마지막 추론 후 32ms 미만이면 스킵하여 메인 스레드 60 FPS 유지!
+  if (now - lastHandInferTime < 32) return;
+  
+  const inferInterval = (now - lastHandInferTime) / 1000;
   lastHandInferTime = now;
-  lastHandVideoTime = video.currentTime;
   isDetectingHands = true;
   try {
     const t0 = Math.max(now, lastDetectTimestamp + 1);
@@ -507,6 +542,7 @@ function detectHandsNow() {
 
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0;
+      lastHandsInferFresh = true; // 이번 프레임에서 신선한 AI 데이터 수신됨
       const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
 
       const raw = r.landmarks.slice(0, MAX_HANDS).map((l, i) => {
@@ -541,7 +577,6 @@ function detectHandsNow() {
       // 좌우 손 공간 일관성 매칭 (프레임 간 손 인덱스 뒤바뀜 방지)
       let sortedRaw = raw;
       if (rawPrev.length > 0 && raw.length > 1) {
-        // 이전 프레임 손 위치와의 유클리드 거리가 최소가 되도록 정렬
         sortedRaw = [];
         const used = new Set();
         for (let i = 0; i < rawPrev.length; i++) {
@@ -561,7 +596,7 @@ function detectHandsNow() {
         }
       }
 
-      // 속도 벡터 산출 (손 정지 시 지터 없이 부드럽게 감쇠)
+      // 속도 벡터 산출 및 연속 물리 반영
       lastHands = sortedRaw.map((p, i) => {
         const o = rawPrev[i];
         let vx = 0, vy = 0;
@@ -570,13 +605,13 @@ function detectHandsNow() {
         }
         const prevVel = handVelocities[i] || { vx: 0, vy: 0 };
         handVelocities[i] = {
-          vx: prevVel.vx * 0.2 + vx * 0.8,
-          vy: prevVel.vy * 0.2 + vy * 0.8
+          vx: prevVel.vx * 0.25 + vx * 0.75,
+          vy: prevVel.vy * 0.25 + vy * 0.75
         };
-        // 정지 상태에서 속도 가산 오차 제거 (손 움직임 방향으로 민첩하게 0.16 선행 보정하여 카메라 지연 상쇄)
+        // 속도 선행 보정 (0.10으로 미세 적용하여 카메라 셔터 지연 상쇄)
         return {
-          x: p.x + handVelocities[i].vx * 0.16,
-          y: p.y + handVelocities[i].vy * 0.16
+          x: p.x + handVelocities[i].vx * 0.10,
+          y: p.y + handVelocities[i].vy * 0.10
         };
       });
       rawPrev = sortedRaw;
@@ -3906,6 +3941,7 @@ let warned10 = false;
 let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
 // 5초 레디타임(준비시간) 상태
 let isReadyTime = false;
+let readyStartTime = 0;
 let readyTimeLeft = 5.0;
 let lastReadyCount = 5;
 
@@ -4092,8 +4128,9 @@ function frame(now) {
   drawBackground(g?.bg ?? "#1b1b2f", g?.camAlpha);
   if (playing && g) {
     if (isReadyTime) {
-      // 5초 레디타임(준비시간) 카운트다운 처리
-      readyTimeLeft -= dt;
+      // 5초 레디타임(준비시간) 실제 시간(Wall-clock) 100% 동기화 (느려짐/지연 원천 박멸)
+      const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
+      readyTimeLeft = Math.max(0, 5.0 - elapsedReady);
       const curCount = Math.max(1, Math.ceil(readyTimeLeft));
       if (curCount !== lastReadyCount) {
         lastReadyCount = curCount;
@@ -4179,6 +4216,7 @@ function startGame(m) {
 
   // 5초 레디타임(준비시간) 가동
   isReadyTime = true;
+  readyStartTime = performance.now();
   readyTimeLeft = 5.0;
   lastReadyCount = 5;
   sfx.countdown(false); // 첫 카운트다운 톤
@@ -4283,7 +4321,7 @@ function toMenu() {
   try { speechSynthesis.cancel(); } catch {}
   if (mode) games[mode].exit?.();
   playing = false; mode = null; objs = [];
-  isReadyTime = false; readyTimeLeft = 0;
+  isReadyTime = false; readyTimeLeft = 0; readyStartTime = 0;
   pointers.length = 0; trails.forEach((t) => (t.length = 0)); lastHands = []; body = null;
   isFeverTime = false; currentWave = 1;
   $("feverBorder")?.classList.add("hidden");
