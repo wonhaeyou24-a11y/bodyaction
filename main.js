@@ -2114,9 +2114,9 @@ games.runner = {
   init() {
     this.t = 0; this.phase = useMouse ? "run" : "calib"; this.cal = 0; this.base = null; this.prevJump = false;
     this.lives = 3; this.inv = 0; this.flash = 0; this.obs = []; this.spawnT = 1; this.vy = 0; this.jy = 0; this.duck = false; rkJump = false; this.dist = 0;
-    this.prevY = null; this.prevVUp = 0; this.lastJumpTime = 0;
+    this.prevY = null; this.prevVUp = 0; this.lastJumpTime = 0; this.lastDuckTime = 0;
   },
-  sense(dt) { // NotebookLM 최적화: 도약 가속도 피크(Peak Acceleration) 선제 감지로 0ms 체감 반응속도 실현
+  sense(dt) { // NotebookLM 최적화: 가속도 피크 선제 점프 + 앉았다 일어설 때 점프 오인식 원천 차단 가드
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = getBody();
     const now = performance.now();
@@ -2148,25 +2148,35 @@ games.runner = {
         if (this.prevY == null) this.prevY = y;
 
         const dy = y - this.base;
-        // 서 있는 기준선 적응: 뛰어오르는 중(dy < 0)에는 기준선 왜곡을 막기 위해 추종을 정지, 평상시에만 부드럽게 적응
-        if (dy >= -tl * 0.05) {
+        // 서 있는 기준선 적응: 뛰어오르는 중(dy < 0)이나 앉은 상태(dy > tl * 0.1)에는 왜곡 방지를 위해 기준선 동결
+        if (dy >= -tl * 0.05 && dy <= tl * 0.10) {
           this.base += dy * Math.min(1, dt * 1.5);
         }
 
-        // 2. 수직 상승 속도(Vertical Velocity) 및 가속도(Acceleration) 계산 (NotebookLM 도약 피크 엔진)
+        // 2. 앉기(Duck) 모션 판단: 기준선보다 15% 이상 숙였을 때 즉시 발동
+        const isCurrentlyDucking = dy > tl * 0.15;
+        if (isCurrentlyDucking) {
+          duck = true;
+          this.lastDuckTime = now; // 앉아있는 시간 갱신 (일어설 때 점프 오인식 방지용)
+        }
+
+        // 3. 수직 상승 속도 및 가속도 계산 (NotebookLM 도약 피크 엔진)
         const safeDt = Math.max(dt, 0.008);
         const vUp = (this.prevY - y) / safeDt; // 위로 솟구치는 수직 속도 (px/sec)
-        const aUp = (vUp - (this.prevVUp || 0)) / safeDt; // 바닥을 박차는 순간의 순간 가속도 (px/sec^2)
+        const aUp = (vUp - (this.prevVUp || 0)) / safeDt; // 순간 가속도 (px/sec^2)
         this.prevY = y;
         this.prevVUp = vUp;
 
-        // [핵심 엔진] 3중 복합 선제 도약 판정
-        // A. 도약 가속도 피크: 발을 구르는 최초 1~2프레임(약 0.02초) 상향 가속도 폭발 포착
-        const isThrustPeak = aUp > 750 && vUp > 35;
-        // B. 고속 상승 속도 피크: 몸이 위로 솟구치는 순간 포착
-        const isVelocityPeak = vUp > (tl * 0.85) || vUp > 110;
-        // C. 위치 변위 보조 트리거: 가볍게 12px만 도약해도 즉각 발동
-        const isPositionLift = dy < -tl * 0.09;
+        // [중요 오인식 방어선]: 앉았다가 일어서는 모션(Stand-up)은 절대 점프로 튀지 않도록 차단
+        // ① 앉아있다가 일어난 직후 0.28초 이내이거나, 몸이 기준선 아래(dy >= -tl * 0.03)에 있으면 기립 복귀 동작으로 판정하여 점프 억제
+        const isRecoveringFromDuck = (now - this.lastDuckTime < 280) || (dy >= -tl * 0.03);
+
+        // A. 도약 가속도 피크: 평소 서 있는 자세에서 발을 구르는 0.02초 상향 폭발 가속도 포착
+        const isThrustPeak = !isRecoveringFromDuck && (aUp > 750 && vUp > 35);
+        // B. 고속 상승 속도 피크: 기준선 이상으로 힘차게 솟구치는 순간
+        const isVelocityPeak = !isRecoveringFromDuck && (vUp > (tl * 0.85) || vUp > 110);
+        // C. 위치 변위 보조 트리거: 몸이 기준선보다 9% 이상 완전히 솟구쳤을 때
+        const isPositionLift = dy < -tl * 0.09 && (now - this.lastDuckTime > 200);
 
         const up = isThrustPeak || isVelocityPeak || isPositionLift;
         if (up && !this.prevJump && (now - this.lastJumpTime > 340)) {
@@ -2174,9 +2184,6 @@ games.runner = {
           this.lastJumpTime = now;
         }
         this.prevJump = up;
-
-        // 앉기(Duck) 인식: 즉각 숙임 반응 (15% 하강 시 즉시 발동)
-        if (dy > tl * 0.15) duck = true;
         this.seen = true;
       } else {
         this.seen = false;
@@ -3637,9 +3644,9 @@ function toMenu() {
 }
 async function showBest() {
   const modesList = [
-    ["balloon", "풍선"], ["ninja", "과일"], ["mole", "두더지"], ["space", "유성"],
-    ["brick", "벽돌"], ["leak", "물막기"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
-    ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"], ["magic", "마법"],
+    ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"],
+    ["brick", "벽돌"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
+    ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"],
     ["keeper", "골키퍼"], ["box", "펀치백"]
   ];
   const items = await Promise.all(modesList.map(async ([m, n]) => {
