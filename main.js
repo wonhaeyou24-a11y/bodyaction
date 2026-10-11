@@ -426,7 +426,11 @@ function updatePointers() {
           bodySeen = t0;
           body = r.landmarks[0].map((l, i) => {
             const p = videoToScreen(l), o = body?.[i], v = l.visibility ?? 1;
-            return o ? { x: o.x + (p.x - o.x) * 0.75, y: o.y + (p.y - o.y) * 0.75, v } : { ...p, v };
+            if (!o) return { ...p, v };
+            // 속도 적응형 0ms 무지연 보간: 빠른 점프 도약/스윙 시 95% 즉각 추종
+            const dSpd = Math.hypot(p.x - o.x, p.y - o.y);
+            const blend = Math.min(0.95, 0.76 + dSpd * 0.012);
+            return { x: o.x + (p.x - o.x) * blend, y: o.y + (p.y - o.y) * blend, v };
           });
         } else if (t0 - bodySeen > 400) {
           body = null;
@@ -2110,15 +2114,15 @@ games.runner = {
   init() {
     this.t = 0; this.phase = useMouse ? "run" : "calib"; this.cal = 0; this.base = null; this.prevJump = false;
     this.lives = 3; this.inv = 0; this.flash = 0; this.obs = []; this.spawnT = 1; this.vy = 0; this.jy = 0; this.duck = false; rkJump = false; this.dist = 0;
-    this.prevY = null; this.lastJumpTime = 0;
+    this.prevY = null; this.prevVUp = 0; this.lastJumpTime = 0;
   },
-  sense(dt) { // 몸의 높이 변화 및 수직 상승 가속도로 지연 없는 즉각 점프 감지
+  sense(dt) { // NotebookLM 최적화: 도약 가속도 피크(Peak Acceleration) 선제 감지로 0ms 체감 반응속도 실현
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = getBody();
     const now = performance.now();
 
     if (!useMouse && b) {
-      // 1. 다중 키포인트 폴백 (전신이 완벽히 안 잡혀도 100% 감지)
+      // 1. 다중 키포인트 폴백 (전신/상체 완벽 트래킹)
       let y = null, tl = 120;
       const hasSh = bv(b, 11, 0.25) && bv(b, 12, 0.25);
       const hasHip = bv(b, 23, 0.25) && bv(b, 24, 0.25);
@@ -2144,27 +2148,35 @@ games.runner = {
         if (this.prevY == null) this.prevY = y;
 
         const dy = y - this.base;
-        // 서 있는 기본 높이를 부드럽게 추종
-        this.base += dy * Math.min(1, dt * (Math.abs(dy) < tl * 0.12 ? 1.6 : 0.12));
+        // 서 있는 기준선 적응: 뛰어오르는 중(dy < 0)에는 기준선 왜곡을 막기 위해 추종을 정지, 평상시에만 부드럽게 적응
+        if (dy >= -tl * 0.05) {
+          this.base += dy * Math.min(1, dt * 1.5);
+        }
 
-        // 2. 수직 상승 속도(Vertical Velocity) 및 도약 임펄스 감지 (초고속 반응 코어)
-        const vUp = (this.prevY - y) / Math.max(dt, 0.001); // 위로 솟구치는 픽셀 속도 (px/sec)
+        // 2. 수직 상승 속도(Vertical Velocity) 및 가속도(Acceleration) 계산 (NotebookLM 도약 피크 엔진)
+        const safeDt = Math.max(dt, 0.008);
+        const vUp = (this.prevY - y) / safeDt; // 위로 솟구치는 수직 속도 (px/sec)
+        const aUp = (vUp - (this.prevVUp || 0)) / safeDt; // 바닥을 박차는 순간의 순간 가속도 (px/sec^2)
         this.prevY = y;
+        this.prevVUp = vUp;
 
-        // A) 순간 상승 속도 피크 (발을 굴러 솟구치는 0.03초 순간 감지)
-        const isUpwardImpulse = vUp > (tl * 1.5) || vUp > 180;
-        // B) 위치 변위 임계값 (가볍게 20px만 뛰어도 감지되도록 대폭 완화)
-        const isUpwardPosition = dy < -tl * 0.13;
+        // [핵심 엔진] 3중 복합 선제 도약 판정
+        // A. 도약 가속도 피크: 발을 구르는 최초 1~2프레임(약 0.02초) 상향 가속도 폭발 포착
+        const isThrustPeak = aUp > 750 && vUp > 35;
+        // B. 고속 상승 속도 피크: 몸이 위로 솟구치는 순간 포착
+        const isVelocityPeak = vUp > (tl * 0.85) || vUp > 110;
+        // C. 위치 변위 보조 트리거: 가볍게 12px만 도약해도 즉각 발동
+        const isPositionLift = dy < -tl * 0.09;
 
-        const up = isUpwardImpulse || isUpwardPosition;
-        if (up && !this.prevJump && (now - this.lastJumpTime > 320)) {
+        const up = isThrustPeak || isVelocityPeak || isPositionLift;
+        if (up && !this.prevJump && (now - this.lastJumpTime > 340)) {
           jump = true;
           this.lastJumpTime = now;
         }
         this.prevJump = up;
 
-        // 앉기(Duck) 인식도 민첩하게 반응 (18% 하강)
-        if (dy > tl * 0.18) duck = true;
+        // 앉기(Duck) 인식: 즉각 숙임 반응 (15% 하강 시 즉시 발동)
+        if (dy > tl * 0.15) duck = true;
         this.seen = true;
       } else {
         this.seen = false;
