@@ -87,9 +87,30 @@ const sfx = {
   chip(x) { const t = ac().currentTime, p = panOf(x); tone(420, t, 0.08, "square", 0.08, undefined, p); noise(t, 0.05, 0.12, 3000, p); },
   incoming(x) { const t = ac().currentTime, p = panOf(x); noise(t, 0.6, 0.05, 900, p); tone(70, t, 0.8, "sine", 0.07, 170, p); },
   crash() { const t = ac().currentTime; noise(t, 0.8, 0.6, 150); tone(70, t, 0.6, "sawtooth", 0.35, 25); },
+  hitHeavy(x) {
+    const t = ac().currentTime, p = panOf(x);
+    // 묵직한 베이스 킥(Sine 180Hz -> 30Hz 급격 하향 감쇠) + 파열 스냅 노이즈 (찰진 타격감)
+    tone(180, t, 0.12, "sine", 0.38, 30, p);
+    noise(t, 0.08, 0.28, 2200, p);
+  },
+  stamp() {
+    const t = ac().currentTime;
+    // 랭크 스탬프 슬램 충격음
+    tone(140, t, 0.22, "sine", 0.45, 25);
+    noise(t, 0.16, 0.35, 1200);
+  },
+  tick() {
+    const t = ac().currentTime;
+    tone(1200, t, 0.03, "sine", 0.08); // 롤링 카운터 틱음
+  },
+  fanfare() {
+    const t = ac().currentTime;
+    // 웅장한 신스 브라스 축하 화음
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone(f, t + i * 0.07, 0.35, "triangle", 0.2));
+  },
   combo(n) {
     const t = ac().currentTime, steps = [0, 2, 4, 7, 9, 12, 14, 16];
-    tone(523.25 * 2 ** (steps[Math.min(n - 3, steps.length - 1)] / 12), t, 0.14, "triangle", 0.1);
+    tone(523.25 * 2 ** (steps[Math.min(n - 3, steps.length - 1)] / 12), t, 0.16, "triangle", 0.14);
   },
   start() { const t = ac().currentTime; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.09, 0.2, "triangle", 0.14)); },
   countdown(final) {
@@ -545,11 +566,34 @@ SecureStore.init();
 
 // ---------- 공통 효과 ----------
 let particles = [], popups = [];
-function burst(x, y, color, n = 14) {
+let globalShake = 0, globalShakePower = 0;
+let shockwaves = [];
+
+function addShake(duration = 0.12, power = 10) {
+  globalShake = Math.max(globalShake, duration);
+  globalShakePower = Math.max(globalShakePower, power);
+}
+
+function burst(x, y, color, n = 22) {
   try {
+    // 1. 타격 시 가슴을 울리는 화면 흔들림(Screen Shake) 자동 인가
+    addShake(0.12, Math.min(16, 7 + n * 0.3));
+    sfx.hitHeavy(x);
+
+    // 2. 동심원 충격파 링 (Shockwave Ring) 생성
+    shockwaves.push({
+      x, y, r: 8, maxR: 65 + Math.random() * 25,
+      color: color || "#00d2ff", alpha: 0.95
+    });
+
+    // 3. 고속 네온 스파크 파티클 분출
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 6;
-      particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, color, size: 3 + Math.random() * 4 });
+      const a = Math.random() * Math.PI * 2, v = 3.5 + Math.random() * 8.5;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+        life: 1, color, size: 3.5 + Math.random() * 5
+      });
     }
   } catch {}
 }
@@ -559,22 +603,47 @@ function popup(x, y, text, color = "#fff") {
 
 function drawFx() {
   try {
+    // A. 충격파 링 렌더링
+    shockwaves = shockwaves.filter((sw) => sw.alpha > 0);
+    for (const sw of shockwaves) {
+      sw.r += 7.5;
+      sw.alpha -= 0.055;
+      ctx.save();
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = Math.max(1, 4.5 * sw.alpha);
+      ctx.globalAlpha = Math.max(0, sw.alpha);
+      ctx.shadowColor = sw.color;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // B. 스파크 파티클 렌더링
     particles = particles.filter((p) => p.life > 0);
     for (const p of particles) {
-      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= 0.03;
-      ctx.globalAlpha = Math.max(p.life, 0); ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.size || 5, 0, 7); ctx.fill();
+      p.x += p.vx; p.y += p.vy; p.vy += 0.22; p.life -= 0.028;
+      ctx.save();
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size || 5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
+
+    // C. 팝업 텍스트 렌더링
     popups = popups.filter((p) => p.life > 0);
-    ctx.textAlign = "center"; ctx.font = "900 36px 'Rubik', sans-serif";
+    ctx.textAlign = "center"; ctx.font = "900 38px 'Rubik', sans-serif";
     for (const p of popups) {
-      p.y -= 1.6; p.life -= 0.02;
+      p.y -= 1.8; p.life -= 0.022;
+      ctx.save();
       ctx.globalAlpha = Math.max(p.life, 0); ctx.fillStyle = p.color;
-      ctx.shadowColor = p.color; ctx.shadowBlur = 12;
+      ctx.shadowColor = p.color; ctx.shadowBlur = 16;
       ctx.fillText(p.text, p.x, p.y);
-      ctx.shadowBlur = 0;
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
   } catch {}
 }
 
@@ -3080,6 +3149,16 @@ function drawBackground(color, camAlpha = 0.85) {
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
+
+  ctx.save();
+  // 글로벌 타격 화면 흔들림(Screen Shake)
+  if (globalShake > 0) {
+    globalShake -= dt;
+    const sx = (Math.random() - 0.5) * globalShakePower;
+    const sy = (Math.random() - 0.5) * globalShakePower;
+    ctx.translate(sx, sy);
+  }
+
   updatePointers();
   const g = mode ? games[mode] : null;
   drawBackground(g?.bg ?? "#1b1b2f", g?.camAlpha);
@@ -3160,7 +3239,9 @@ function frame(now) {
     ctx.clearRect(0, 0, W, H);
     particles.length = 0;
     popups.length = 0;
+    shockwaves.length = 0;
   }
+  ctx.restore(); // globalShake restore
 }
 
 function startGame(m) {
@@ -3183,31 +3264,94 @@ function startGame(m) {
   speak(INTRO[m], true); // 게임 설명/안내 음성 발화
   warned10 = false;
 }
+// 점수 고속 롤링 카운트업 함수 (Web Audio 틱 사운드 동기화)
+function animateScoreRoll(targetScore) {
+  const el = $("finalScore");
+  if (!el) return;
+  const startTime = performance.now();
+  const duration = 850;
+  function tickRoll(now) {
+    const p = Math.min(1, (now - startTime) / duration);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const cur = Math.round(targetScore * ease);
+    el.textContent = cur.toLocaleString() + "점";
+    if (Math.random() < 0.45 && p < 0.95) sfx.tick();
+    if (p < 1) {
+      requestAnimationFrame(tickRoll);
+    } else {
+      el.textContent = targetScore.toLocaleString() + "점";
+    }
+  }
+  requestAnimationFrame(tickRoll);
+}
+
 function endGame() {
-  playing = false; $("hud").classList.add("hidden");
+  playing = false;
+  $("hud").classList.add("hidden");
   $("feverBorder")?.classList.add("hidden");
   $("waveBanner")?.classList.add("hidden");
   isFeverTime = false;
   const g = games[mode];
-  if (g.versus) {                                  // 대결: 기록 없이 승패만 표시
+
+  // 1. 2인 대결 모드 (versus) 결과 처리
+  if (g && g.versus) {
     const [a, b] = g.s;
     $("finalScore").textContent = `🔵 ${a} : ${b} 🔴`;
-    $("finalBest").textContent = a > b ? "🔵 왼쪽 사람 승리! 🎉" : b > a ? "🔴 오른쪽 사람 승리! 🎉" : "무승부 🤝";
-    $("result").classList.remove("hidden"); sfx.end();
-    speak(a > b ? "왼쪽이 이겼어요!" : b > a ? "오른쪽이 이겼어요!" : "무승부예요!", true);
+    $("resultRank").textContent = a > b ? "BLUE" : b > a ? "RED" : "DRAW";
+    $("resultRank").className = "rank-stamp " + (a > b ? "rank-b" : b > a ? "rank-sss" : "rank-s");
+    $("rankLabel").textContent = a > b ? "🔵 왼쪽 사람 승리! 🎉" : b > a ? "🔴 오른쪽 사람 승리! 🎉" : "치열한 무승부! 🤝";
+    $("finalBest").textContent = `🔵 ${a}점 vs 🔴 ${b}점`;
+    $("resultCombo").textContent = "-";
+    $("resultGradeText").textContent = a === b ? "TIE" : "WINNER";
+    $("newRecordBadge")?.classList.add("hidden");
+    $("result").classList.remove("hidden");
+    sfx.stamp(); sfx.fanfare();
+    speak(a > b ? "파란팀 승리!" : b > a ? "빨간팀 승리!" : "무승부예요!", true);
     return;
   }
+
+  // 2. 1인 아케이드 모드 등급 산정 (SSS, S+, S, A, B, C)
+  let rank = "C", rankClass = "c", rankLabel = "KEEP PRACTICING!", gradeTitle = "BEGINNER";
+  if (score >= 260) { rank = "SSS"; rankClass = "sss"; rankLabel = "UNSTOPPABLE LEGEND! 🌟"; gradeTitle = "LEGEND"; }
+  else if (score >= 180) { rank = "S+"; rankClass = "s"; rankLabel = "SUPERIOR PERFORMANCE! 🔥"; gradeTitle = "MASTER"; }
+  else if (score >= 120) { rank = "S"; rankClass = "s"; rankLabel = "SPECTACULAR PLAY! 💎"; gradeTitle = "EXPERT"; }
+  else if (score >= 70) { rank = "A"; rankClass = "a"; rankLabel = "GREAT PERFORMANCE! ⚡"; gradeTitle = "PRO"; }
+  else if (score >= 35) { rank = "B"; rankClass = "b"; rankLabel = "GOOD EFFORT! 👏"; gradeTitle = "AMATEUR"; }
+
   const key = "best-" + mode;
   SecureStore.loadCheckpoint(key, 0).then((savedBest) => {
     const curBest = +savedBest || 0;
+    const isNewRecord = score > curBest && score > 0;
     const best = Math.max(score, curBest);
-    const record = score > curBest;
     SecureStore.saveCheckpoint(key, best);
-    $("finalScore").textContent = score + "점" + (mode === "space" ? (shield <= 0 ? " · 방어막이 부서졌어요 💥" : " · 지구를 지켰어요! 🌍") : "") + (g.result?.() ?? "");
-    $("finalBest").textContent = (record ? "🏆 새 기록 달성!" : "최고 기록 " + best + "점") + (maxCombo ? ` · 최대 콤보 ${maxCombo}` : "");
+
+    // 랭크 스탬프 & 라벨
+    $("resultRank").textContent = rank;
+    $("resultRank").className = "rank-stamp rank-" + rankClass;
+    $("rankLabel").textContent = rankLabel;
+
+    // 세부 통계 스탯 카드
+    $("finalBest").textContent = best.toLocaleString() + "점";
+    $("resultCombo").textContent = maxCombo ? `${maxCombo} COMBO` : "0 COMBO";
+    $("resultGradeText").textContent = gradeTitle;
+
+    // 신기록 엠블럼
+    const recBadge = $("newRecordBadge");
+    if (recBadge) {
+      if (isNewRecord) recBadge.classList.remove("hidden");
+      else recBadge.classList.add("hidden");
+    }
+
+    // 결과 모달 오픈 & 팡파르/스탬프 사운드
     $("result").classList.remove("hidden");
-    sfx.end();
-    speak(mode === "space" ? (shield <= 0 ? "방어막이 깨졌어요!" : "지구를 지켰어요!") : record ? "새 기록이에요!" : "끝!", true);
+    sfx.stamp();
+    if (isNewRecord) sfx.fanfare();
+    else sfx.end();
+
+    // 점수 롤링 카운트업 실행
+    animateScoreRoll(score);
+
+    speak(isNewRecord ? "새로운 최고 기록 달성! 축하합니다!" : `${rank} 등급 클리어!`, true);
   }).catch(() => {
     $("finalScore").textContent = score + "점";
     $("result").classList.remove("hidden");

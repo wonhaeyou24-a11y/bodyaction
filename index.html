@@ -384,14 +384,54 @@
   </footer>
 </div>
 
-<div id="result" class="panel glass-arcade hidden">
-  <div class="result-trophy">🏆</div>
-  <h2>STAGE CLEAR!</h2>
-  <div id="finalScore"></div>
-  <div id="finalBest"></div>
-  <div class="row">
-    <button id="again" class="candy-btn cyan-btn">다시 하기</button>
-    <button id="toMenu" class="candy-btn purple-btn">처음으로</button>
+<div id="result" class="panel glass-arcade result-modal hidden">
+  <div class="result-header">
+    <div class="result-trophy">🏆</div>
+    <div class="result-title-group">
+      <h2 id="resultTitle">STAGE CLEAR!</h2>
+      <p class="result-sub" id="resultSub">플레이 결과 리포트</p>
+    </div>
+  </div>
+
+  <!-- 대형 아케이드 랭크 스탬프 -->
+  <div class="rank-container">
+    <div id="resultRank" class="rank-stamp rank-s">S+</div>
+    <div id="rankLabel" class="rank-label">SUPERIOR PERFORMANCE!</div>
+  </div>
+
+  <!-- 메인 스코어 롤링 카운터 -->
+  <div class="result-score-wrap">
+    <span class="score-caption">FINAL SCORE</span>
+    <div id="finalScore" class="score-rolling">0점</div>
+    <div id="newRecordBadge" class="new-record-badge hidden">🏆 NEW RECORD!</div>
+  </div>
+
+  <!-- 세부 기록 리스트 / 스탯 카드 -->
+  <div class="result-stats-grid">
+    <div class="stat-card">
+      <span class="stat-label">🏆 최고 기록</span>
+      <b id="finalBest" class="stat-val">0점</b>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">🔥 최대 콤보</span>
+      <b id="resultCombo" class="stat-val">0 COMBO</b>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">⚡ 플레이 등급</span>
+      <b id="resultGradeText" class="stat-val">MASTER</b>
+    </div>
+  </div>
+
+  <!-- 조작 버튼: 다시 하기 / 처음으로 -->
+  <div class="result-actions">
+    <button id="again" class="action-btn retry-btn">
+      <span class="btn-icon">🔄</span>
+      <span class="btn-text">다시 하기</span>
+    </button>
+    <button id="toMenu" class="action-btn menu-btn">
+      <span class="btn-icon">🏠</span>
+      <span class="btn-text">처음으로</span>
+    </button>
   </div>
 </div>
 
