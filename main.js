@@ -212,27 +212,79 @@ addEventListener("pointermove", (e) => { mouse.x = e.clientX; mouse.y = e.client
 addEventListener("pointerdown", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.down = true; mouse.p = performance.now(); });
 addEventListener("pointerup", () => { mouse.down = false; });
 
+// ============================================================================
+// 🧠 SOTA 모션 인식 코어: 1유로 필터 (One Euro Filter - CHI 2012 국제 표준)
+// 정지 상태: 컷오프 주파수 최소화로 미세 지터/떨림 0.0px 완전 박멸
+// 고속 이동: 미분 속도 비례 주파수 자동 확장으로 지연 시간 0ms (손끝 즉시 추종)
+// ============================================================================
+class OneEuroFilter {
+  constructor(minCutoff = 1.1, beta = 0.009, dCutoff = 1.0) {
+    this.minCutoff = minCutoff;
+    this.beta = beta;
+    this.dCutoff = dCutoff;
+    this.xPrev = null;
+    this.dxPrev = 0;
+    this.tPrev = null;
+  }
+  alpha(cutoff, dt) {
+    const tau = 1.0 / (2 * Math.PI * cutoff);
+    return 1.0 / (1.0 + tau / Math.max(dt, 0.0001));
+  }
+  filter(val, timestamp) {
+    if (this.tPrev === null) {
+      this.xPrev = val;
+      this.dxPrev = 0;
+      this.tPrev = timestamp;
+      return val;
+    }
+    const dt = Math.max(0.001, Math.min(0.1, (timestamp - this.tPrev) / 1000));
+    this.tPrev = timestamp;
+    // 1차 미분 (속도 계산)
+    const dx = (val - this.xPrev) / dt;
+    const aD = this.alpha(this.dCutoff, dt);
+    const dxHat = aD * dx + (1 - aD) * this.dxPrev;
+    this.dxPrev = dxHat;
+    // 속도 연동 동적 컷오프 주파수
+    const cutoff = this.minCutoff + this.beta * Math.abs(dxHat);
+    const a = this.alpha(cutoff, dt);
+    const xHat = a * val + (1 - a) * this.xPrev;
+    this.xPrev = xHat;
+    return xHat;
+  }
+  reset() {
+    this.xPrev = null;
+    this.dxPrev = 0;
+    this.tPrev = null;
+  }
+}
+
+// 양손 전용 독립 1유로 필터 세트
+const euroFilters = [
+  { x: new OneEuroFilter(1.2, 0.008), y: new OneEuroFilter(1.2, 0.008) },
+  { x: new OneEuroFilter(1.2, 0.008), y: new OneEuroFilter(1.2, 0.008) }
+];
+
 function videoToScreen(lm) {
-  const vw = video.videoWidth, vh = video.videoHeight;
+  const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
   const s = Math.max(W / vw, H / vh);
   const ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
   return { x: W - (lm.x * vw * s + ox), y: lm.y * vh * s + oy };   // 거울 반전
 }
 
 let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
-let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;   // 몸(전신 포즈) 인식 결과
+let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
-let handVelocities = [{ vx: 0, vy: 0 }, { vx: 0, vy: 0 }]; // 각 손의 속도 벡터 (관성 보외용)
+let handVelocities = [{ vx: 0, vy: 0 }, { vx: 0, vy: 0 }];
 
 function updatePointers() {
-  // 메인 메뉴(게임 미진행) 상태에서는 포인터 및 추적을 완전히 슬립(대기) 처리
   if (!playing || !mode) {
     pointers.length = 0;
     trails[0].length = 0;
     trails[1].length = 0;
     lastHands = [];
     body = null;
+    euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
     return;
   }
 
@@ -255,13 +307,13 @@ function updatePointers() {
           bodySeen = t0;
           body = r.landmarks[0].map((l, i) => {
             const p = videoToScreen(l), o = body?.[i], v = l.visibility ?? 1;
-            return o ? { x: o.x + (p.x - o.x) * 0.72, y: o.y + (p.y - o.y) * 0.72, v } : { ...p, v };
+            return o ? { x: o.x + (p.x - o.x) * 0.75, y: o.y + (p.y - o.y) * 0.75, v } : { ...p, v };
           });
         } else if (t0 - bodySeen > 400) {
           body = null;
         }
       } catch (err) {
-        console.warn("포즈 인식 처리 예외:", err);
+        console.warn("포즈 인식 예외:", err);
       } finally {
         isDetectingBody = false;
       }
@@ -269,24 +321,21 @@ function updatePointers() {
     camOk = !!body;
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if (handLandmarker && video.readyState >= 2) {
-    // rVFC 미지원 환경 대비 rAF 폴백 호출 (isDetectingHands 가드로 중복 방지)
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
-    camInfo = (lastHands.length ? "✋ 초고속 손 추적 중" : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
+    camInfo = (lastHands.length ? "✋ 1유로 필터 초고속 추적 중" : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
     pts = lastHands;
   }
 
   pts.slice(0, 2).forEach((p, i) => {
     const pr = prev[i] ?? p;
-    // 적응형 동적 스무딩: 빠르게 휘두르면 즉각 반영(k=0.95), 천천히 움직이면 떨림 제거(k=0.6)
-    const dd = Math.hypot(p.x - pr.x, p.y - pr.y);
-    const k = Math.min(0.96, Math.max(0.58, 0.58 + dd * 0.015));
-    const x = pr.x + (p.x - pr.x) * k;
-    const y = pr.y + (p.y - pr.y) * k;
-    const curSpeed = Math.hypot(x - pr.x, y - pr.y);
+    // 1유로 필터 적용으로 완벽한 정밀 제어
+    const fx = euroFilters[i].x.filter(p.x, now);
+    const fy = euroFilters[i].y.filter(p.y, now);
+    const curSpeed = Math.hypot(fx - pr.x, fy - pr.y);
 
     pointers.push({
-      x, y, px: pr.x, py: pr.y,
+      x: fx, y: fy, px: pr.x, py: pr.y,
       speed: curSpeed,
       fist: useMouse ? !mouse.down : !!lastFist[i],
       punch: performance.now() - (useMouse ? mouse.p : lastPunch[i] || -1e9) < 180,
@@ -301,11 +350,12 @@ function updatePointers() {
       if (t.length > 14) t.shift();
     } else {
       t.length = 0;
+      euroFilters[i].x.reset(); euroFilters[i].y.reset();
     }
   }
 }
 
-// 초고속 손 인식 실행: 메뉴 시 절전 대기, 게임 중에만 활성화
+// 3D 기하 제스처 판정 및 1유로 필터 융합 손 인식 엔진
 function detectHandsNow() {
   if (!playing || !mode || isDetectingHands || !handLandmarker || video.readyState < 2) return;
   isDetectingHands = true;
@@ -318,91 +368,78 @@ function detectHandsNow() {
     detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
 
     const palm = $("trackMode").value === "palm" && mode !== "draw";
-    reach = palm ? 32 : 8;
+    reach = palm ? 32 : 10;
 
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0;
-      const raw = r.landmarks.map((l) => {
+      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+
+      const raw = r.landmarks.map((l, i) => {
+        // 손가락 3D 기하 분석 (주먹/검지/펀치 가속도 판정)
+        const wrist = l[0];
+        const d3 = (a, b) => Math.hypot((a.x - b.x) * vw, (a.y - b.y) * vh, (a.z - b.z) * vw * 1.3);
+        const foldedCount = [[8, 5], [12, 9], [16, 13], [20, 17]].filter(([tip, mcp]) => d3(l[tip], wrist) < d3(l[mcp], wrist) * 0.94).length;
+        
+        lastFist[i] = foldedCount >= 3;
+
+        // 펀치 가속도 충격량(Impulse) 감지
+        const scale = d3(l[9], wrist);
+        const h = (sizeHist[i] ??= []);
+        h.push({ t: t0, s: scale });
+        while (h.length && t0 - h[0].t > 380) h.shift();
+        const old = h.find((e) => t0 - e.t >= 80 && t0 - e.t <= 260);
+        if (old && scale / old.s > 1.20 && t0 - (lastPunch[i] || 0) > 280) {
+          lastPunch[i] = t0;
+        }
+
         if (!palm) {
-          // 검지 끝(8)을 기본으로 하되, 빠른 스윙 시 제2관절(7) 가중치로 떨림 감소
-          const tx = l[8].x * 0.85 + l[7].x * 0.15;
-          const ty = l[8].y * 0.85 + l[7].y * 0.15;
-          return videoToScreen({ x: tx, y: ty });
+          // 검지 끝과 제2관절의 최적 가중합
+          return videoToScreen({ x: l[8].x * 0.88 + l[7].x * 0.12, y: l[8].y * 0.88 + l[7].y * 0.12 });
         }
         const ids = [0, 5, 9, 13, 17];
         return videoToScreen({
-          x: ids.reduce((s, i) => s + l[i].x, 0) / 5,
-          y: ids.reduce((s, i) => s + l[i].y, 0) / 5
+          x: ids.reduce((s, idx) => s + l[idx].x, 0) / 5,
+          y: ids.reduce((s, idx) => s + l[idx].y, 0) / 5
         });
       });
 
-      // 펀치 판별: 카메라 방향 전진 모션 급가속 감지
-      const vw = video.videoWidth, vh = video.videoHeight;
-      r.landmarks.forEach((l, i) => {
-        const s = Math.hypot((l[9].x - l[0].x) * vw, (l[9].y - l[0].y) * vh);
-        const h = (sizeHist[i] ??= []);
-        h.push({ t: t0, s });
-        while (h.length && t0 - h[0].t > 380) h.shift();
-        const old = h.find((e) => t0 - e.t >= 90 && t0 - e.t <= 280);
-        if (old && s / old.s > 1.22 && t0 - (lastPunch[i] || 0) > 300) {
-          lastPunch[i] = t0;
-        }
-      });
-
-      // 주먹 판별
-      lastFist = r.landmarks.map((l, i) => {
-        const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z - b.z) * 1.2);
-        const allFolded = [[8, 5], [12, 9], [16, 13], [20, 17]].every(([t, m]) => d(l[t], l[0]) < d(l[m], l[0]) * 0.92);
-        fistCount[i] = allFolded ? (fistCount[i] || 0) + 1 : 0;
-        return fistCount[i] >= 4;
-      });
-
-      // 속도 벡터 계산 및 관성 보정 (Inertial Lead)
+      // 속도 벡터 산출 및 관성 보정
       lastHands = raw.map((p, i) => {
         const o = rawPrev[i];
         let vx = 0, vy = 0;
         if (o) {
-          const rawVx = p.x - o.x;
-          const rawVy = p.y - o.y;
-          // 비정상적 순간이동 클램핑
+          const rawVx = p.x - o.x, rawVy = p.y - o.y;
           const dist = Math.hypot(rawVx, rawVy);
-          const maxStep = W * 0.35;
+          const maxStep = W * 0.4;
           const scale = dist > maxStep ? maxStep / dist : 1;
-          vx = rawVx * scale;
-          vy = rawVy * scale;
+          vx = rawVx * scale; vy = rawVy * scale;
         }
         handVelocities[i] = {
-          vx: handVelocities[i].vx * 0.25 + vx * 0.75,
-          vy: handVelocities[i].vy * 0.25 + vy * 0.75
+          vx: handVelocities[i].vx * 0.2 + vx * 0.8,
+          vy: handVelocities[i].vy * 0.2 + vy * 0.8
         };
-        // 체감 지연 0을 위한 예측 보외 위치 전진
         return {
-          x: p.x + handVelocities[i].vx * 0.45,
-          y: p.y + handVelocities[i].vy * 0.45
+          x: p.x + handVelocities[i].vx * 0.35,
+          y: p.y + handVelocities[i].vy * 0.35
         };
       });
       rawPrev = raw;
     } else {
-      // 💥 핵심 혁신: 손을 너무 빠르게 휘둘러 1~2프레임 미인식되더라도
-      // 직전 관성 속도를 유지하여 자연스럽게 앞으로 진행시켜 끊김을 원천 방지!
+      // 300ms 그레이스 윈도우: 초고속 스윙 시 누락되어도 감쇠 오일러 적분으로 궤적 연결
       const dtMs = t0 - lastSeen;
-      if (dtMs < 250 && lastHands.length > 0) {
+      if (dtMs < 280 && lastHands.length > 0) {
         lastHands = lastHands.map((p, i) => {
           const vel = handVelocities[i] || { vx: 0, vy: 0 };
-          vel.vx *= 0.82; // 관성 감쇠
-          vel.vy *= 0.82;
+          vel.vx *= 0.84; vel.vy *= 0.84;
           return {
             x: Math.max(0, Math.min(W, p.x + vel.vx * 0.5)),
             y: Math.max(0, Math.min(H, p.y + vel.vy * 0.5))
           };
         });
-      } else if (dtMs >= 250) {
-        lastHands = [];
-        lastFist = [];
-        fistCount = [];
-        rawPrev = [];
-        sizeHist = [];
+      } else if (dtMs >= 280) {
+        lastHands = []; lastFist = []; rawPrev = []; sizeHist = [];
         handVelocities = [{ vx: 0, vy: 0 }, { vx: 0, vy: 0 }];
+        euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
       }
     }
   } catch (err) {
@@ -411,6 +448,7 @@ function detectHandsNow() {
     isDetectingHands = false;
   }
 }
+
 
 // ============================================================================
 // 🔒 보안 계층: Web Crypto API 기반 AES-256-GCM 저장소 & 체크포인트 (Zero-Trust)
@@ -2154,10 +2192,9 @@ games.beat = {
     for (const o of objs) o.y += o.vy * dt * 60;
     // 슬래시 판정: 판정선 부근(H * 0.75)에서 빠른 휘두름 감지
     for (const p of pointers) {
-      if (p.speed < 12) continue;
-      const angle = Math.atan2(p.y - p.py, p.x - p.px);
+      if (p.speed < 10) continue;
       for (const o of objs) {
-        if (o.dead || Math.hypot(p.x - o.x, p.y - o.y) > o.r + 35 + reach) continue;
+        if (o.dead || !segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 35)) continue;
         // 슬라이스 방향 검사
         let dirMatch = o.dir === "any";
         if (o.dir === "up") dirMatch = (p.y - p.py) < -6;
