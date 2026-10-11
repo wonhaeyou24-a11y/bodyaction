@@ -211,6 +211,8 @@ const BEAT_TRACKS = [
     title: "🎺 라데츠키 행진곡 (Radetzky March)",
     genre: "USMC ORCHESTRA MARCH",
     bpm: 140,
+    firstBeat: 1.52, // 🎵 1.52초에 첫 오케스트라 튜티 강박 시작!
+    approachTime: 1.8, // 1.8초 동안 소실점에서 판정선으로 정확히 날아옴
     root: 293.66, // D4
     audioFile: "assets/music/radetzky.mp3", // 🎵 미국 해병대 군악대 실제 오케스트라 녹음 MP3!
     melody: [
@@ -231,6 +233,8 @@ const BEAT_TRACKS = [
     title: "⚡ 베토벤 바이러스 (Beethoven Virus)",
     genre: "PATHETIQUE PIANO ROCK",
     bpm: 152,
+    firstBeat: 0.38, // 🎵 0.38초에 첫 피아노 타건 비트 시작!
+    approachTime: 1.6,
     root: 261.63, // C4
     audioFile: "assets/music/virus.ogg", // 🎵 베토벤 비창 3악장 실제 피아노 실연 음원!
     melody: [
@@ -251,6 +255,8 @@ const BEAT_TRACKS = [
     title: "⚜️ 터키 행진곡 (Turkish March Cyber)",
     genre: "MOZART PIANO DANCE",
     bpm: 138,
+    firstBeat: 0.12, // 🎵 0.12초에 첫 음 시작!
+    approachTime: 1.7,
     root: 220, // A3
     audioFile: "assets/music/turkish.ogg", // 🎵 모차르트 터키 행진곡 실제 피아노 실연 음원!
     melody: [
@@ -271,6 +277,8 @@ const BEAT_TRACKS = [
     title: "🥁 성자의 행진 (When the Saints)",
     genre: "BRASS BAND MARCH",
     bpm: 132,
+    firstBeat: 0.64, // 🎵 0.64초에 첫 브라스 비트 시작!
+    approachTime: 1.8,
     root: 261.63, // C4
     audioFile: "assets/music/saints.ogg", // 🎵 실제 브라스 밴드 연주 실연 음원!
     melody: [
@@ -291,6 +299,8 @@ const BEAT_TRACKS = [
     title: "✨ 캐논 변주곡 (Pachelbel's Canon)",
     genre: "STRINGS ORCHESTRA",
     bpm: 134,
+    firstBeat: 0.60, // 🎵 0.60초에 첫 현악 소절 시작!
+    approachTime: 1.8,
     root: 293.66, // D4
     audioFile: "assets/music/canon.ogg", // 🎵 실제 현악 오케스트라 실연 음원!
     melody: [
@@ -311,6 +321,8 @@ const BEAT_TRACKS = [
     title: "⚡ Cyber Overdrive",
     genre: "CYBERPUNK EDM",
     bpm: 144,
+    firstBeat: 0.30,
+    approachTime: 1.7,
     root: 220,
     scale: [0, 3, 5, 7, 10],
     prog: [0, 5, 7, 3],
@@ -325,6 +337,8 @@ const BEAT_TRACKS = [
     title: "🌌 Neon Tokyo Drift",
     genre: "SYNTH HOUSE",
     bpm: 128,
+    firstBeat: 0.30,
+    approachTime: 1.8,
     root: 261.63,
     scale: [0, 2, 4, 7, 9],
     prog: [0, 7, 9, 5],
@@ -388,7 +402,12 @@ function bgmStart() {
   bgmStep = 0;
   const c = BGM[mode];
   if (c && c.audioFile) {
-    playRealTrackAudio(c.audioFile, true);
+    // 🎵 beat 모드는 5초 레디타임(isReadyTime) 종료 시점에 정확히 0.00초부터 재생!
+    if (mode === "beat" && isReadyTime) {
+      stopRealTrackAudio();
+    } else {
+      playRealTrackAudio(c.audioFile, true);
+    }
   } else {
     stopRealTrackAudio();
   }
@@ -3201,8 +3220,20 @@ const GestureMatcher = {
 // 1. 🎵 네온 노트 슬래시 (beat): 비트세이버 정통 게임플레이 디자인 (Body Motion & Parity Flow)
 // ============================================================================
 games.beat = {
-  body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 음악 BPM 전용 정밀 스케줄러 적용
+  body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 오디오 타임스탬프 100% 동기화 엔진 가동
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
+
+  // 🎵 [Audio-Driven Clock] 실제 오디오의 현재 재생 시점을 유일한 단일 기준 시간으로 반환
+  getSongTime() {
+    if (bgmAudio && !bgmAudio.paused && !isNaN(bgmAudio.currentTime)) {
+      return bgmAudio.currentTime;
+    }
+    if (this.songStartTime > 0 && actx) {
+      return Math.max(0, actx.currentTime - this.songStartTime);
+    }
+    return 0;
+  },
+
   init() {
     // 🎵 유저가 선택한 곡(또는 랜덤 셔플)으로 트랙 확정
     let track = null;
@@ -3231,12 +3262,14 @@ games.beat = {
     this.laserAngle = 0; // 소실점 회전 레이저 각도
     this.beatFlash = 0; // 비트 싱크 플래시 & 페이드 조명
 
-    this.beatTimer = 0; // 🎵 음악 BPM 온비트 스폰 타이머
-    this.beatStep = 0;
+    this.songStartTime = 0; // 게임 본편 시작 시각 (actx.currentTime)
+    this.nextBeatIdx = 0; // 다음에 등장할 소절 박자 인덱스
+    this.nextWallBeat = 16; // 벽 장애물 스폰 박자
+    this.spawnCount = 0;
     this.lastParity = 0; // 0: 좌팔(Cyan), 1: 우팔(Magenta) 교대 리듬 플로우
 
     this.lastSwingT = [0, 0];
-    this.lastCutT = [0, 0]; // 스윙 모멘텀 쿨다운 (손을 뱅글뱅글 돌리는 잔동작 무력화)
+    this.lastCutT = [0, 0]; // 스윙 모멘텀 쿨다운
     this.prevWrist = [{ x: W * 0.35, y: H * 0.6 }, { x: W * 0.65, y: H * 0.6 }];
     this.wristVel = [{ x: 0, y: 0, spd: 0 }, { x: 0, y: 0, spd: 0 }];
     this.sabers = [
@@ -3244,96 +3277,140 @@ games.beat = {
       { base: { x: W * 0.65, y: H * 0.6 }, tip: { x: W * 0.7, y: H * 0.4 } }
     ];
     this.swingPower = [0, 0];
-    this.spawnCount = 0; // 주기적 폭탄 스폰 카운터
 
     this.energy = 50;
     this.multiplier = 1;
-    this.wallTimer = 0;
     this.screenShake = 0;
     this.flashColor = null;
   },
-  spawn() {
-    this.spawnCount++;
-    const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
+
+  // 🎵 5초 레디타임(카운트다운) 종료 시점에 정확히 0.00초부터 오디오 및 비트 시퀀서 동기화 시작!
+  onGameRealStart() {
+    this.songStartTime = actx ? actx.currentTime : performance.now() / 1000;
+    this.nextBeatIdx = 0;
+    this.nextWallBeat = 16;
+    objs = []; // 레디타임 잔여물 리셋
+    if (bgmAudio) {
+      try {
+        bgmAudio.currentTime = 0;
+        bgmAudio.play().catch((e) => console.warn(e));
+      } catch {}
+    }
+  },
+
+  // 🎵 [Audio-Driven Note Scheduler] 노래의 실제 오디오 시간(songTime)을 미리 읽어 정확한 박자에 노트 예약 스폰
+  scheduleNotes(songTime) {
+    if (isReadyTime) return; // 5초 카운트다운 동안에는 사전 생성 대기
+    const track = this.currentTrack || BEAT_TRACKS[0];
+    const bpm = track.bpm || 132;
     const beatSec = 60 / bpm;
-    // 🎵 정확히 4비트(또는 피버 시 3비트) 비행하여 온비트 킥 드럼 소리가 울리는 순간 판정선 통과!
-    const flightBeats = currentWave === 3 ? 3 : 4;
-    const flightTime = flightBeats * beatSec;
-    const speed = 0.63 / Math.max(0.7, flightTime);
+    const firstBeat = track.firstBeat ?? 0.40;
+    const approachTime = track.approachTime ?? 1.8;
+    const horizonTime = songTime + approachTime;
 
-    // 1. 네온 스파이크 폭탄(Bomb) 주기적 스폰 (뱅글뱅글 꼼수 방지: 8개 큐브마다 1개 등장)
-    const isBomb = this.spawnCount % 8 === 0 && Math.random() < 0.75;
+    // 최대 24개 박자 앞까지 미래 노트 스케줄링 (무한루프 방지 Guard)
+    let loopGuard = 0;
+    while (loopGuard++ < 24) {
+      // 🎵 노래의 실제 소절 박자 타임스탬프 (Beat Hit Timestamp)
+      let hitTime = firstBeat + this.nextBeatIdx * beatSec;
 
-    // 2. 비트세이버 정통 패리티 플로우: 왼손(0)과 오른손(1)이 춤추듯 교대 스윙
+      // 2단계 / 피버 모드에서는 음악의 드럼 리듬에 맞춘 8분음표/당김음 패턴 연동
+      if (currentWave === 3) {
+        // 피버: 8분음표 고속 리듬
+        hitTime = firstBeat + this.nextBeatIdx * (beatSec * 0.5);
+      } else if (currentWave === 2 && this.nextBeatIdx % 4 === 2) {
+        // 2단계: 경쾌한 당김음 반박자
+        hitTime = firstBeat + (this.nextBeatIdx - 0.5) * beatSec;
+      }
+
+      // 소실점 시야(approachTime) 바깥의 먼 미래 노트는 다음 프레임에 스폰
+      if (hitTime > horizonTime) break;
+
+      // 이미 플레이어 뒤로 지나간 과거 시간이 아니라면 스폰 큐에 등록!
+      if (hitTime >= songTime - 0.12) {
+        this.spawnNoteAt(hitTime, approachTime);
+      }
+      this.nextBeatIdx++;
+    }
+
+    // 🎵 네온 벽 장애물 (16비트 주기 온몸 좌우 피하기)
+    if (this.nextBeatIdx >= this.nextWallBeat) {
+      this.nextWallBeat += 16;
+      const wallHitTime = firstBeat + this.nextWallBeat * beatSec;
+      const wallSide = Math.random() < 0.5 ? -1 : 1;
+      this.walls.push({
+        hitTime: wallHitTime,
+        approachTime: approachTime * 1.05,
+        side: wallSide,
+        w: W * 0.38,
+        h: H * 0.65,
+        dead: false,
+        hit: false,
+        z: 0.0
+      });
+    }
+  },
+
+  spawnNoteAt(hitTime, approachTime) {
+    this.spawnCount++;
+
+    // 1. 네온 스파이크 폭탄 (9개 큐브마다 1개 출현하여 리듬 긴장감 조성)
+    const isBomb = this.spawnCount % 9 === 0 && Math.random() < 0.65;
+
+    // 2. 비트세이버 정통 패리티 플로우: 왼손(0)과 오른손(1)이 교대로 춤추듯 슬래시
     this.lastParity = 1 - this.lastParity;
     const isLeft = this.lastParity === 0;
 
     // 가로 레인: 0(좌측외곽), 1(좌측센터), 2(우측센터), 3(우측외곽)
-    const laneIdx = isLeft ? (Math.random() < 0.7 ? 1 : 0) : (Math.random() < 0.7 ? 2 : 3);
+    const laneIdx = isLeft ? (Math.random() < 0.72 ? 1 : 0) : (Math.random() < 0.72 ? 2 : 3);
     const targetXList = [W * 0.18, W * 0.38, W * 0.62, W * 0.82];
     const targetX = targetXList[laneIdx];
 
     // 높이 레이어: 상단(머리 위) 30%, 중단(가슴/배) 40%, 하단(허리/아래) 30%
     const heightRand = Math.random();
-    let targetY = H * 0.52; // 중단
+    let targetY = H * 0.52; // 중단 기본
     if (heightRand < 0.30) {
-      targetY = H * 0.28; // 상단 (만세하듯 위로 올려베기/가로베기!)
+      targetY = H * 0.28; // 상단 (만세하듯 위로 올려베기)
     } else if (heightRand > 0.70) {
-      targetY = H * 0.74; // 하단 (허리/아래쪽으로 시원하게 내려베기!)
+      targetY = H * 0.74; // 하단 (시원하게 내려베기)
     }
 
     objs.push({
-      z: 0.04, speed,
-      targetX, targetY, isLeft,
+      hitTime, // 🎵 정확히 이 시점(노래의 박자 순간)에 플레이어 판정선(z=1.0)에 도달!
+      approachTime,
+      targetX,
+      targetY,
+      isLeft,
       color: isLeft ? "#00d2ff" : "#ff3377",
       isBomb,
-      dead: false, cut: false
+      dead: false,
+      cut: false,
+      z: 0.0,
+      x: W * 0.5,
+      y: H * 0.42,
+      r: 16
     });
+  },
 
-    // 3. 네온 벽 장애물 (온몸 좌우 피하기 - 16비트 주기마다 출현)
-    this.wallTimer++;
-    if (this.wallTimer >= 14 && Math.random() < 0.5) {
-      this.wallTimer = 0;
-      const wallSide = Math.random() < 0.5 ? -1 : 1;
-      this.walls.push({
-        z: 0.04, speed: speed * 0.95, side: wallSide,
-        w: W * 0.38, h: H * 0.65, dead: false
-      });
-    }
-  },
-  // BPM 정밀 스케줄러를 자체 구현하여 interval은 예비용으로 보존
-  interval() {
-    const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
-    return 60 / bpm;
-  },
   update(dt) {
-    const judgeZ = 0.94;
+    const judgeZ = 1.0; // 정확히 플레이어 눈앞 판정선
     const now = performance.now();
     const swing = [false, false];
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
     this.beatFlash = Math.max(0, this.beatFlash - dt * 2.8);
     this.laserAngle += dt * 0.95;
 
-    // 🎵 음악 BPM 온비트 정밀 스폰 엔진 (BPM Sync Scheduler)
-    const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
-    const beatSec = 60 / bpm;
-    this.beatTimer += dt;
-    const spawnBeat = currentWave === 3 ? (this.beatStep % 3 === 0 ? beatSec * 0.5 : beatSec) :
-                      currentWave === 2 ? (this.beatStep % 4 === 2 ? beatSec * 0.5 : beatSec) :
-                      beatSec;
-    if (this.beatTimer >= spawnBeat) {
-      this.beatTimer -= spawnBeat;
-      this.beatStep++;
-      this.spawn();
-    }
+    // 🎵 1. 오디오 단일 기준 시간(songTime)을 기준으로 비트 스케줄러 가동
+    const songTime = this.getSongTime();
+    this.scheduleNotes(songTime);
 
-    // 콤보 배수
+    // 콤보 배수 계산
     if (combo >= 14) this.multiplier = 8;
     else if (combo >= 6) this.multiplier = 4;
     else if (combo >= 2) this.multiplier = 2;
     else this.multiplier = 1;
 
-    // 1. 전신 포즈 인식 (양팔 세이버 및 스윙 가속도 검출)
+    // 전신 포즈 인식 (양팔 세이버 및 스윙 가속도 검출)
     const skel = getBody();
     let headX = W / 2, headY = H * 0.35;
 
@@ -3379,7 +3456,7 @@ games.beat = {
             tip: { x: wPt.x + nx * bladeLen, y: wPt.y + ny * bladeLen }
           };
 
-          // 비트세이버 유효 스윙: 단순 정적 접촉/미세 돌림이 아닌, 확실한 스윙 가속도(spd > 7.0) 감지
+          // 비트세이버 유효 스윙 가속도(spd > 7.0) 감지
           if (spd > 7.0 && now - this.lastSwingT[i] > 100) {
             swing[i] = true;
             this.lastSwingT[i] = now;
@@ -3420,10 +3497,11 @@ games.beat = {
       }
     });
 
-    // 2. 네온 벽 장애물 (Walls)
+    // 2. 네온 벽 장애물 (Walls - 오디오 시간 기준 전진)
     for (const w of this.walls) {
-      w.z += w.speed * dt * (0.8 + w.z * 1.5);
-      if (!w.dead && w.z >= 0.82 && w.z <= 1.05) {
+      const timeRem = w.hitTime - songTime;
+      w.z = 1.0 - (timeRem / w.approachTime);
+      if (!w.dead && w.z >= 0.82 && w.z <= 1.05 && !w.hit) {
         const isInWall = (w.side < 0 && headX < W * 0.42) || (w.side > 0 && headX > W * 0.58);
         if (isInWall) {
           w.hit = true;
@@ -3438,17 +3516,22 @@ games.beat = {
     }
     this.walls = this.walls.filter((w) => !w.dead);
 
-    // 3. 큐브 노트 전진 및 자유 슬래시 타격 판정
+    // 🎵 3. 큐브 노트: 실제 노래 재생 시간(songTime)에 100% 종속되어 전진 & 칼박 판정!
     const originX = W * 0.5, originY = H * 0.42;
     for (const o of objs) {
-      o.z += o.speed * dt * (0.8 + o.z * 1.5);
-      // 소실점에서 목표 위치로 3D 전방위 방사 확장
+      const timeRemaining = o.hitTime - songTime;
+      // 🎵 노래 오디오 시간과 수학적으로 0.001초 오차 없이 100% 일치하는 Z 좌표!
+      // timeRemaining === 0 (즉 음악에서 쿵! 소리가 울리는 순간) => o.z === 1.0 (정확히 판정선 통과)
+      o.z = 1.0 - (timeRemaining / o.approachTime);
       o.x = originX + (o.targetX - originX) * o.z;
       o.y = originY + (o.targetY - originY) * o.z;
-      o.r = 16 + o.z * 52;
+      o.r = Math.max(12, 16 + o.z * 52);
 
-      // 판정선 윈도우 (z: 0.78 ~ 1.08)
-      if (!o.dead && !o.cut && o.z >= 0.78 && o.z <= 1.08) {
+      // 판정선 윈도우: 오디오 시간 기준 ±160ms (0.16초) 또는 Z 위치 0.80 ~ 1.12
+      const inTimeWindow = Math.abs(timeRemaining) <= 0.16;
+      const inZWindow = o.z >= 0.80 && o.z <= 1.12;
+
+      if (!o.dead && !o.cut && inZWindow && inTimeWindow) {
         const handIdx = o.isLeft ? 0 : 1;
         const saber = this.sabers[handIdx];
 
@@ -3474,7 +3557,7 @@ games.beat = {
         // 3. [모멘텀 쿨다운] 제자리 뱅글뱅글 비비기 방지
         const isCooldownOk = (now - this.lastCutT[handIdx] > 110);
 
-        // [A] 네온 폭탄(Bomb) 판정: 광선검이나 손이 폭탄 위치에 실제로 닿았을 때만 대폭발!
+        // [A] 네온 폭탄(Bomb) 판정: 폭탄을 치면 대폭발!
         if (o.isBomb) {
           if (isInPosition) {
             o.dead = true;
@@ -3496,10 +3579,10 @@ games.beat = {
             comboTimer = 2.0;
             if (combo > maxCombo) maxCombo = combo;
 
-            // 휘두른 스윙 속도와 타이밍 정밀도에 따른 점수 산출
-            const speedScore = Math.min(70, Math.round(35 + wVel.spd * 3.5));
-            const zDiff = Math.abs(o.z - judgeZ);
-            const timingScore = zDiff < 0.05 ? 30 : (zDiff < 0.09 ? 22 : 15);
+            // 🎵 실제 음악 박자와의 시간 오차(밀리초)에 따른 정확도 채점!
+            const diffMs = Math.abs(timeRemaining) * 1000;
+            const timingScore = diffMs <= 60 ? 35 : (diffMs <= 110 ? 25 : 15);
+            const speedScore = Math.min(65, Math.round(35 + wVel.spd * 3.2));
             const centerScore = 15;
             const baseScore = speedScore + timingScore + centerScore;
             const finalScore = baseScore * this.multiplier;
@@ -3515,7 +3598,7 @@ games.beat = {
             // 컷팅 스파크 팽창 링 생성
             this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.3, vr: o.r * 6.5, color: o.color, life: 1.0 });
 
-            const isPerfect = baseScore >= 105;
+            const isPerfect = diffMs <= 60;
             award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
 
             const cutLabel = isPerfect ? `PERFECT! +${finalScore} [${this.multiplier}x]` : `SLASH! +${finalScore} [${this.multiplier}x]`;
@@ -3530,8 +3613,8 @@ games.beat = {
         }
       }
 
-      // 판정선 완전히 지나쳐 놓침 (MISS)
-      if (!o.dead && !o.cut && o.z > 1.08) {
+      // 판정선 완전히 지나쳐 놓침 (MISS) - 음악 시간 기준 180ms 초과 시
+      if (!o.dead && !o.cut && (timeRemaining < -0.18 || o.z > 1.15)) {
         o.dead = true;
         if (!o.isBomb) {
           combo = 0;
@@ -4326,6 +4409,13 @@ function frame(now) {
         triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
         speak("시작!", true);
         spawnTimer = 0.3;
+        if (mode === "beat") {
+          const c = BGM.beat;
+          if (c && c.audioFile) {
+            playRealTrackAudio(c.audioFile, true);
+          }
+        }
+        g?.onGameRealStart?.();
       }
     } else {
       // 3단계 웨이브 전이 검사 (Wave 1: 60~40초, Wave 2: 40~20초, Fever: 20~0초)
@@ -4809,6 +4899,8 @@ customAudioInput?.addEventListener("change", (e) => {
       title: "🎵 " + fileName,
       genre: "CUSTOM USER MP3",
       bpm: 136,
+      firstBeat: 0.30,
+      approachTime: 1.7,
       root: 261.63,
       audioFile: blobUrl,
       drums: "edm",
