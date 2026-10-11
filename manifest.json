@@ -1,0 +1,18 @@
+{
+  "name": "KINETIC KABOOM - 패밀리 모션 아케이드",
+  "short_name": "키네틱카붐",
+  "description": "카메라 앞에서 손과 몸으로 즐기는 체감형 모션 아케이드 게임",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0d0f18",
+  "theme_color": "#0d0f18",
+  "icons": [
+    {
+      "src": "assets/avatar.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
