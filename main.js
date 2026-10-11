@@ -3157,12 +3157,7 @@ games.runner = {
           // 🪙 골든 스타 코인 획득
           o.dead = true;
           this.coinsCollected++;
-          combo++;
-          comboTimer = 2.0;
-          if (combo > maxCombo) maxCombo = combo;
-          const coinScore = 2 * (isFeverTime ? 2 : 1);
-          score += coinScore;
-          award(o.x, this.gy() - o.y0 - o.h, coinScore, "#ffd166");
+          award(o.x, this.gy() - o.y0 - o.h, 2, "#ffd166");   // 콤보/피버 배수는 award()가 한 번만 처리
           burst(o.x, this.gy() - o.y0 - o.h, "#ffd166", 12);
           sfx.pop(o.x, true);
         } else if (o.type === "ring") {
@@ -3200,14 +3195,8 @@ games.runner = {
       // 점프/슬라이딩으로 장애물 회피 성공 채점
       if (!o.dead && !o.counted && o.type !== "coin" && o.type !== "ring" && o.x + o.w < cx - cw * 0.4) {
         o.counted = true;
-        combo++;
-        comboTimer = 2.0;
-        if (combo > maxCombo) maxCombo = combo;
-        const passScore = 3 * (isFeverTime ? 2 : 1);
-        score += passScore;
-        const passLabel = o.type === "rock" ? `JUMP CLEAR! +${passScore}` : `SLIDE CLEAR! +${passScore}`;
-        award(cx, this.gy() - hs * 1.3, passScore, "#a5e7ff");
-        popup(cx, this.gy() - hs * 0.9, passLabel, "#00d2ff");
+        award(cx, this.gy() - hs * 1.3, 3, "#a5e7ff");        // 콤보/피버 배수는 award()가 한 번만 처리
+        popup(cx, this.gy() - hs * 0.9, o.type === "rock" ? "JUMP CLEAR!" : "SLIDE CLEAR!", "#00d2ff");
       }
     }
 
@@ -3868,9 +3857,6 @@ games.beat = {
             this.lastCutT[handIdx] = now;
             o.dead = true;
             o.cut = true;
-            combo++;
-            comboTimer = 2.0;
-            if (combo > maxCombo) maxCombo = combo;
 
             // 🎵 실제 음악 박자와의 시간 오차(밀리초)에 따른 정확도 채점!
             const diffMs = Math.abs(timeRemaining) * 1000;
@@ -3878,8 +3864,7 @@ games.beat = {
             const speedScore = Math.min(65, Math.round(35 + wVel.spd * 3.2));
             const centerScore = 15;
             const baseScore = speedScore + timingScore + centerScore;
-            const finalScore = baseScore * this.multiplier;
-            score += finalScore;
+            const finalScore = baseScore * this.multiplier;   // 점수는 아래 award()에서 한 번만 더해짐 (콤보도 award()가 올림)
 
             this.energy = Math.min(100, this.energy + 2.8);
             this.screenShake = 0.10;
@@ -4692,10 +4677,10 @@ const RANK_THRESHOLDS = {
   brick:   [9, 25, 55, 110, 360],
   dodge:   [30, 54, 86, 110, 130],
   pose:    [31, 50, 77, 100, 140],
-  runner:  [400, 900, 1300, 1600, 1850],
+  runner:  [250, 450, 620, 700, 800],       // 점수 이중 계산 수정 후 다시 계산
   keeper:  [68, 210, 580, 980, 1400],
   box:     [640, 1300, 1800, 2200, 2800],
-  beat:    [25000, 47000, 93000, 150000, 240000],
+  beat:    [11000, 19000, 34000, 61000, 120000],   // 점수 이중 계산 수정 후 다시 계산
 };
 const RANK_DEFAULT = [35, 70, 120, 180, 260];   // 기준이 없는 게임용 기본값 (예전 기준)
 
