@@ -4386,20 +4386,20 @@ async function ensureModel(kind) {
   if (kind === "pose" ? poseLandmarker : handLandmarker) return true;
   $("status").textContent = kind === "pose" ? "몸 인식 준비 중… (처음엔 조금 걸려요)" : "손 인식 준비 중…";
   try {
-    // 빠른 모션 블러 상황에서도 추적이 유지되도록 신뢰도 임계치 최적화 (0.25)
+    // 저조도(어두운 환경) 및 빠른 모션 블러 상황에서도 손/몸을 놓치지 않도록 신뢰도 임계치 최적화 (0.28)
     if (kind === "pose") {
       poseLandmarker = await makeLandmarker(PoseLandmarker, POSE_MODEL, {
         numPoses: 1,
-        minPoseDetectionConfidence: 0.35,
-        minPosePresenceConfidence: 0.35,
-        minTrackingConfidence: 0.35
+        minPoseDetectionConfidence: 0.28,
+        minPosePresenceConfidence: 0.28,
+        minTrackingConfidence: 0.28
       });
     } else {
       handLandmarker = await makeLandmarker(HandLandmarker, MODEL, {
         numHands: 2, // 1인 플레이어 2손 집중 추적으로 GPU/WASM 연산량 50% 절감 & 60 FPS 즉각 반응
-        minHandDetectionConfidence: 0.35,
-        minHandPresenceConfidence: 0.35,
-        minTrackingConfidence: 0.35
+        minHandDetectionConfidence: 0.28,
+        minHandPresenceConfidence: 0.28,
+        minTrackingConfidence: 0.28
       });
     }
     $("status").textContent = "";
