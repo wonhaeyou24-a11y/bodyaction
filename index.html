@@ -34,7 +34,7 @@
 </div>
 
 <!-- ================= Stitch 기반 Live In-Game Motion HUD ================= -->
-<div id="hud" class="stitch-hud hidden">
+<div id="hud" class="stitch-hud hidden" data-theme="beat">
   <!-- 1. 상단 라이브 헤더 (트랙/게임명, 점수, 멀티플라이어 게이지, 타이머 & 에너지) -->
   <header class="stitch-hud-top">
     <!-- 좌측: 트랙/게임 배지 & 대형 네온 스코어 -->
@@ -51,7 +51,7 @@
       </div>
     </div>
 
-    <!-- 중앙: Stitch 원형 멀티플라이어 링 & 불꽃 스트릭 -->
+    <!-- 중앙: Stitch 원형 멀티플라이어 링 & 게임별 특화 스탯 대시보드 티커 -->
     <div class="hud-center-cluster">
       <div class="multiplier-radial-wrap">
         <svg class="multiplier-svg" viewBox="0 0 100 100">
@@ -59,18 +59,37 @@
           <circle id="multCircle" class="ring-fill" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="0"></circle>
         </svg>
         <div class="multiplier-core">
-          <span class="multiplier-caption">COMBO</span>
+          <span id="hudMultCaption" class="multiplier-caption">COMBO</span>
           <span id="hudMultVal" class="multiplier-val">x1</span>
           <span id="hudMultMax" class="multiplier-max">BASE</span>
         </div>
       </div>
+
+      <!-- 게임별 특화 스탯 티커 칩 (Stitch 유사 게임 디자인 연동) -->
+      <div id="hudTickerStrip" class="hud-ticker-strip">
+        <div class="ticker-chip chip-1">
+          <span id="hudMetricLabel1" class="chip-label">METRIC 1</span>
+          <b id="hudMetricVal1" class="chip-val">0</b>
+        </div>
+        <i class="ticker-divider"></i>
+        <div class="ticker-chip chip-2">
+          <span id="hudMetricLabel2" class="chip-label">METRIC 2</span>
+          <b id="hudMetricVal2" class="chip-val">0</b>
+        </div>
+        <i class="ticker-divider"></i>
+        <div class="ticker-chip chip-3">
+          <span id="hudMetricLabel3" class="chip-label">SPEED</span>
+          <b id="hudMetricVal3" class="chip-val">x1.0</b>
+        </div>
+      </div>
+
       <div id="hudStreakBadge" class="hud-streak-pill hidden">
         <span class="streak-fire">🔥</span>
         <span id="hudStreakText">0 STREAK!</span>
       </div>
     </div>
 
-    <!-- 우측: 남은 시간, 라이프 에너지 바, 센서 상태 및 액션 버튼 -->
+    <!-- 우측: 남은 시간, 라이프 에너지 바/하트, 센서 상태 및 액션 버튼 -->
     <div class="hud-card hud-right-card">
       <div class="hud-time-row">
         <span class="hud-icon">⏱</span>
@@ -79,12 +98,18 @@
       </div>
       <div class="hud-energy-wrap">
         <div class="hud-energy-labels">
-          <span class="energy-title">LIFE ENERGY</span>
+          <span id="hudEnergyTitle" class="energy-title">LIFE ENERGY</span>
           <span id="hudEnergyPct" class="energy-pct">100%</span>
         </div>
         <div class="energy-track">
           <div id="hudEnergyFill" class="energy-fill" style="width: 100%;"></div>
         </div>
+      </div>
+      <!-- 하트 라이프 바 (러너 / 벽돌깨기 / 아케이드용) -->
+      <div id="hudHearts" class="hud-hearts-row hidden">
+        <span class="heart-icon active">❤️</span>
+        <span class="heart-icon active">❤️</span>
+        <span class="heart-icon active">❤️</span>
       </div>
       <div class="hud-cam-pill">
         <span class="cam-dot"></span>
@@ -102,14 +127,14 @@
 
   <!-- 2. 중앙 상단 조작 가이드 배너 -->
   <div id="hudGuideBanner" class="hud-guide-banner">
-    <span class="guide-icon">⚡</span>
+    <span id="hudGuideIcon" class="guide-icon">⚡</span>
     <span id="hudGuideMain" class="guide-main">SLASH IN DIRECTION OF ARROWS!</span>
     <span id="hudGuideSub" class="guide-sub">화살표 방향으로 리듬에 맞춰 슬라이스하세요!</span>
   </div>
 
-  <!-- 3. 하단 듀얼 모션 텔레메트리 독 (좌/우 세이버 속도 & 필살기 게이지) -->
+  <!-- 3. 하단 듀얼 모션 텔레메트리 독 (게임별 좌/우 모션 속도 & 특수 필살기) -->
   <footer class="stitch-hud-bottom">
-    <!-- 좌측 세이버/모션 텔레메트리 팟 (CYAN) -->
+    <!-- 좌측 세이버/모션 텔레메트리 팟 -->
     <div id="hudLeftPod" class="telemetry-pod pod-left">
       <div class="saber-light-bar left-bar"></div>
       <div class="pod-info">
@@ -117,15 +142,15 @@
           <span class="pod-dot cyan-dot"></span>
           <span id="hudLeftLabel" class="pod-name">LEFT SABER (CYAN)</span>
         </div>
-        <div class="pod-speed"><span id="hudLeftSpeed">0</span> <small>KM/H</small></div>
+        <div class="pod-speed"><span id="hudLeftSpeed">0</span> <small id="hudLeftUnit">KM/H</small></div>
         <div id="hudLeftDesc" class="pod-detail">SMOOTH ARC • READY</div>
       </div>
     </div>
 
-    <!-- 중앙 특수 필살기 (HYPER OVERDRIVE FRENZY) 게이지 바 -->
+    <!-- 중앙 특수 필살기 (게임별 전용 하이퍼 모드) 게이지 바 -->
     <div id="hudOverdriveWrap" class="overdrive-dock">
       <div class="od-header">
-        <span class="od-title">⚡ HYPER OVERDRIVE</span>
+        <span id="hudOdTitle" class="od-title">⚡ HYPER OVERDRIVE</span>
         <span id="hudOdStatus" class="od-status">CHARGING...</span>
       </div>
       <div class="od-track">
@@ -133,14 +158,14 @@
       </div>
     </div>
 
-    <!-- 우측 세이버/모션 텔레메트리 팟 (MAGENTA) -->
+    <!-- 우측 세이버/모션 텔레메트리 팟 -->
     <div id="hudRightPod" class="telemetry-pod pod-right">
       <div class="pod-info text-right">
         <div class="pod-header justify-end">
           <span id="hudRightLabel" class="pod-name">RIGHT SABER (MAGENTA)</span>
           <span class="pod-dot magenta-dot"></span>
         </div>
-        <div class="pod-speed"><span id="hudRightSpeed">0</span> <small>KM/H</small></div>
+        <div class="pod-speed"><span id="hudRightSpeed">0</span> <small id="hudRightUnit">KM/H</small></div>
         <div id="hudRightDesc" class="pod-detail">CRITICAL POWER • READY</div>
       </div>
       <div class="saber-light-bar right-bar"></div>

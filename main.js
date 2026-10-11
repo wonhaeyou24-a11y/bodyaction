@@ -835,118 +835,219 @@ function award(x, y, pts, color = "#fff") {
   else if (combo === 20) speak("20 콤보! 슈퍼스타!", true);
 }
 // ============================================================================
-// 🌟 Stitch Live In-Game Motion HUD 시스템 (Beat Saber Inspired)
+// 🌟 Stitch 게임별 전용 Live In-Game Motion HUD 시스템 (Console Arcade Polish)
 // ============================================================================
 const GAME_HUD_META = {
   beat: {
+    theme: "beat",
     badge: "EXPERT +",
     title: "NEON NOTE SLASH",
     sub: "132 BPM",
+    guideIcon: "⚡",
     guideMain: "SLASH IN DIRECTION OF ARROWS!",
     guideSub: "화살표 방향으로 리듬에 맞춰 듀얼 세이버를 휘두르세요!",
     leftName: "LEFT SABER (CYAN)",
     rightName: "RIGHT SABER (MAGENTA)",
+    leftUnit: "KM/H",
+    rightUnit: "KM/H",
     leftDesc: "SMOOTH ARC • READY",
     rightDesc: "CRITICAL POWER • READY",
+    odTitle: "⚡ HYPER OVERDRIVE FRENZY",
+    getMetrics: (g) => [
+      { label: "NOTES", val: score },
+      { label: "STREAK", val: `${combo}x` },
+      { label: "BPM", val: g?.currentTrack ? g.currentTrack.bpm : 132 }
+    ]
+  },
+  runner: {
+    theme: "runner",
+    badge: "STAGE 08 • JUMP & SQUAT",
+    title: "ASTRO JUMP RUNNER",
+    sub: "HIGH SPEED SPRINT",
+    guideIcon: "🏃",
+    guideMain: "JUMP OVER HURDLES & SQUAT DUCK LOW!",
+    guideSub: "점프로 장애물을 넘고 몸을 숙여 레이저를 피하세요!",
+    leftName: "JUMP APEX HEIGHT",
+    rightName: "RUNNING SPEED",
+    leftUnit: "CM",
+    rightUnit: "KM/H",
+    leftDesc: "17-JOINTS OPTICAL ENGINE",
+    rightDesc: "HIGH-SPEED BOOST",
+    odTitle: "🚀 ASTRO HYPER DASH (초고속 무적 질주)",
+    showHearts: true,
+    getMetrics: (g) => [
+      { label: "COINS", val: `${(score * 2)}★` },
+      { label: "JUMPS", val: `${Math.floor(score / 4)}/35` },
+      { label: "SPEED", val: `x${(1.0 + Math.min(1.5, score * 0.02)).toFixed(1)}` }
+    ]
   },
   kungfu: {
-    badge: "BLACK BELT",
-    title: "KUNGFU DOJO",
-    sub: "MARTIAL ARTS",
-    guideMain: "PUNCH THE TARGETS WITH BOTH HANDS!",
-    guideSub: "다가오는 표적을 양손 주먹으로 빠르게 타격하세요! (폭탄 주의)",
-    leftName: "LEFT JAB (CYAN)",
-    rightName: "RIGHT HOOK (RED)",
-    leftDesc: "SPEED PUNCH • READY",
-    rightDesc: "POWER PUNCH • READY",
+    theme: "kungfu",
+    badge: "BLACK BELT 4단",
+    title: "KUNG FU PUNCH DOJO",
+    sub: "MARTIAL ARTS ARENA",
+    guideIcon: "🥊",
+    guideMain: "PUNCH TARGETS WITH BOTH HANDS! (AVOID BOMBS)",
+    guideSub: "다가오는 표적을 양손 주먹으로 신속하게 가격하세요! (폭탄 주의)",
+    leftName: "LEFT JAB FORCE",
+    rightName: "RIGHT HOOK IMPACT",
+    leftUnit: "PSI",
+    rightUnit: "PSI",
+    leftDesc: "SPEED STRIKE • READY",
+    rightDesc: "POWER STRIKE • READY",
+    odTitle: "🐯 TIGER SPIRIT IMPACT (호랑이 진각 맹타)",
+    getMetrics: (g) => [
+      { label: "JABS", val: Math.floor(score * 0.55) },
+      { label: "HOOKS", val: Math.floor(score * 0.45) },
+      { label: "IMPACT", val: `${Math.min(99, 88 + combo)}%` }
+    ]
   },
   box: {
-    badge: "SPEED COMBO",
+    theme: "kungfu",
+    badge: "SPEED PUNCH ARENA",
     title: "SPEED PUNCHING BAG",
-    sub: "BOXING ARENA",
-    guideMain: "STRIKE THE BAG CONTINUOUSLY!",
+    sub: "BOXING TRAINING",
+    guideIcon: "🥊",
+    guideMain: "STRIKE THE BAG IN RAPID SUCCESSION!",
     guideSub: "리듬에 맞춰 샌드백을 양손으로 연속 타격하세요!",
-    leftName: "LEFT GLOVE",
-    rightName: "RIGHT GLOVE",
-    leftDesc: "RAPID STRIKE",
-    rightDesc: "RAPID STRIKE",
+    leftName: "LEFT FIST VELOCITY",
+    rightName: "RIGHT FIST VELOCITY",
+    leftUnit: "KM/H",
+    rightUnit: "KM/H",
+    leftDesc: "RAPID JAB",
+    rightDesc: "POWER HOOK",
+    odTitle: "🥊 ULTRA BOXING RUSH (100연타 러시)",
+    getMetrics: (g) => [
+      { label: "PUNCHES", val: score },
+      { label: "CADENCE", val: `${Math.min(180, 90 + combo * 4)}/M` },
+      { label: "FORCE", val: `${Math.min(300, 120 + score * 3)}PSI` }
+    ]
   },
   space: {
-    badge: "DEFENDER",
+    theme: "space",
+    badge: "PLANETARY DEFENSE",
     title: "COSMIC METEOR DEFENSE",
-    sub: "PLANET SHIELD",
-    guideMain: "TOUCH TO DESTROY INCOMING METEORS!",
-    guideSub: "지구로 날아오는 불타는 유성을 손으로 터뜨려 방어막을 지키세요!",
+    sub: "EARTH SHIELD PROTOCOL",
+    guideIcon: "🛡️",
+    guideMain: "TOUCH & BLAST INCOMING METEORS!",
+    guideSub: "지구로 날아오는 불타는 유성을 터뜨려 방어막을 지키세요!",
     leftName: "P1 DEFENSE SHIELD",
-    rightName: "P2 CO-OP SENSOR",
+    rightName: "P2 PLASMA BEAM",
+    leftUnit: "KW",
+    rightUnit: "KW",
     leftDesc: "SHIELD MATRIX",
-    rightDesc: "ENERGY BEAM",
+    rightDesc: "ENERGY BURST",
+    odTitle: "🛡️ PLANETARY FORCEFIELD (전방위 펄스 방어막)",
+    getMetrics: (g) => [
+      { label: "SHIELD", val: `${Math.round((shield / SHIELD_MAX) * 100)}%` },
+      { label: "METEORS", val: score },
+      { label: "WAVE", val: `LV.${currentWave}` }
+    ]
   },
   brick: {
-    badge: "ARCADE RETRO",
+    theme: "brick",
+    badge: "CYBER RETRO 80s",
     title: "NEON BRICK BREAKER",
-    sub: "CYBER PADDLE",
+    sub: "OPTICAL PADDLE CONTROL",
     guideMain: "MOVE YOUR HAND TO DEFLECT THE BALL!",
     guideSub: "손으로 네온 패들을 좌우로 움직여 공을 튕겨내세요!",
     leftName: "PADDLE POSITION",
     rightName: "BALL VELOCITY",
+    leftUnit: "%",
+    rightUnit: "KM/H",
     leftDesc: "SMOOTH GLIDE",
     rightDesc: "ACTIVE BOUNCE",
-  },
-  runner: {
-    badge: "HIGH VELOCITY",
-    title: "JUMPING RUNNER",
-    sub: "FULL BODY MOTION",
-    guideMain: "JUMP OVER OBSTACLES & DUCK LOW!",
-    guideSub: "점프로 장애물을 넘고 몸을 숙여 터널을 통과하세요!",
-    leftName: "BODY VERTICAL (Y)",
-    rightName: "JUMP ACCELERATION",
-    leftDesc: "POSE TRACKING",
-    rightDesc: "PEAK VELOCITY",
+    odTitle: "💥 MULTI-BALL CHAOS (멀티볼 대폭발)",
+    showHearts: true,
+    getMetrics: (g) => [
+      { label: "BRICKS", val: score },
+      { label: "PADDLE", val: "100%" },
+      { label: "BALLS", val: "x1" }
+    ]
   },
   keeper: {
-    badge: "SUPER SAVE",
+    theme: "keeper",
+    badge: "SUPER SAVE ARENA",
     title: "MOTION GOALKEEPER",
     sub: "3D PENALTY SHOT",
-    guideMain: "BLOCK THE SOCCER BALL WITH BODY & HANDS!",
+    guideIcon: "🧤",
+    guideMain: "BLOCK PENALTY SHOTS WITH BODY & HANDS!",
     guideSub: "골대로 날아오는 슈팅을 온몸과 양손으로 슈퍼 세이브 하세요!",
-    leftName: "LEFT GLOVE BLOCK",
-    rightName: "RIGHT GLOVE BLOCK",
+    leftName: "LEFT GLOVE REACH",
+    rightName: "RIGHT GLOVE REACH",
+    leftUnit: "CM",
+    rightUnit: "CM",
     leftDesc: "REFLEX SENSOR",
     rightDesc: "REFLEX SENSOR",
-  },
-  pose: {
-    badge: "SYNCHRO 100%",
-    title: "POSE MIMIC MASCOT",
-    sub: "AEROBIC DANCE",
-    guideMain: "MATCH THE POSE ON THE SCREEN!",
-    guideSub: "화면의 마스코트 동작을 거울처럼 똑같이 따라 하세요!",
-    leftName: "BODY SYNC RATE",
-    rightName: "FLEXIBILITY",
-    leftDesc: "SKELETON MATCH",
-    rightDesc: "PERFECT POSE",
-  },
-  balloon: {
-    badge: "PARTY POP",
-    title: "BALLOON FRENZY",
-    sub: "MULTI TOUCH",
-    guideMain: "TOUCH & POP ALL BALLOONS!",
-    guideSub: "화면 위로 떠오르는 알록달록 풍선들을 팡팡 터뜨리세요!",
-    leftName: "P1 POP SENSOR",
-    rightName: "P2 POP SENSOR",
-    leftDesc: "QUICK TOUCH",
-    rightDesc: "QUICK TOUCH",
+    odTitle: "🧤 SUPER DIVING MATRIX (철벽 수비 모드)",
+    getMetrics: (g) => [
+      { label: "SAVES", val: score },
+      { label: "SAVE RATE", val: `${Math.min(100, 95 + combo)}%` },
+      { label: "REACTION", val: "18ms" }
+    ]
   },
   ninja: {
-    badge: "CYBER KATANA",
-    title: "FRUIT NINJA BLADE",
-    sub: "FAST SLASH",
+    theme: "ninja",
+    badge: "CYBER KATANA DOJO",
+    title: "FRUIT SPLASH NINJA",
+    sub: "FAST BLADE SLASH",
+    guideIcon: "🗡️",
     guideMain: "SWIPE FAST TO SLICE FLYING FRUITS!",
     guideSub: "화면 위로 솟구치는 과일을 빠르게 베어내세요! (폭탄 주의)",
     leftName: "BLADE SWIPE L",
     rightName: "BLADE SWIPE R",
-    leftDesc: "CUT VELOCITY",
-    rightDesc: "CUT VELOCITY",
+    leftUnit: "KM/H",
+    rightUnit: "KM/H",
+    leftDesc: "KATANA CUT",
+    rightDesc: "KATANA CUT",
+    odTitle: "🗡️ SHADOW BLADE STORM (폭풍 연속 베기)",
+    getMetrics: (g) => [
+      { label: "FRUITS", val: score },
+      { label: "SWIPES", val: `${combo}x` },
+      { label: "SPLASH", val: "CRIT" }
+    ]
+  },
+  pose: {
+    theme: "runner",
+    badge: "DANCE SYNCHRO 100%",
+    title: "POSE MIMIC MASCOT",
+    sub: "AEROBIC DANCE RHYTHM",
+    guideIcon: "🙆",
+    guideMain: "MATCH THE POSE OF COSMO MASCOT!",
+    guideSub: "화면의 마스코트 동작을 거울처럼 똑같이 따라 하세요!",
+    leftName: "BODY SYNC RATE",
+    rightName: "FLEXIBILITY",
+    leftUnit: "%",
+    rightUnit: "%",
+    leftDesc: "SKELETON MATCH",
+    rightDesc: "PERFECT POSE",
+    odTitle: "✨ FEVER FEVER DANCE TIME (슈퍼 댄스 피버)",
+    getMetrics: (g) => [
+      { label: "MATCH", val: `${Math.min(100, 80 + combo * 2)}%` },
+      { label: "POSES", val: score },
+      { label: "SYNC", val: "100%" }
+    ]
+  },
+  balloon: {
+    theme: "beat",
+    badge: "PARTY CARNIVAL",
+    title: "BALLOON FRENZY",
+    sub: "MULTI-TOUCH ARCADE",
+    guideIcon: "🎈",
+    guideMain: "TOUCH & POP ALL BALLOONS QUICKLY!",
+    guideSub: "화면 위로 떠오르는 알록달록 풍선들을 팡팡 터뜨리세요!",
+    leftName: "P1 POP SENSOR",
+    rightName: "P2 POP SENSOR",
+    leftUnit: "TOUCH",
+    rightUnit: "TOUCH",
+    leftDesc: "RAPID POP",
+    rightDesc: "RAPID POP",
+    odTitle: "🎈 GOLDEN BALLOON PARADE (황금 풍선 대행진)",
+    getMetrics: (g) => [
+      { label: "POPPED", val: score },
+      { label: "STREAK", val: `${combo}x` },
+      { label: "BURST", val: "MAX" }
+    ]
   }
 };
 
@@ -955,16 +1056,28 @@ function updateLiveHud() {
   if (!playing || !mode) return;
   const g = games[mode];
   const meta = GAME_HUD_META[mode] || {
+    theme: "beat",
     badge: "STAGE",
     title: mode.toUpperCase(),
     sub: "60 FPS",
+    guideIcon: "⚡",
     guideMain: "PLAY WITH MOTION!",
     guideSub: "카메라 앞에서 손과 몸으로 플레이하세요!",
     leftName: "MOTION P1",
     rightName: "MOTION P2",
+    leftUnit: "KM/H",
+    rightUnit: "KM/H",
     leftDesc: "ACTIVE",
     rightDesc: "ACTIVE",
+    odTitle: "⚡ HYPER OVERDRIVE",
+    getMetrics: () => [{ label: "SCORE", val: score }, { label: "COMBO", val: combo }, { label: "STAGE", val: "1" }]
   };
+
+  // 0. 게임별 맞춤 테마 적용 (data-theme)
+  const hudEl = $("hud");
+  if (hudEl && hudEl.dataset.theme !== (meta.theme || "beat")) {
+    hudEl.dataset.theme = meta.theme || "beat";
+  }
 
   // 1. 헤더 기본 정보
   const badgeEl = $("hudBadge");
@@ -972,7 +1085,7 @@ function updateLiveHud() {
 
   const titleEl = $("hudTitle");
   if (titleEl) {
-    if (mode === "beat" && g.currentTrack) {
+    if (mode === "beat" && g?.currentTrack) {
       titleEl.textContent = g.currentTrack.title;
     } else {
       titleEl.textContent = meta.title;
@@ -981,7 +1094,7 @@ function updateLiveHud() {
 
   const subEl = $("hudSubDetail");
   if (subEl) {
-    if (mode === "beat" && g.currentTrack) {
+    if (mode === "beat" && g?.currentTrack) {
       subEl.textContent = `${g.currentTrack.bpm} BPM`;
     } else {
       subEl.textContent = meta.sub;
@@ -991,12 +1104,12 @@ function updateLiveHud() {
   // 2. 스코어 네온 숫자
   const scoreEl = $("score");
   if (scoreEl) {
-    const rawScore = g.scoreText ? g.scoreText() : score.toLocaleString();
+    const rawScore = g?.scoreText ? g.scoreText() : score.toLocaleString();
     scoreEl.textContent = rawScore;
   }
 
-  // 3. Stitch 원형 멀티플라이어 SVG 게이지 & 불꽃 스트릭
-  const mult = g.multiplier || (combo >= 14 ? 8 : (combo >= 6 ? 4 : (combo >= 2 ? 2 : 1)));
+  // 3. Stitch 원형 멀티플라이어 SVG 게이지 & 콤보 스트릭
+  const mult = g?.multiplier || (combo >= 14 ? 8 : (combo >= 6 ? 4 : (combo >= 2 ? 2 : 1)));
   const multValEl = $("hudMultVal");
   if (multValEl) multValEl.textContent = `x${mult}`;
 
@@ -1016,6 +1129,28 @@ function updateLiveHud() {
     const offset = circumference - (comboProgress * circumference);
     multCircle.style.strokeDashoffset = offset.toString();
     multCircle.style.stroke = mult >= 8 ? "#ffd700" : (mult >= 4 ? "#e1037d" : "#00d2ff");
+  }
+
+  // 게임별 맞춤 스탯 티커 칩 업데이트
+  if (meta.getMetrics) {
+    try {
+      const metrics = meta.getMetrics(g);
+      if (metrics[0]) {
+        const l1 = $("hudMetricLabel1"), v1 = $("hudMetricVal1");
+        if (l1) l1.textContent = metrics[0].label;
+        if (v1) v1.textContent = metrics[0].val;
+      }
+      if (metrics[1]) {
+        const l2 = $("hudMetricLabel2"), v2 = $("hudMetricVal2");
+        if (l2) l2.textContent = metrics[1].label;
+        if (v2) v2.textContent = metrics[1].val;
+      }
+      if (metrics[2]) {
+        const l3 = $("hudMetricLabel3"), v3 = $("hudMetricVal3");
+        if (l3) l3.textContent = metrics[2].label;
+        if (v3) v3.textContent = metrics[2].val;
+      }
+    } catch {}
   }
 
   // 콤보 스트릭 배지
@@ -1041,10 +1176,10 @@ function updateLiveHud() {
     }
   }
 
-  // 5. 라이프 에너지 바
+  // 5. 라이프 에너지 바 & 하트 라이프
   let energyPct = 100;
   if (mode === "beat") {
-    energyPct = Math.max(5, Math.min(100, Math.round(g.energy ?? 100)));
+    energyPct = Math.max(5, Math.min(100, Math.round(g?.energy ?? 100)));
   } else if (mode === "space") {
     energyPct = Math.round((shield / SHIELD_MAX) * 100);
   } else {
@@ -1055,17 +1190,41 @@ function updateLiveHud() {
   if (energyFill) energyFill.style.width = `${energyPct}%`;
   if (energyPctEl) energyPctEl.textContent = `${energyPct}%`;
 
+  // 하트 라이프 표시
+  const heartsRow = $("hudHearts");
+  if (heartsRow) {
+    if (meta.showHearts) {
+      heartsRow.classList.remove("hidden");
+    } else {
+      heartsRow.classList.add("hidden");
+    }
+  }
+
   // 6. 상단 가이드 배너
+  const guideIcon = $("hudGuideIcon");
   const guideMain = $("hudGuideMain");
   const guideSub = $("hudGuideSub");
+  if (guideIcon) guideIcon.textContent = meta.guideIcon || "⚡";
   if (guideMain) guideMain.textContent = meta.guideMain;
   if (guideSub) guideSub.textContent = meta.guideSub;
 
-  // 7. 실시간 모션 스피드 텔레메트리 (KM/H)
+  // 7. 실시간 모션 스피드 / 텔레메트리
   let leftSpd = 0, rightSpd = 0;
-  if (mode === "beat" && g.wristVel) {
+  if (mode === "beat" && g?.wristVel) {
     leftSpd = Math.round((g.wristVel[0]?.spd || 0) * 3.6);
     rightSpd = Math.round((g.wristVel[1]?.spd || 0) * 3.6);
+  } else if (mode === "runner") {
+    // 러너: 점프 높이 (cm)와 달리기 속도
+    const skel = getBody?.();
+    let jumpCm = 0;
+    if (skel && skel[0]) jumpCm = Math.max(0, Math.round((H * 0.5 - skel[0].y) * 0.45));
+    leftSpd = Math.max(15, jumpCm);
+    rightSpd = Math.round(18 + Math.min(24, score * 0.4));
+  } else if (mode === "kungfu" || mode === "box") {
+    // 쿵푸/복싱: 펀치 임팩트 PSI
+    const p1 = pointers?.[0], p2 = pointers?.[1] || p1;
+    leftSpd = Math.round((p1?.speed || 0) * 4.2);
+    rightSpd = Math.round((p2?.speed || 0) * 4.2);
   } else if (pointers && pointers.length > 0) {
     const p1 = pointers[0];
     const p2 = pointers[1] || pointers[0];
@@ -1080,12 +1239,20 @@ function updateLiveHud() {
   if (leftSpdEl) leftSpdEl.textContent = Math.max(12, lastLeftSpeed);
   if (rightSpdEl) rightSpdEl.textContent = Math.max(14, lastRightSpeed);
 
+  const leftUnit = $("hudLeftUnit");
+  const rightUnit = $("hudRightUnit");
+  if (leftUnit) leftUnit.textContent = meta.leftUnit || "KM/H";
+  if (rightUnit) rightUnit.textContent = meta.rightUnit || "KM/H";
+
   const leftLbl = $("hudLeftLabel");
   const rightLbl = $("hudRightLabel");
   if (leftLbl) leftLbl.textContent = meta.leftName;
   if (rightLbl) rightLbl.textContent = meta.rightName;
 
   // 8. 특수 필살기 하이퍼 오버드라이브 게이지
+  const odTitle = $("hudOdTitle");
+  if (odTitle) odTitle.textContent = meta.odTitle || "⚡ HYPER OVERDRIVE";
+
   const odFill = $("hudOdFill");
   const odStatus = $("hudOdStatus");
   if (odFill && odStatus) {

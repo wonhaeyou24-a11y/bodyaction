@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KINETIC KABOOM: MOTION PARTY - Arcade Hub</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,600&amp;family=Rubik:ital,wght@0,500;0,700;0,800;0,900;1,800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration verbatim -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "inverse-surface": "#ecdcff",
+            "on-surface": "#ecdcff",
+            "on-primary": "#003543",
+            "tertiary-container": "#fbb500",
+            "surface-container-highest": "#3c2e54",
+            "outline": "#859399",
+            "inverse-primary": "#00677f",
+            "on-surface-variant": "#bbc9cf",
+            "on-tertiary": "#412d00",
+            "on-error": "#690005",
+            "tertiary-fixed-dim": "#ffba20",
+            "background": "#190b30",
+            "on-error-container": "#ffdad6",
+            "surface": "#190b30",
+            "on-background": "#ecdcff",
+            "secondary-fixed-dim": "#ffb0c9",
+            "inverse-on-surface": "#37294f",
+            "surface-container-lowest": "#14062b",
+            "secondary-fixed": "#ffd9e3",
+            "tertiary": "#ffd894",
+            "on-tertiary-container": "#684900",
+            "surface-dim": "#190b30",
+            "on-secondary-container": "#fffbff",
+            "on-primary-container": "#00566a",
+            "surface-container-low": "#221439",
+            "primary": "#a5e7ff",
+            "on-secondary-fixed-variant": "#8e004c",
+            "surface-variant": "#3c2e54",
+            "on-secondary": "#640034",
+            "primary-container": "#00d2ff",
+            "on-primary-fixed-variant": "#004e60",
+            "primary-fixed": "#b6ebff",
+            "on-secondary-fixed": "#3e001e",
+            "surface-bright": "#403259",
+            "on-primary-fixed": "#001f28",
+            "outline-variant": "#3c494e",
+            "error-container": "#93000a",
+            "surface-container-high": "#312348",
+            "surface-container": "#26183d",
+            "on-tertiary-fixed": "#271900",
+            "tertiary-fixed": "#ffdea8",
+            "on-tertiary-fixed-variant": "#5e4200",
+            "secondary-container": "#e1037d",
+            "primary-fixed-dim": "#47d6ff",
+            "secondary": "#ffb0c9",
+            "surface-tint": "#47d6ff",
+            "error": "#ffb4ab"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin": "2.5rem",
+            "space-sm": "0.75rem",
+            "space-xs": "0.375rem",
+            "gutter-mobile": "1rem",
+            "gutter": "1.5rem",
+            "space-md": "1.25rem",
+            "space-lg": "2rem",
+            "space-xl": "3rem",
+            "margin-mobile": "1.25rem"
+          },
+          "fontFamily": {
+            "label-badge": [
+              "Rubik"
+            ],
+            "headline-sm": [
+              "Rubik"
+            ],
+            "body-md": [
+              "Nunito Sans"
+            ],
+            "display-hero-mobile": [
+              "Rubik"
+            ],
+            "label-sensor": [
+              "Rubik"
+            ],
+            "display-hero": [
+              "Rubik"
+            ],
+            "headline-md": [
+              "Rubik"
+            ],
+            "body-lg": [
+              "Nunito Sans"
+            ],
+            "headline-lg-mobile": [
+              "Rubik"
+            ],
+            "body-sm": [
+              "Nunito Sans"
+            ],
+            "headline-lg": [
+              "Rubik"
+            ]
+          },
+          "fontSize": {
+            "label-badge": [
+              "14px",
+              {
+                "lineHeight": "16px",
+                "letterSpacing": "0.05em",
+                "fontWeight": "900"
+              }
+            ],
+            "headline-sm": [
+              "20px",
+              {
+                "lineHeight": "28px",
+                "letterSpacing": "0em",
+                "fontWeight": "700"
+              }
+            ],
+            "body-md": [
+              "16px",
+              {
+                "lineHeight": "24px",
+                "letterSpacing": "0em",
+                "fontWeight": "600"
+              }
+            ],
+            "display-hero-mobile": [
+              "36px",
+              {
+                "lineHeight": "44px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "900"
+              }
+            ],
+            "label-sensor": [
+              "12px",
+              {
+                "lineHeight": "14px",
+                "letterSpacing": "0.08em",
+                "fontWeight": "800"
+              }
+            ],
+            "display-hero": [
+              "56px",
+              {
+                "lineHeight": "64px",
+                "letterSpacing": "-0.02em",
+                "fontWeight": "900"
+              }
+            ],
+            "headline-md": [
+              "26px",
+              {
+                "lineHeight": "34px",
+                "letterSpacing": "0em",
+                "fontWeight": "800"
+              }
+            ],
+            "body-lg": [
+              "18px",
+              {
+                "lineHeight": "26px",
+                "letterSpacing": "0em",
+                "fontWeight": "700"
+              }
+            ],
+            "headline-lg-mobile": [
+              "28px",
+              {
+                "lineHeight": "36px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "800"
+              }
+            ],
+            "body-sm": [
+              "14px",
+              {
+                "lineHeight": "20px",
+                "letterSpacing": "0.01em",
+                "fontWeight": "600"
+              }
+            ],
+            "headline-lg": [
+              "38px",
+              {
+                "lineHeight": "48px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "800"
+              }
+            ]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    /* Neon glow & candy shine utilities */
+    .candy-btn-shadow-cyan {
+      box-shadow: 0 6px 0 #008db3, 0 12px 24px rgba(0, 210, 255, 0.4);
+    }
+    .candy-btn-shadow-cyan:active {
+      box-shadow: 0 2px 0 #008db3, 0 6px 12px rgba(0, 210, 255, 0.3);
+      transform: translateY(4px);
+    }
+    .candy-btn-shadow-magenta {
+      box-shadow: 0 6px 0 #8e004c, 0 12px 24px rgba(225, 3, 125, 0.45);
+    }
+    .candy-btn-shadow-magenta:active {
+      box-shadow: 0 2px 0 #8e004c, 0 6px 12px rgba(225, 3, 125, 0.35);
+      transform: translateY(4px);
+    }
+    .candy-btn-shadow-gold {
+      box-shadow: 0 6px 0 #936300, 0 10px 20px rgba(251, 181, 0, 0.4);
+    }
+    .glass-candy-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1.5px solid rgba(255, 255, 255, 0.22);
+    }
+    .sensor-pulse-ring {
+      box-shadow: 0 0 14px #22c55e, inset 0 0 8px #22c55e;
+    }
+    @keyframes floatGentle {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-6px) rotate(1deg); }
+    }
+    .floating-toy {
+      animation: floatGentle 4s ease-in-out infinite;
+    }
+  </style>
+<meta content="web_dashboard" name="shell-type"/></head>
+<body class="bg-background text-on-background min-h-screen selection:bg-secondary-container selection:text-white relative overflow-x-hidden">
+<!-- Background Ambience (Radial Night Glow, Laser Arcade Bokeh) -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+<div class="absolute -top-32 -left-32 w-[600px] h-[600px] bg-secondary-container/25 rounded-full blur-[120px]"></div>
+<div class="absolute top-1/4 -right-20 w-[550px] h-[550px] bg-primary-container/20 rounded-full blur-[140px]"></div>
+<div class="absolute -bottom-24 left-1/3 w-[700px] h-[700px] bg-tertiary-container/15 rounded-full blur-[150px]"></div>
+<!-- Floating arcade neon star dust particles -->
+<div class="absolute top-24 left-[15%] text-primary opacity-40 text-2xl floating-toy">✦</div>
+<div class="absolute top-64 right-[12%] text-secondary opacity-50 text-xl floating-toy" style="animation-delay: 1.5s;">★</div>
+<div class="absolute top-[60%] left-[8%] text-tertiary opacity-45 text-3xl floating-toy" style="animation-delay: 2.2s;">✨</div>
+<div class="absolute bottom-32 right-[25%] text-primary-fixed opacity-40 text-2xl floating-toy" style="animation-delay: 0.8s;">✦</div>
+</div>
+<!-- ========================================================================= -->
+<!-- TOP ARCADE APP BAR (Shared Component: TopNavBar with Motion HUD Anchor) -->
+<!-- ========================================================================= -->
+<header class="docked full-width top-0 sticky z-50 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl shadow-lg shadow-surface-container-lowest/50 shadow-[0_8px_32px_rgba(0,210,255,0.2)]">
+<div class="flex justify-between items-center w-full px-space-md md:px-margin py-space-sm max-w-7xl mx-auto">
+<!-- Brand & Mascot Logo Area -->
+<div class="flex items-center gap-space-sm">
+<div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-container via-secondary-container to-tertiary-container p-0.5 shadow-[0_4px_16px_rgba(0,210,255,0.4)] flex items-center justify-center transform -rotate-3 hover:rotate-0 transition-transform cursor-pointer">
+<div class="w-full h-full bg-surface-container-lowest rounded-[14px] flex items-center justify-center relative overflow-hidden">
+<span class="material-symbols-outlined text-tertiary text-2xl" data-icon="bolt" data-weight="fill" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="absolute -top-1 -right-1 flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-secondary-container"></span>
+</span>
+</div>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="text-headline-md font-headline-md font-black tracking-tight text-primary-container dark:text-primary-container uppercase drop-shadow-md">
+              KINETIC KABOOM
+            </span>
+</div>
+<div class="flex items-center gap-1.5 -mt-1">
+<span class="bg-secondary-container/90 text-on-secondary-container text-[10px] font-label-badge px-2 py-0.5 rounded-full tracking-wider uppercase shadow-sm">
+              FAMILY MOTION ARCADE
+            </span>
+<span class="text-[11px] font-body-sm text-on-surface-variant font-bold">2.4 GHz Ultra-Sync</span>
+</div>
+</div>
+</div>
+<!-- Live Motion Sensor & Webcam Diagnostic HUD Pill (Central Prominence) -->
+<div class="hidden lg:flex items-center gap-3 bg-surface-container-lowest/90 border border-primary/30 px-3.5 py-1.5 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+<!-- Live Webcam Tiny Mini-PIP with privacy silhouette -->
+<div class="relative w-8 h-8 rounded-full bg-surface-container-high border-2 border-[#22C55E] overflow-hidden flex items-center justify-center sensor-pulse-ring">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="accessibility_new">accessibility_new</span>
+<div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#22C55E] rounded-full border border-black animate-pulse"></div>
+</div>
+<!-- Sensor readout -->
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#22C55E] animate-ping"></span>
+<span class="text-label-sensor font-label-sensor text-white tracking-widest uppercase">
+              LIVE MOTION SENSOR
+            </span>
+</div>
+<span class="text-[11px] font-body-sm text-primary font-bold">Full Body • 60 FPS • Calibrated</span>
+</div>
+<!-- Quick Calibration Action -->
+<button class="ml-1 bg-surface-container-high hover:bg-surface-bright text-primary hover:text-white px-2.5 py-1 rounded-full text-label-sensor font-label-sensor border border-outline-variant/60 flex items-center gap-1 transition-all active:scale-95" title="Re-calibrate Motion Tracking">
+<span class="material-symbols-outlined text-xs" data-icon="videocam">videocam</span>
+<span>Calibrate</span>
+</button>
+</div>
+<!-- Right Trailing Stats & Profile -->
+<div class="flex items-center gap-2.5">
+<!-- Stars Counter -->
+<div class="hidden sm:flex items-center gap-1.5 bg-surface-container-high/80 border border-tertiary-container/30 px-3 py-1.5 rounded-full shadow-inner">
+<span class="text-tertiary-container text-base">⭐</span>
+<span class="font-headline-sm text-headline-sm text-tertiary font-black text-sm">4,850</span>
+</div>
+<!-- Tickets Counter -->
+<div class="hidden sm:flex items-center gap-1.5 bg-surface-container-high/80 border border-secondary/30 px-3 py-1.5 rounded-full shadow-inner">
+<span class="text-secondary text-base">🎟️</span>
+<span class="font-headline-sm text-headline-sm text-secondary font-black text-sm">120</span>
+</div>
+<!-- Audio Quick Toggle -->
+<button aria-label="Audio Controls" class="w-10 h-10 rounded-full bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-primary-fixed border border-primary/20 transition-transform active:scale-90">
+<span class="material-symbols-outlined text-xl" data-icon="volume_up">volume_up</span>
+</button>
+<!-- Player Profile Badge -->
+<div class="flex items-center gap-2 bg-gradient-to-r from-surface-container to-surface-container-high p-1 pr-3 rounded-full border border-primary/40 shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:scale-105 transition-transform cursor-pointer">
+<div class="relative w-9 h-9 rounded-full bg-secondary-container p-0.5 shadow-md">
+<img class="w-full h-full object-cover rounded-full" data-alt="Cute energetic cosmic mascot profile avatar wearing pilot goggles, glowing purple ears, friendly smiling robotic expression, clean 3D Disney Pixar render quality with bright neon rim lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoo422Dz87G8Y6r5FctH0HsX6SjkTKFEU1qaMTWgWnLYb3NgbhWaYS8geCUAN5PXdvtI4HvOTCCuyGV8dEboyoi9c00_ZFc09KJ1qe6bZ6qAKsaVexlu-Tt8Ws5SsR_KFqeW1vef83blJ9xXvXHFZ46grDrsQqwst0w7lWHPfym8ZO6U_l60_YDi3DeDey9cCBERGvpBVi_yFzHznILYuSoqXo0QxNWO081zahy1a3NpigM9BTQhr7lsQf9OXXTK7HjS5NdOSnZtA"/>
+<div class="absolute -bottom-1 -right-1 bg-tertiary-container text-on-tertiary-container font-label-badge text-[9px] px-1 rounded-full font-black">
+              14
+            </div>
+</div>
+<div class="flex flex-col text-left">
+<span class="text-body-sm font-body-sm font-extrabold text-white leading-tight">P1 Leo</span>
+<span class="text-[10px] font-label-sensor text-primary-fixed uppercase tracking-wider">Party Leader</span>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- ========================================================================= -->
+<!-- TOP SUB-NAV BAR: Game Categories & Movement Motion Filter Chips -->
+<!-- ========================================================================= -->
+<nav class="w-full max-w-7xl mx-auto px-space-md md:px-margin pt-space-md pb-space-sm">
+<div class="flex items-center justify-between gap-4 overflow-x-auto pb-2 scrollbar-none">
+<!-- Filter Chips Group -->
+<div class="flex items-center gap-2.5 flex-nowrap shrink-0">
+<!-- All Action (Active) -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-container text-on-primary font-headline-sm text-sm font-black candy-btn-shadow-cyan transition-all active:translate-y-1">
+<span>⭐</span>
+<span>All Games (6)</span>
+</button>
+<!-- Hand Swipes -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>👋</span>
+<span>Hand Swipes</span>
+</button>
+<!-- Jumping & Dodging -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>🏃</span>
+<span>Full Body Jump</span>
+</button>
+<!-- Co-op Party -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>🤝</span>
+<span>Co-op Party</span>
+</button>
+<!-- Fast Blitz -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>⚡</span>
+<span>60s Blitz</span>
+</button>
+</div>
+<!-- Quick Room Code / Invite Button -->
+<div class="hidden md:flex items-center gap-2 shrink-0">
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">Room PIN: <strong class="text-tertiary tracking-widest">KABOOM-88</strong></span>
+<button class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-secondary-container text-white font-label-badge text-xs uppercase candy-btn-shadow-magenta transition-transform active:translate-y-0.5">
+<span class="material-symbols-outlined text-sm" data-icon="sports_esports">sports_esports</span>
+<span>Party (2P)</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- ========================================================================= -->
+<!-- MAIN HUB CANVAS -->
+<!-- ========================================================================= -->
+<main class="w-full max-w-7xl mx-auto px-space-md md:px-margin pb-32"><div class="flex flex-col w-full">
+<!-- Top Stage Gameplay HUD Bar -->
+<div class="w-full bg-surface-container-high/90 backdrop-blur-xl rounded-xl p-space-md shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
+<!-- Left Stage Title & Tracker Status -->
+<div class="flex items-center gap-space-md min-w-0">
+<div class="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-container via-secondary-container to-tertiary-container p-0.5 shadow-lg shrink-0 flex items-center justify-center transform -rotate-2">
+<div class="w-full h-full bg-surface-container-lowest rounded-[14px] flex flex-col items-center justify-center">
+<span class="text-secondary font-headline-sm text-headline-sm leading-none font-black">05</span>
+<span class="text-tertiary text-[9px] font-label-sensor uppercase tracking-tighter">STAGE</span>
+</div>
+</div>
+<div class="min-w-0">
+<div class="flex flex-wrap items-center gap-2">
+<span class="text-headline-md font-headline-md text-primary-container tracking-tight truncate">STAGE 05: NEON BRICK BREAKER</span>
+<span class="bg-secondary-container text-on-secondary-container text-label-badge font-label-badge px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">벽돌깨기</span>
+<span class="bg-surface-container-highest text-tertiary text-label-sensor font-label-sensor px-2 py-0.5 rounded-full uppercase">SYNTHWAVE GRID</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold truncate">Dual Arm Paddle &amp; Full Torso Slide Mode (60 FPS Ultra-Sync) • 전신 슬라이드 추적</span>
+</div>
+</div>
+</div>
+<!-- Center/Right Live In-Game Metrics -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
+<!-- Bricks Cleared Metric -->
+<div class="bg-surface-container-lowest/80 rounded-xl px-3.5 py-2 flex flex-col justify-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase tracking-wider">BRICKS CLEARED (격파율)</span>
+<div class="flex items-baseline gap-1.5">
+<span class="text-headline-sm font-headline-sm text-tertiary font-black">48/60</span>
+<span class="text-body-sm font-body-sm text-tertiary-fixed font-bold">(80%)</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 mt-1 overflow-hidden">
+<div class="bg-tertiary h-full rounded-full transition-all duration-300" style="width: 80%"></div>
+</div>
+</div>
+<!-- Live Score Metric -->
+<div class="bg-surface-container-lowest/80 rounded-xl px-3.5 py-2 flex flex-col justify-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase tracking-wider">SCORE (점수)</span>
+<div class="flex items-baseline gap-1">
+<span class="text-headline-sm font-headline-sm text-primary font-black">114,300</span>
+<span class="text-[10px] font-label-sensor text-primary-fixed uppercase font-black">PTS</span>
+</div>
+<span class="text-[10px] font-body-sm text-secondary font-extrabold">+2,400 COMBO X8</span>
+</div>
+<!-- Multi-Ball Surge Metric -->
+<div class="bg-surface-container-lowest/80 rounded-xl px-3.5 py-2 flex flex-col justify-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase tracking-wider">SURGE (멀티볼)</span>
+<div class="flex items-center gap-1.5">
+<span class="text-headline-sm font-headline-sm text-secondary font-black">3X BALLS</span>
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<span class="text-[10px] font-body-sm text-primary font-extrabold tracking-wide">HYPER ACTIVE</span>
+</div>
+<!-- Energy Cores / Lives -->
+<div class="bg-surface-container-lowest/80 rounded-xl px-3.5 py-2 flex flex-col justify-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase tracking-wider">ENERGY CORES (생명)</span>
+<div class="flex items-center gap-1.5 mt-0.5">
+<div class="w-4 h-4 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[11px] text-white" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="w-4 h-4 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[11px] text-white" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<div class="w-4 h-4 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[11px] text-white" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<span class="text-label-badge font-label-badge text-white ml-1">3</span>
+</div>
+<span class="text-[10px] font-body-sm text-tertiary font-extrabold">SHIELD CHARGED</span>
+</div>
+</div>
+</div>
+<!-- Arena Motion Gameplay Stage Visual Stage (16:9 / Dynamic Arena Layout) -->
+<div class="w-full relative mt-space-md rounded-xl overflow-hidden shadow-2xl bg-surface-container-lowest aspect-[16/9] min-h-[440px] max-h-[680px]">
+<!-- High-Impact Visual Background Gameplay Render -->
+<img alt="Vibrant 3D arcade video game in-game action background for Neon Brick Breaker (벽돌깨기): retro-futuristic synthwave cyber grid arena, rows of glowing crystalline neon bricks and holographic power-up blocks shattering into glowing glass shards, glowing energy plasma ball bouncing with radiant light trail, neon cyber grid stadium, vibrant arcade action, unreal engine 5 render" class="absolute inset-0 w-full h-full object-cover object-center select-none" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1BruyKvUGsj-Gl70EVuAkyT7_nIAgfCrw65D5xTIA6I6YQ269nWsxYzpSuEFS4pRoVmxx3_DfwSWRALBPqBzAts3PRrF3ZlVGXcWRwmrPqSp058t-KLMIbHcLhjlLw0cyRlSBXDA7e1AnDb0c6hgCSwFhKztB_30jGUo6RwQSXCFaczGHM8aWBjaoMy9q7lYf-Yefk6y7tOMhrH-Wy49rIu15PvPw6cobeW_FoFnjh8KwT1SF1SPU"/>
+<!-- Holographic Cyan/Magenta Court Horizon Scrim Gradient -->
+<div class="absolute inset-0 bg-gradient-to-t from-background/95 via-transparent to-surface-container-lowest/40 pointer-events-none"></div>
+<!-- Active In-Game Motion Vector & Ricochet Canvas Layer -->
+<div class="absolute inset-0 pointer-events-none flex flex-col justify-between p-space-md">
+<!-- Upper Floating Stage Banner & Power-Up Drops -->
+<div class="flex items-start justify-between w-full">
+<!-- Floating Combo Notice -->
+<div class="bg-surface-container-high/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg transform -rotate-2 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary font-black font-headline-sm text-sm">
+            8x
+          </div>
+<div class="flex flex-col">
+<span class="text-label-badge font-label-badge text-tertiary uppercase leading-none">SUPER SMASH COMBO!</span>
+<span class="text-[11px] font-body-sm text-primary font-bold">연속 타격 보너스 활성화</span>
+</div>
+</div>
+<!-- Dynamic Gesture Action Prompt Banner -->
+<div class="bg-secondary-container/95 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3 transform rotate-1 animate-pulse">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">sports_kabaddi</span>
+<div class="flex flex-col text-left">
+<span class="text-label-badge font-label-badge uppercase tracking-wider">POWER SMASH VOLLEY! TILT ARMS TO ANGLE BALL</span>
+<span class="text-[11px] font-body-sm font-black text-secondary-fixed">양팔의 각도를 기울여 볼을 빗겨 치세요!</span>
+</div>
+</div>
+<!-- Top Right Mini Optical Camera PiP with Real-time Skeleton Overlay -->
+<div class="relative w-44 sm:w-52 aspect-[4/3] rounded-xl overflow-hidden bg-surface-container-lowest/90 backdrop-blur-md shadow-2xl p-1 flex flex-col">
+<div class="relative w-full h-full rounded-lg bg-surface-container-high overflow-hidden flex items-center justify-center">
+<!-- Simulated Camera Privacy Grid -->
+<div class="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-secondary/20"></div>
+<!-- Optical Sensor Skeleton Vector Visual Graphic -->
+<svg class="w-full h-full text-primary" fill="none" viewbox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+<!-- Head node -->
+<circle cx="100" cy="35" fill="#003543" fill-opacity="0.6" r="10" stroke="#00D2FF" stroke-width="3"></circle>
+<!-- Spine & Torso -->
+<line stroke="#00D2FF" stroke-width="3" x1="100" x2="100" y1="45" y2="85"></line>
+<!-- Shoulders -->
+<line stroke="#00D2FF" stroke-width="3" x1="70" x2="130" y1="58" y2="58"></line>
+<!-- Left Arm (Angled) -->
+<line stroke="#FFB0C9" stroke-linecap="round" stroke-width="3.5" x1="70" x2="42" y1="58" y2="78"></line>
+<line stroke="#FFB0C9" stroke-linecap="round" stroke-width="3.5" x1="42" x2="25" y1="78" y2="70"></line>
+<circle cx="25" cy="70" fill="#E1037D" r="5"></circle>
+<!-- Right Arm (Extended) -->
+<line stroke="#FFB0C9" stroke-linecap="round" stroke-width="3.5" x1="130" x2="158" y1="58" y2="72"></line>
+<line stroke="#FFB0C9" stroke-linecap="round" stroke-width="3.5" x1="158" x2="175" y1="72" y2="60"></line>
+<circle cx="175" cy="60" fill="#E1037D" r="5"></circle>
+<!-- Forearm Tilt Measurement Horizon Bar -->
+<line stroke="#FBB500" stroke-dasharray="4 3" stroke-width="2" x1="25" x2="175" y1="70" y2="60"></line>
+<!-- Joint nodes -->
+<circle cx="70" cy="58" fill="#47D6FF" r="3.5"></circle>
+<circle cx="130" cy="58" fill="#47D6FF" r="3.5"></circle>
+<circle cx="100" cy="85" fill="#47D6FF" r="3.5"></circle>
+</svg>
+<!-- PiP Overlay Status Pill -->
+<div class="absolute top-1.5 left-2 flex items-center gap-1.5 bg-surface-container-lowest/80 px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-ping"></span>
+<span class="text-[9px] font-label-sensor text-white tracking-widest font-black uppercase">CAM 1: BODY SKELETON</span>
+</div>
+<div class="absolute bottom-1 right-2 bg-secondary-container/90 text-white text-[9px] font-label-sensor px-1.5 py-0.5 rounded uppercase font-black">
+              TILT: +18°
+            </div>
+</div>
+</div>
+</div>
+<!-- Mid-Court Kinetic Trajectory Ray Projection (Ball Richochet Arc) -->
+<div class="absolute inset-x-0 top-1/4 bottom-24 pointer-events-none">
+<svg class="w-full h-full overflow-visible" xmlns="http://www.w3.org/2000/svg">
+<!-- Predictive Ricochet Trajectory Vector Lines -->
+<defs>
+<lineargradient id="vectorGrad" x1="0%" x2="100%" y1="100%" y2="0%">
+<stop offset="0%" stop-color="#00D2FF" stop-opacity="0.9"></stop>
+<stop offset="60%" stop-color="#FBB500" stop-opacity="0.7"></stop>
+<stop offset="100%" stop-color="#E1037D" stop-opacity="0.1"></stop>
+</lineargradient>
+<radialgradient cx="50%" cy="50%" id="ballPlasma" r="50%">
+<stop offset="0%" stop-color="#FFFFFF"></stop>
+<stop offset="40%" stop-color="#00D2FF"></stop>
+<stop offset="100%" stop-color="#00566A"></stop>
+</radialgradient>
+</defs>
+<!-- Dotted Predictive Trajectory Line -->
+<path d="M 52% 82% L 46% 40% L 62% 18%" fill="none" stroke="url(#vectorGrad)" stroke-dasharray="6 6" stroke-width="3"></path>
+<!-- Secondary Ball Trajectory -->
+<path d="M 54% 80% L 72% 44% L 85% 22%" fill="none" stroke="#FFB0C9" stroke-dasharray="4 4" stroke-opacity="0.5" stroke-width="2"></path>
+<!-- Primary Interactive Plasma Ball -->
+<g transform="translate(520, 240)">
+<!-- Outer Glow Aura -->
+<circle cx="0" cy="0" fill="#00D2FF" fill-opacity="0.25" r="28"></circle>
+<circle cx="0" cy="0" fill="url(#ballPlasma)" r="16"></circle>
+<circle cx="-4" cy="-4" fill="#FFFFFF" fill-opacity="0.8" r="4"></circle>
+<!-- Motion Speed Rings -->
+<ellipse cx="6" cy="14" fill="#47D6FF" fill-opacity="0.4" rx="14" ry="4" transform="rotate(-35)"></ellipse>
+</g>
+<!-- Secondary Ball in multi-ball surge -->
+<g transform="translate(740, 280)">
+<circle cx="0" cy="0" fill="#E1037D" fill-opacity="0.25" r="20"></circle>
+<circle cx="0" cy="0" fill="#FFB0C9" r="11"></circle>
+<circle cx="-2" cy="-2" fill="#FFFFFF" fill-opacity="0.9" r="3"></circle>
+</g>
+<!-- Deflection Angle Arc Indicator from Paddle -->
+<path d="M 50% 86% A 40 40 0 0 1 54% 82%" fill="none" stroke="#FBB500" stroke-width="2.5"></path>
+</svg>
+<!-- Dynamic Brick Blast Celebration Flare (Impact Text) -->
+<div class="absolute top-[28%] left-[45%] transform -translate-x-1/2 -rotate-6 pointer-events-none">
+<div class="bg-tertiary text-on-tertiary font-headline-sm font-black text-xs px-2.5 py-1 rounded-full shadow-lg">
+            CRITICAL HIT! +1,200
+          </div>
+</div>
+</div>
+<!-- Lower Arena: Physical Body Controlled Virtual Energy Paddle -->
+<div class="relative w-full flex flex-col items-center justify-end pb-3 pointer-events-auto">
+<!-- Interactive Player Paddle Assembly -->
+<div class="relative w-[340px] sm:w-[480px] h-14 rounded-full bg-surface-container-high/90 backdrop-blur-xl p-1.5 shadow-2xl flex items-center justify-between transition-transform duration-100 cursor-ew-resize select-none" id="virtualPaddle">
+<!-- Left Wing Neon Emitter -->
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-black shadow-md shrink-0">
+<span class="material-symbols-outlined text-sm font-black">pan_tool</span>
+</div>
+<!-- Paddle Core Energy Center -->
+<div class="flex-1 mx-3 h-8 rounded-full bg-gradient-to-r from-primary-container via-white to-secondary-container p-0.5 flex items-center justify-center shadow-lg relative overflow-hidden">
+<div class="w-full h-full bg-surface-container-lowest/80 rounded-full flex items-center justify-between px-4">
+<span class="text-label-sensor font-label-sensor text-primary tracking-widest uppercase font-black">P1 DUAL HAND PADDLE</span>
+<div class="flex items-center gap-1.5">
+<span class="text-tertiary text-xs font-black">DEFLECTION: +18°</span>
+<span class="w-2 h-2 rounded-full bg-[#22C55E] animate-ping"></span>
+</div>
+</div>
+<!-- Specular Candy Gloss Overlay -->
+<div class="absolute inset-x-0 top-0 h-1/2 bg-white/30 rounded-t-full pointer-events-none"></div>
+</div>
+<!-- Right Wing Neon Emitter -->
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-white font-black shadow-md shrink-0">
+<span class="material-symbols-outlined text-sm font-black">pan_tool</span>
+</div>
+<!-- Magnetic Ball Field Aura Line (Assist Mode Effect) -->
+<div class="absolute -top-3 inset-x-8 h-2 bg-gradient-to-r from-primary-container/0 via-tertiary to-secondary-container/0 rounded-full blur-[1px]"></div>
+</div>
+<!-- Real-Time Motion Sensor Anchor Tag -->
+<div class="mt-2 flex items-center gap-2 bg-surface-container-lowest/80 px-3 py-1 rounded-full">
+<span class="text-label-sensor font-label-sensor text-primary uppercase font-extrabold">POSITION: X: 482px</span>
+<span class="text-on-surface-variant text-xs">•</span>
+<span class="text-label-sensor font-label-sensor text-tertiary uppercase font-extrabold">SPAN: 1.4 METERS (WIDE)</span>
+<span class="text-on-surface-variant text-xs">•</span>
+<span class="text-label-sensor font-label-sensor text-secondary font-extrabold">60 FPS SYNCED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Motion Diagnostics, Ultimate Laser & Control Dock -->
+<div class="w-full mt-space-md grid grid-cols-1 lg:grid-cols-12 gap-space-md items-stretch">
+<!-- Telemetry & Kinesthetic Sensor Diagnostics (4 Cols) -->
+<div class="lg:col-span-4 bg-surface-container-high rounded-xl p-space-md flex flex-col justify-between shadow-xl">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">sensors</span>
+<span class="text-headline-sm font-headline-sm text-on-surface font-black">MOTION TELEMETRY</span>
+</div>
+<span class="bg-surface-container-lowest text-tertiary text-label-sensor font-label-sensor px-2.5 py-1 rounded-full uppercase font-black">
+          3.2 MS LATENCY
+        </span>
+</div>
+<!-- Telemetry Data Grid -->
+<div class="grid grid-cols-3 gap-2 py-1">
+<div class="bg-surface-container-lowest rounded-xl p-2.5 flex flex-col items-center text-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">ARM SPAN</span>
+<span class="text-headline-sm font-headline-sm text-primary font-black mt-1">1.4m</span>
+<span class="text-[10px] font-body-sm text-primary-fixed">양팔 간격 양호</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-2.5 flex flex-col items-center text-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">TILT ANGLE</span>
+<span class="text-headline-sm font-headline-sm text-secondary font-black mt-1">+18°</span>
+<span class="text-[10px] font-body-sm text-secondary-fixed">패들 꺾임각</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-2.5 flex flex-col items-center text-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">TORSO DRIFT</span>
+<span class="text-headline-sm font-headline-sm text-tertiary font-black mt-1">0.02m</span>
+<span class="text-[10px] font-body-sm text-tertiary-fixed">중심축 안정</span>
+</div>
+</div>
+<!-- Kid Assist Status Badges -->
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg">child_care</span>
+<span class="text-body-sm font-body-sm text-on-surface font-extrabold">Kid Assist (어린이 도우미):</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="bg-primary/20 text-primary text-[11px] font-label-sensor px-2 py-0.5 rounded-full font-black uppercase">
+            +35% Hitbox
+          </span>
+<span class="bg-secondary/20 text-secondary text-[11px] font-label-sensor px-2 py-0.5 rounded-full font-black uppercase">
+            Slow Gravity
+          </span>
+</div>
+</div>
+</div>
+<!-- Special Ultimate Charged Meter: Hyper Multi-Ball Laser (5 Cols) -->
+<div class="lg:col-span-5 bg-gradient-to-r from-surface-container to-surface-container-high rounded-xl p-space-md shadow-xl flex flex-col justify-between relative overflow-hidden">
+<!-- Glow ambient background blast -->
+<div class="absolute -right-10 -bottom-10 w-44 h-44 bg-secondary-container/20 rounded-full blur-2xl pointer-events-none"></div>
+<div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-2xl" style="font-variation-settings: 'FILL' 1;">flare</span>
+<span class="text-headline-sm font-headline-sm text-white font-black tracking-tight">SPECIAL ULTIMATE GAUGE</span>
+</div>
+<span class="bg-secondary-container text-white text-label-badge font-label-badge px-3 py-1 rounded-full uppercase tracking-wider animate-bounce shadow-md">
+            100% READY!
+          </span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant font-bold mt-1">
+          HYPER MULTI-BALL LASER (양팔을 앞으로 뻗어 레이저 발사!)
+        </p>
+</div>
+<!-- Energy Progress Meter -->
+<div class="my-3">
+<div class="w-full bg-surface-container-lowest rounded-full h-5 p-0.5 shadow-inner flex items-center">
+<div class="w-full h-full rounded-full bg-gradient-to-r from-primary-container via-tertiary to-secondary-container flex items-center justify-end pr-2 shadow-lg">
+<span class="text-[10px] font-label-badge text-on-primary font-black uppercase tracking-wider">MAX POWER</span>
+</div>
+</div>
+</div>
+<!-- Trigger Guide Prompt -->
+<div class="flex items-center justify-between bg-surface-container-lowest/80 rounded-xl px-3.5 py-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg">front_hand</span>
+<span class="text-body-sm font-body-sm text-white font-black">신체 동작: 두 손을 카메라 방향으로 힘껏 뻗기!</span>
+</div>
+<button class="bg-secondary-container hover:bg-secondary-container/90 text-white font-label-badge text-xs uppercase px-3.5 py-1.5 rounded-full transition-transform active:scale-95 shadow-md" id="ultimateLaserBtn">
+          ULTIMATE TRIGGER
+        </button>
+</div>
+</div>
+<!-- Quick In-Game Arcade Controls (3 Cols) -->
+<div class="lg:col-span-3 bg-surface-container-high rounded-xl p-space-md flex flex-col justify-between shadow-xl">
+<span class="text-headline-sm font-headline-sm text-on-surface font-black mb-2">QUICK CONTROLS</span>
+<div class="flex flex-col gap-2">
+<!-- Recalibrate Sensor Center -->
+<button class="w-full flex items-center justify-between bg-surface-container hover:bg-surface-bright text-primary font-headline-sm text-sm px-3.5 py-2.5 rounded-xl transition-all active:scale-98" id="recalibrateBtn">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">center_focus_strong</span>
+<span>중앙 영점 재설정</span>
+</div>
+<span class="text-label-sensor font-label-sensor bg-surface-container-highest px-2 py-0.5 rounded text-white uppercase">RE-CENTER</span>
+</button>
+<!-- Launch Ball Trigger (Space / Clap) -->
+<button class="w-full flex items-center justify-between bg-primary-container hover:bg-primary text-on-primary font-headline-sm text-sm px-3.5 py-2.5 rounded-xl transition-all active:scale-98 shadow-md" id="ballLaunchBtn">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">sports_baseball</span>
+<span class="font-black">공 발사 (박수 / 스페이스)</span>
+</div>
+<span class="text-label-sensor font-label-sensor bg-on-primary-container text-white px-2 py-0.5 rounded uppercase font-black">LAUNCH</span>
+</button>
+<!-- Pause Match -->
+<button class="w-full flex items-center justify-between bg-surface-container hover:bg-surface-bright text-on-surface font-headline-sm text-sm px-3.5 py-2.5 rounded-xl transition-all active:scale-98" id="pauseMatchBtn">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">pause</span>
+<span>게임 일시정지</span>
+</div>
+<span class="text-label-sensor font-label-sensor bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant uppercase">ESC</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Micro-Interactions & Interactive Gameplay State JS -->
+<script>
+    // Live Paddle Drag & Horizontal Tracking Follower Simulation
+    const paddle = document.getElementById('virtualPaddle');
+    const arena = paddle ? paddle.closest('.aspect-\\[16\\/9\\]') : null;
+
+    if (paddle && arena) {
+      let isTracking = false;
+
+      const updatePaddlePos = (clientX) => {
+        const rect = arena.getBoundingClientRect();
+        const offsetX = clientX - rect.left;
+        const clampedX = Math.max(160, Math.min(rect.width - 160, offsetX));
+        const normalized = clampedX - rect.width / 2;
+        // Apply responsive offset and slight dynamic roll tilt (-4 deg to +4 deg)
+        const tilt = (normalized / (rect.width / 2)) * 6;
+        paddle.style.transform = `translateX(${normalized}px) rotate(${tilt}deg)`;
+      };
+
+      arena.addEventListener('mousemove', (e) => {
+        updatePaddlePos(e.clientX);
+      });
+
+      arena.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+          updatePaddlePos(e.touches[0].clientX);
+        }
+      });
+    }
+
+    // Interactive button triggers
+    const launchBtn = document.getElementById('ballLaunchBtn');
+    if (launchBtn) {
+      launchBtn.addEventListener('click', () => {
+        launchBtn.classList.add('scale-95');
+        setTimeout(() => launchBtn.classList.remove('scale-95'), 150);
+        if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+      });
+    }
+
+    const ultimateBtn = document.getElementById('ultimateLaserBtn');
+    if (ultimateBtn) {
+      ultimateBtn.addEventListener('click', () => {
+        ultimateBtn.innerText = 'LASER FIRING! 레이저 발사!';
+        ultimateBtn.classList.add('bg-tertiary-container', 'text-on-tertiary');
+        if (navigator.vibrate) navigator.vibrate(80);
+        setTimeout(() => {
+          ultimateBtn.innerText = 'ULTIMATE TRIGGER';
+          ultimateBtn.classList.remove('bg-tertiary-container', 'text-on-tertiary');
+        }, 1800);
+      });
+    }
+
+    const recalibrateBtn = document.getElementById('recalibrateBtn');
+    if (recalibrateBtn) {
+      recalibrateBtn.addEventListener('click', () => {
+        if (paddle) {
+          paddle.style.transform = 'translateX(0px) rotate(0deg)';
+        }
+      });
+    }
+  </script>
+</div></main>
+<!-- ========================================================================= -->
+<!-- DOCKED BOTTOM PARTY ROSTER & ASSIST CONTROLS BAR -->
+<!-- ========================================================================= -->
+<aside class="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-2xl border-t border-outline-variant/30 px-space-md py-3 shadow-[0_-8px_32px_rgba(0,0,0,0.7)]">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+<!-- Left: Active Family Members In the Room Roster -->
+<div class="flex items-center gap-3 overflow-x-auto w-full md:w-auto">
+<!-- P1 Pill -->
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-primary/50 shrink-0 shadow-sm">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-badge text-[10px] font-black">
+            P1
+          </div>
+<span class="text-body-sm font-body-sm text-white font-extrabold">Leo (Dino Pilot)</span>
+<span class="w-2 h-2 rounded-full bg-[#22C55E]" title="Motion Calibrated"></span>
+</div>
+<!-- P2 Pill -->
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-secondary/50 shrink-0 shadow-sm">
+<div class="w-6 h-6 rounded-full bg-secondary-container text-white flex items-center justify-center font-label-badge text-[10px] font-black">
+            P2
+          </div>
+<span class="text-body-sm font-body-sm text-white font-extrabold">Maya (Star Fox)</span>
+<span class="w-2 h-2 rounded-full bg-[#22C55E]" title="Motion Calibrated"></span>
+</div>
+<!-- P3/P4 Empty Slot Invitation -->
+<button class="flex items-center gap-1.5 bg-surface-container-high/60 hover:bg-surface-bright px-3.5 py-1.5 rounded-full border-2 border-dashed border-primary/40 text-primary-fixed hover:text-white text-xs font-label-badge uppercase tracking-wider shrink-0 transition-transform active:scale-95">
+<span class="text-sm font-black">+</span>
+<span>Invite P3 &amp; P4</span>
+</button>
+</div>
+<!-- Right: Kid Assist & Accessibility Toggles -->
+<div class="flex items-center gap-4 text-xs font-label-sensor uppercase tracking-wider shrink-0 w-full md:w-auto justify-end">
+<!-- Kid Assist Switch -->
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/40">
+<span class="text-primary font-bold">Kid Assist:</span>
+<button class="w-10 h-5 bg-[#22C55E] rounded-full p-0.5 flex items-center transition-colors" id="kidAssistToggle">
+<div class="w-4 h-4 bg-white rounded-full shadow-md transform translate-x-5 transition-transform"></div>
+</button>
+<span class="text-[10px] text-on-surface-variant font-extrabold">Wide Hitbox</span>
+</div>
+<!-- Tracking Sensitivity -->
+<div class="hidden lg:flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/40">
+<span class="text-on-surface-variant">Sensitivity:</span>
+<span class="text-tertiary font-black">MEDIUM (Kid Safe)</span>
+</div>
+<!-- Camera Diagnostic Trigger -->
+<button class="flex items-center gap-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 px-3 py-1.5 rounded-full transition-transform active:scale-95" title="Run Camera Framing Check">
+<span class="material-symbols-outlined text-sm" data-icon="center_focus_strong">center_focus_strong</span>
+<span class="hidden sm:inline">Camera Check</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Interactive script for playful micro-interactions -->
+<script>
+    // Kid Assist quick toggle
+    const toggleBtn = document.getElementById('kidAssistToggle');
+    if (toggleBtn) {
+      let active = true;
+      toggleBtn.addEventListener('click', () => {
+        active = !active;
+        const knob = toggleBtn.querySelector('div');
+        if (active) {
+          toggleBtn.classList.remove('bg-surface-bright');
+          toggleBtn.classList.add('bg-[#22C55E]');
+          knob.classList.remove('translate-x-0');
+          knob.classList.add('translate-x-5');
+        } else {
+          toggleBtn.classList.remove('bg-[#22C55E]');
+          toggleBtn.classList.add('bg-surface-bright');
+          knob.classList.remove('translate-x-5');
+          knob.classList.add('translate-x-0');
+        }
+      });
+    }
+
+    // Audio SFX placeholder feedback on buttons
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('mousedown', () => {
+        // tactile vibration if supported on touch screens
+        if (navigator.vibrate) navigator.vibrate(12);
+      });
+    });
+  </script>
+</body></html>

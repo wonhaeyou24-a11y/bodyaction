@@ -873,32 +873,211 @@ body.tv-fullscreen-mode .hub {
   transition: width 0.15s ease-out;
 }
 
-/* 모바일 화면 대응 */
-@media (max-width: 768px) {
-  .stitch-hud {
-    padding: 8px;
-  }
-  .hud-badge-row .hud-title-text,
-  .hud-badge-row .hud-sub-pill {
-    display: none;
-  }
-  .hud-left-card {
-    min-width: 140px;
-    padding: 8px 12px;
-  }
-  .hud-right-card {
-    min-width: 130px;
-    padding: 8px 12px;
-  }
-  .hud-guide-banner {
-    display: none;
-  }
-  .overdrive-dock {
-    display: none;
-  }
-  .telemetry-pod {
-    padding: 6px 10px;
-  }
+/* ==========================================================================
+   Stitch 게임별 특화 스탯 대시보드 티커 & 하트 라이프
+   ========================================================================== */
+.hud-ticker-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  background: rgba(20, 6, 43, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 4px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
+
+.ticker-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.chip-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.chip-val {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.ticker-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.hud-hearts-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.heart-icon {
+  font-size: 1rem;
+  transition: transform 0.2s;
+}
+
+.heart-icon.lost {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+/* ==========================================================================
+   Stitch 게임별 커스텀 네온 테마 (Visual Theme Matrix)
+   ========================================================================== */
+/* 1. 비트세이버 테마 (Cyan & Hot Magenta) */
+.stitch-hud[data-theme="beat"] .hud-left-card {
+  border-color: rgba(0, 210, 255, 0.5);
+  box-shadow: 0 0 24px rgba(0, 210, 255, 0.25);
+}
+.stitch-hud[data-theme="beat"] .hud-badge-pill {
+  background: linear-gradient(135deg, #e1037d, #ff2a8d);
+}
+
+/* 2. 점핑 러너 테마 (Astro Cyber Runner: Neon Purple & Starlight Gold) */
+.stitch-hud[data-theme="runner"] .hud-badge-pill {
+  background: linear-gradient(135deg, #9333ea, #c084fc);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.7);
+}
+.stitch-hud[data-theme="runner"] .hud-score-num {
+  color: #ffd894;
+  text-shadow: 0 0 20px rgba(251, 181, 0, 0.8);
+}
+.stitch-hud[data-theme="runner"] .left-bar {
+  background: #a855f7;
+  box-shadow: 0 0 14px #a855f7;
+}
+.stitch-hud[data-theme="runner"] .right-bar {
+  background: #fbb500;
+  box-shadow: 0 0 14px #fbb500;
+}
+.stitch-hud[data-theme="runner"] .pod-left {
+  border-color: rgba(168, 85, 247, 0.6);
+}
+.stitch-hud[data-theme="runner"] .pod-right {
+  border-color: rgba(251, 181, 0, 0.6);
+}
+.stitch-hud[data-theme="runner"] .overdrive-dock {
+  border-color: rgba(168, 85, 247, 0.7);
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.4);
+}
+
+/* 3. 쿵푸 도장 & 스피드 샌드백 테마 (Kung Fu Punch Dojo: Dragon Fire Red & Taiko Orange) */
+.stitch-hud[data-theme="kungfu"] .hud-badge-pill,
+.stitch-hud[data-theme="box"] .hud-badge-pill {
+  background: linear-gradient(135deg, #ff2a4b, #ff7800);
+  box-shadow: 0 0 14px rgba(255, 42, 75, 0.8);
+}
+.stitch-hud[data-theme="kungfu"] .hud-score-num,
+.stitch-hud[data-theme="box"] .hud-score-num {
+  color: #ff5252;
+  text-shadow: 0 0 20px rgba(255, 82, 82, 0.8);
+}
+.stitch-hud[data-theme="kungfu"] .left-bar,
+.stitch-hud[data-theme="box"] .left-bar {
+  background: #ff7800;
+  box-shadow: 0 0 14px #ff7800;
+}
+.stitch-hud[data-theme="kungfu"] .right-bar,
+.stitch-hud[data-theme="box"] .right-bar {
+  background: #ff2a4b;
+  box-shadow: 0 0 14px #ff2a4b;
+}
+.stitch-hud[data-theme="kungfu"] .pod-left,
+.stitch-hud[data-theme="box"] .pod-left {
+  border-color: rgba(255, 120, 0, 0.6);
+}
+.stitch-hud[data-theme="kungfu"] .pod-right,
+.stitch-hud[data-theme="box"] .pod-right {
+  border-color: rgba(255, 42, 75, 0.6);
+}
+.stitch-hud[data-theme="kungfu"] .overdrive-dock,
+.stitch-hud[data-theme="box"] .overdrive-dock {
+  border-color: rgba(255, 42, 75, 0.8);
+  box-shadow: 0 0 24px rgba(255, 42, 75, 0.4);
+}
+
+/* 4. 우주 유성 막기 테마 (Cosmic Meteor Defense: Electric Cyan & Earth Shield Green) */
+.stitch-hud[data-theme="space"] .hud-badge-pill {
+  background: linear-gradient(135deg, #0ea5e9, #10b981);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
+}
+.stitch-hud[data-theme="space"] .hud-score-num {
+  color: #38bdf8;
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+}
+.stitch-hud[data-theme="space"] .left-bar {
+  background: #0ea5e9;
+  box-shadow: 0 0 14px #0ea5e9;
+}
+.stitch-hud[data-theme="space"] .right-bar {
+  background: #10b981;
+  box-shadow: 0 0 14px #10b981;
+}
+.stitch-hud[data-theme="space"] .pod-left {
+  border-color: rgba(14, 165, 233, 0.6);
+}
+.stitch-hud[data-theme="space"] .pod-right {
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+/* 5. 네온 벽돌깨기 테마 (Neon Brick Breaker: Cyber Mint Teal & Synthwave Yellow) */
+.stitch-hud[data-theme="brick"] .hud-badge-pill {
+  background: linear-gradient(135deg, #10b981, #f59e0b);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
+}
+.stitch-hud[data-theme="brick"] .hud-score-num {
+  color: #2dd4bf;
+  text-shadow: 0 0 20px rgba(45, 212, 191, 0.8);
+}
+.stitch-hud[data-theme="brick"] .left-bar {
+  background: #2dd4bf;
+  box-shadow: 0 0 14px #2dd4bf;
+}
+.stitch-hud[data-theme="brick"] .right-bar {
+  background: #f59e0b;
+  box-shadow: 0 0 14px #f59e0b;
+}
+
+/* 6. 모션 키퍼 테마 (Motion Goalkeeper: Stadium Grass Green & Trophy Gold) */
+.stitch-hud[data-theme="keeper"] .hud-badge-pill {
+  background: linear-gradient(135deg, #22c55e, #3b82f6);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.7);
+}
+.stitch-hud[data-theme="keeper"] .hud-score-num {
+  color: #4ade80;
+  text-shadow: 0 0 20px rgba(74, 222, 128, 0.8);
+}
+.stitch-hud[data-theme="keeper"] .left-bar {
+  background: #22c55e;
+  box-shadow: 0 0 14px #22c55e;
+}
+.stitch-hud[data-theme="keeper"] .right-bar {
+  background: #3b82f6;
+  box-shadow: 0 0 14px #3b82f6;
+}
+
+/* 7. 과일 슬래시 닌자 (Fruit Splash Ninja: Katana Crimson & Lime Blast) */
+.stitch-hud[data-theme="ninja"] .hud-badge-pill {
+  background: linear-gradient(135deg, #ef4444, #84cc16);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.7);
+}
+.stitch-hud[data-theme="ninja"] .hud-score-num {
+  color: #fb7185;
+  text-shadow: 0 0 20px rgba(251, 113, 133, 0.8);
+}
+
 
 

@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KINETIC KABOOM: MOTION PARTY - Arcade Hub</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,600&amp;family=Rubik:ital,wght@0,500;0,700;0,800;0,900;1,800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration verbatim -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "inverse-surface": "#ecdcff",
+            "on-surface": "#ecdcff",
+            "on-primary": "#003543",
+            "tertiary-container": "#fbb500",
+            "surface-container-highest": "#3c2e54",
+            "outline": "#859399",
+            "inverse-primary": "#00677f",
+            "on-surface-variant": "#bbc9cf",
+            "on-tertiary": "#412d00",
+            "on-error": "#690005",
+            "tertiary-fixed-dim": "#ffba20",
+            "background": "#190b30",
+            "on-error-container": "#ffdad6",
+            "surface": "#190b30",
+            "on-background": "#ecdcff",
+            "secondary-fixed-dim": "#ffb0c9",
+            "inverse-on-surface": "#37294f",
+            "surface-container-lowest": "#14062b",
+            "secondary-fixed": "#ffd9e3",
+            "tertiary": "#ffd894",
+            "on-tertiary-container": "#684900",
+            "surface-dim": "#190b30",
+            "on-secondary-container": "#fffbff",
+            "on-primary-container": "#00566a",
+            "surface-container-low": "#221439",
+            "primary": "#a5e7ff",
+            "on-secondary-fixed-variant": "#8e004c",
+            "surface-variant": "#3c2e54",
+            "on-secondary": "#640034",
+            "primary-container": "#00d2ff",
+            "on-primary-fixed-variant": "#004e60",
+            "primary-fixed": "#b6ebff",
+            "on-secondary-fixed": "#3e001e",
+            "surface-bright": "#403259",
+            "on-primary-fixed": "#001f28",
+            "outline-variant": "#3c494e",
+            "error-container": "#93000a",
+            "surface-container-high": "#312348",
+            "surface-container": "#26183d",
+            "on-tertiary-fixed": "#271900",
+            "tertiary-fixed": "#ffdea8",
+            "on-tertiary-fixed-variant": "#5e4200",
+            "secondary-container": "#e1037d",
+            "primary-fixed-dim": "#47d6ff",
+            "secondary": "#ffb0c9",
+            "surface-tint": "#47d6ff",
+            "error": "#ffb4ab"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin": "2.5rem",
+            "space-sm": "0.75rem",
+            "space-xs": "0.375rem",
+            "gutter-mobile": "1rem",
+            "gutter": "1.5rem",
+            "space-md": "1.25rem",
+            "space-lg": "2rem",
+            "space-xl": "3rem",
+            "margin-mobile": "1.25rem"
+          },
+          "fontFamily": {
+            "label-badge": [
+              "Rubik"
+            ],
+            "headline-sm": [
+              "Rubik"
+            ],
+            "body-md": [
+              "Nunito Sans"
+            ],
+            "display-hero-mobile": [
+              "Rubik"
+            ],
+            "label-sensor": [
+              "Rubik"
+            ],
+            "display-hero": [
+              "Rubik"
+            ],
+            "headline-md": [
+              "Rubik"
+            ],
+            "body-lg": [
+              "Nunito Sans"
+            ],
+            "headline-lg-mobile": [
+              "Rubik"
+            ],
+            "body-sm": [
+              "Nunito Sans"
+            ],
+            "headline-lg": [
+              "Rubik"
+            ]
+          },
+          "fontSize": {
+            "label-badge": [
+              "14px",
+              {
+                "lineHeight": "16px",
+                "letterSpacing": "0.05em",
+                "fontWeight": "900"
+              }
+            ],
+            "headline-sm": [
+              "20px",
+              {
+                "lineHeight": "28px",
+                "letterSpacing": "0em",
+                "fontWeight": "700"
+              }
+            ],
+            "body-md": [
+              "16px",
+              {
+                "lineHeight": "24px",
+                "letterSpacing": "0em",
+                "fontWeight": "600"
+              }
+            ],
+            "display-hero-mobile": [
+              "36px",
+              {
+                "lineHeight": "44px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "900"
+              }
+            ],
+            "label-sensor": [
+              "12px",
+              {
+                "lineHeight": "14px",
+                "letterSpacing": "0.08em",
+                "fontWeight": "800"
+              }
+            ],
+            "display-hero": [
+              "56px",
+              {
+                "lineHeight": "64px",
+                "letterSpacing": "-0.02em",
+                "fontWeight": "900"
+              }
+            ],
+            "headline-md": [
+              "26px",
+              {
+                "lineHeight": "34px",
+                "letterSpacing": "0em",
+                "fontWeight": "800"
+              }
+            ],
+            "body-lg": [
+              "18px",
+              {
+                "lineHeight": "26px",
+                "letterSpacing": "0em",
+                "fontWeight": "700"
+              }
+            ],
+            "headline-lg-mobile": [
+              "28px",
+              {
+                "lineHeight": "36px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "800"
+              }
+            ],
+            "body-sm": [
+              "14px",
+              {
+                "lineHeight": "20px",
+                "letterSpacing": "0.01em",
+                "fontWeight": "600"
+              }
+            ],
+            "headline-lg": [
+              "38px",
+              {
+                "lineHeight": "48px",
+                "letterSpacing": "-0.01em",
+                "fontWeight": "800"
+              }
+            ]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    /* Neon glow & candy shine utilities */
+    .candy-btn-shadow-cyan {
+      box-shadow: 0 6px 0 #008db3, 0 12px 24px rgba(0, 210, 255, 0.4);
+    }
+    .candy-btn-shadow-cyan:active {
+      box-shadow: 0 2px 0 #008db3, 0 6px 12px rgba(0, 210, 255, 0.3);
+      transform: translateY(4px);
+    }
+    .candy-btn-shadow-magenta {
+      box-shadow: 0 6px 0 #8e004c, 0 12px 24px rgba(225, 3, 125, 0.45);
+    }
+    .candy-btn-shadow-magenta:active {
+      box-shadow: 0 2px 0 #8e004c, 0 6px 12px rgba(225, 3, 125, 0.35);
+      transform: translateY(4px);
+    }
+    .candy-btn-shadow-gold {
+      box-shadow: 0 6px 0 #936300, 0 10px 20px rgba(251, 181, 0, 0.4);
+    }
+    .glass-candy-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1.5px solid rgba(255, 255, 255, 0.22);
+    }
+    .sensor-pulse-ring {
+      box-shadow: 0 0 14px #22c55e, inset 0 0 8px #22c55e;
+    }
+    @keyframes floatGentle {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-6px) rotate(1deg); }
+    }
+    .floating-toy {
+      animation: floatGentle 4s ease-in-out infinite;
+    }
+  </style>
+<meta content="web_dashboard" name="shell-type"/></head>
+<body class="bg-background text-on-background min-h-screen selection:bg-secondary-container selection:text-white relative overflow-x-hidden">
+<!-- Background Ambience (Radial Night Glow, Laser Arcade Bokeh) -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+<div class="absolute -top-32 -left-32 w-[600px] h-[600px] bg-secondary-container/25 rounded-full blur-[120px]"></div>
+<div class="absolute top-1/4 -right-20 w-[550px] h-[550px] bg-primary-container/20 rounded-full blur-[140px]"></div>
+<div class="absolute -bottom-24 left-1/3 w-[700px] h-[700px] bg-tertiary-container/15 rounded-full blur-[150px]"></div>
+<!-- Floating arcade neon star dust particles -->
+<div class="absolute top-24 left-[15%] text-primary opacity-40 text-2xl floating-toy">✦</div>
+<div class="absolute top-64 right-[12%] text-secondary opacity-50 text-xl floating-toy" style="animation-delay: 1.5s;">★</div>
+<div class="absolute top-[60%] left-[8%] text-tertiary opacity-45 text-3xl floating-toy" style="animation-delay: 2.2s;">✨</div>
+<div class="absolute bottom-32 right-[25%] text-primary-fixed opacity-40 text-2xl floating-toy" style="animation-delay: 0.8s;">✦</div>
+</div>
+<!-- ========================================================================= -->
+<!-- TOP ARCADE APP BAR (Shared Component: TopNavBar with Motion HUD Anchor) -->
+<!-- ========================================================================= -->
+<header class="docked full-width top-0 sticky z-50 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl shadow-lg shadow-surface-container-lowest/50 shadow-[0_8px_32px_rgba(0,210,255,0.2)]">
+<div class="flex justify-between items-center w-full px-space-md md:px-margin py-space-sm max-w-7xl mx-auto">
+<!-- Brand & Mascot Logo Area -->
+<div class="flex items-center gap-space-sm">
+<div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-container via-secondary-container to-tertiary-container p-0.5 shadow-[0_4px_16px_rgba(0,210,255,0.4)] flex items-center justify-center transform -rotate-3 hover:rotate-0 transition-transform cursor-pointer">
+<div class="w-full h-full bg-surface-container-lowest rounded-[14px] flex items-center justify-center relative overflow-hidden">
+<span class="material-symbols-outlined text-tertiary text-2xl" data-icon="bolt" data-weight="fill" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="absolute -top-1 -right-1 flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-secondary-container"></span>
+</span>
+</div>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="text-headline-md font-headline-md font-black tracking-tight text-primary-container dark:text-primary-container uppercase drop-shadow-md">
+              KINETIC KABOOM
+            </span>
+</div>
+<div class="flex items-center gap-1.5 -mt-1">
+<span class="bg-secondary-container/90 text-on-secondary-container text-[10px] font-label-badge px-2 py-0.5 rounded-full tracking-wider uppercase shadow-sm">
+              FAMILY MOTION ARCADE
+            </span>
+<span class="text-[11px] font-body-sm text-on-surface-variant font-bold">2.4 GHz Ultra-Sync</span>
+</div>
+</div>
+</div>
+<!-- Live Motion Sensor & Webcam Diagnostic HUD Pill (Central Prominence) -->
+<div class="hidden lg:flex items-center gap-3 bg-surface-container-lowest/90 border border-primary/30 px-3.5 py-1.5 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+<!-- Live Webcam Tiny Mini-PIP with privacy silhouette -->
+<div class="relative w-8 h-8 rounded-full bg-surface-container-high border-2 border-[#22C55E] overflow-hidden flex items-center justify-center sensor-pulse-ring">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="accessibility_new">accessibility_new</span>
+<div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#22C55E] rounded-full border border-black animate-pulse"></div>
+</div>
+<!-- Sensor readout -->
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#22C55E] animate-ping"></span>
+<span class="text-label-sensor font-label-sensor text-white tracking-widest uppercase">
+              LIVE MOTION SENSOR
+            </span>
+</div>
+<span class="text-[11px] font-body-sm text-primary font-bold">Full Body • 60 FPS • Calibrated</span>
+</div>
+<!-- Quick Calibration Action -->
+<button class="ml-1 bg-surface-container-high hover:bg-surface-bright text-primary hover:text-white px-2.5 py-1 rounded-full text-label-sensor font-label-sensor border border-outline-variant/60 flex items-center gap-1 transition-all active:scale-95" title="Re-calibrate Motion Tracking">
+<span class="material-symbols-outlined text-xs" data-icon="videocam">videocam</span>
+<span>Calibrate</span>
+</button>
+</div>
+<!-- Right Trailing Stats & Profile -->
+<div class="flex items-center gap-2.5">
+<!-- Stars Counter -->
+<div class="hidden sm:flex items-center gap-1.5 bg-surface-container-high/80 border border-tertiary-container/30 px-3 py-1.5 rounded-full shadow-inner">
+<span class="text-tertiary-container text-base">⭐</span>
+<span class="font-headline-sm text-headline-sm text-tertiary font-black text-sm">4,850</span>
+</div>
+<!-- Tickets Counter -->
+<div class="hidden sm:flex items-center gap-1.5 bg-surface-container-high/80 border border-secondary/30 px-3 py-1.5 rounded-full shadow-inner">
+<span class="text-secondary text-base">🎟️</span>
+<span class="font-headline-sm text-headline-sm text-secondary font-black text-sm">120</span>
+</div>
+<!-- Audio Quick Toggle -->
+<button aria-label="Audio Controls" class="w-10 h-10 rounded-full bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-primary-fixed border border-primary/20 transition-transform active:scale-90">
+<span class="material-symbols-outlined text-xl" data-icon="volume_up">volume_up</span>
+</button>
+<!-- Player Profile Badge -->
+<div class="flex items-center gap-2 bg-gradient-to-r from-surface-container to-surface-container-high p-1 pr-3 rounded-full border border-primary/40 shadow-[0_4px_12px_rgba(0,0,0,0.3)] hover:scale-105 transition-transform cursor-pointer">
+<div class="relative w-9 h-9 rounded-full bg-secondary-container p-0.5 shadow-md">
+<img class="w-full h-full object-cover rounded-full" data-alt="Cute energetic cosmic mascot profile avatar wearing pilot goggles, glowing purple ears, friendly smiling robotic expression, clean 3D Disney Pixar render quality with bright neon rim lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoo422Dz87G8Y6r5FctH0HsX6SjkTKFEU1qaMTWgWnLYb3NgbhWaYS8geCUAN5PXdvtI4HvOTCCuyGV8dEboyoi9c00_ZFc09KJ1qe6bZ6qAKsaVexlu-Tt8Ws5SsR_KFqeW1vef83blJ9xXvXHFZ46grDrsQqwst0w7lWHPfym8ZO6U_l60_YDi3DeDey9cCBERGvpBVi_yFzHznILYuSoqXo0QxNWO081zahy1a3NpigM9BTQhr7lsQf9OXXTK7HjS5NdOSnZtA"/>
+<div class="absolute -bottom-1 -right-1 bg-tertiary-container text-on-tertiary-container font-label-badge text-[9px] px-1 rounded-full font-black">
+              14
+            </div>
+</div>
+<div class="flex flex-col text-left">
+<span class="text-body-sm font-body-sm font-extrabold text-white leading-tight">P1 Leo</span>
+<span class="text-[10px] font-label-sensor text-primary-fixed uppercase tracking-wider">Party Leader</span>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- ========================================================================= -->
+<!-- TOP SUB-NAV BAR: Game Categories & Movement Motion Filter Chips -->
+<!-- ========================================================================= -->
+<nav class="w-full max-w-7xl mx-auto px-space-md md:px-margin pt-space-md pb-space-sm">
+<div class="flex items-center justify-between gap-4 overflow-x-auto pb-2 scrollbar-none">
+<!-- Filter Chips Group -->
+<div class="flex items-center gap-2.5 flex-nowrap shrink-0">
+<!-- All Action (Active) -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-container text-on-primary font-headline-sm text-sm font-black candy-btn-shadow-cyan transition-all active:translate-y-1">
+<span>⭐</span>
+<span>All Games (6)</span>
+</button>
+<!-- Hand Swipes -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>👋</span>
+<span>Hand Swipes</span>
+</button>
+<!-- Jumping & Dodging -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>🏃</span>
+<span>Full Body Jump</span>
+</button>
+<!-- Co-op Party -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>🤝</span>
+<span>Co-op Party</span>
+</button>
+<!-- Fast Blitz -->
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface font-headline-sm text-sm font-bold border border-outline-variant/50 transition-all hover:scale-105 active:scale-95">
+<span>⚡</span>
+<span>60s Blitz</span>
+</button>
+</div>
+<!-- Quick Room Code / Invite Button -->
+<div class="hidden md:flex items-center gap-2 shrink-0">
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">Room PIN: <strong class="text-tertiary tracking-widest">KABOOM-88</strong></span>
+<button class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-secondary-container text-white font-label-badge text-xs uppercase candy-btn-shadow-magenta transition-transform active:translate-y-0.5">
+<span class="material-symbols-outlined text-sm" data-icon="sports_esports">sports_esports</span>
+<span>Party (2P)</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- ========================================================================= -->
+<!-- MAIN HUB CANVAS -->
+<!-- ========================================================================= -->
+<main class="w-full max-w-7xl mx-auto px-space-md md:px-margin pb-32"><div class="flex flex-col w-full gap-y-space-md">
+<!-- Top Session Breadcrumb / Diagnostic Engine Ribbon -->
+<div class="flex flex-wrap items-center justify-between gap-space-xs bg-surface-container-lowest/80 px-space-md py-space-xs rounded-full shadow-md backdrop-blur-md">
+<div class="flex items-center gap-space-xs">
+<span class="w-3 h-3 rounded-full bg-primary-container animate-ping"></span>
+<span class="text-label-sensor font-label-sensor text-primary tracking-widest uppercase">STAGE 08</span>
+<span class="text-on-surface-variant text-body-sm">•</span>
+<span class="text-headline-sm font-headline-sm text-on-surface tracking-tight">HIGH JUMP &amp; SQUAT DUCK</span>
+<span class="text-on-surface-variant text-body-sm">•</span>
+<span class="bg-secondary-container text-on-secondary-container text-label-sensor font-label-sensor px-2.5 py-0.5 rounded-full uppercase tracking-wider">17-JOINTS OPTICAL ENGINE</span>
+</div>
+<div class="flex items-center gap-space-sm text-body-sm font-body-sm font-bold text-on-surface-variant">
+<span class="flex items-center gap-1 text-primary"><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">speed</span> 60.0 FPS LOCKED</span>
+<span>•</span>
+<span class="text-tertiary">LATENCY: 3.2ms</span>
+<span>•</span>
+<span class="text-secondary font-headline-sm text-xs uppercase">Optical Depth Calibrated</span>
+</div>
+</div>
+<!-- Primary Gameplay HUD Header Bar -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-space-sm items-center bg-surface-container-high/90 px-space-md py-space-sm rounded-lg shadow-xl">
+<!-- Left: Stage Identity & Mode -->
+<div class="md:col-span-4 flex items-center gap-space-sm">
+<div class="w-14 h-14 rounded-2xl bg-secondary-container flex items-center justify-center shrink-0 shadow-md">
+<span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-headline-md font-headline-md text-white tracking-wide truncate">STAGE 08: 점프 러너</span>
+</div>
+<span class="text-body-sm font-body-sm text-primary font-bold">ASTRO JUMP RUNNER • 하이 점프 &amp; 풀 스쿼트 슬라이드</span>
+</div>
+</div>
+<!-- Center: Stats Dashboard Ticker (Coins, Jumps, Multiplier, Score) -->
+<div class="md:col-span-5 flex items-center justify-around bg-surface-container-lowest/80 py-2 px-space-sm rounded-full shadow-inner gap-2">
+<!-- Score -->
+<div class="flex flex-col items-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant tracking-wider">SCORE</span>
+<span class="font-headline-md text-headline-md text-primary font-black leading-none" id="liveScoreCounter">94,800</span>
+</div>
+<div class="w-px h-8 bg-surface-variant"></div>
+<!-- Coins -->
+<div class="flex flex-col items-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant tracking-wider">COINS</span>
+<span class="font-headline-sm text-headline-sm text-tertiary font-black leading-none flex items-center gap-1">
+<span>142</span>
+<span class="text-tertiary-container text-xs">★</span>
+</span>
+</div>
+<div class="w-px h-8 bg-surface-variant"></div>
+<!-- Cleared Jumps -->
+<div class="flex flex-col items-center">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant tracking-wider">JUMPS</span>
+<span class="font-headline-sm text-headline-sm text-white font-black leading-none">
+<span class="text-primary-container">28</span><span class="text-on-surface-variant text-xs">/35</span>
+</span>
+</div>
+<div class="w-px h-8 bg-surface-variant"></div>
+<!-- Combo Multiplier -->
+<div class="flex flex-col items-center">
+<span class="text-label-sensor font-label-sensor text-secondary font-black tracking-widest animate-pulse">SPEED BOOST</span>
+<span class="font-headline-sm text-headline-sm text-secondary-fixed font-black leading-none">x3.0</span>
+</div>
+</div>
+<!-- Right: Countdown Timer & Shields -->
+<div class="md:col-span-3 flex items-center justify-end gap-space-md">
+<!-- Remaining Time -->
+<div class="flex items-center gap-2 bg-surface-container px-3.5 py-1.5 rounded-full shadow-sm">
+<span class="material-symbols-outlined text-secondary-container text-xl animate-spin" style="animation-duration: 4s;">timer</span>
+<div class="flex flex-col">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant">TIME LEFT</span>
+<span class="font-headline-sm text-headline-sm text-white font-black leading-none" id="gameTimer">0:35</span>
+</div>
+</div>
+<!-- Shield/Hearts -->
+<div class="flex items-center gap-1 bg-surface-container px-3 py-2 rounded-full">
+<span class="text-secondary text-lg" style="font-variation-settings: 'FILL' 1;">❤️</span>
+<span class="text-secondary text-lg" style="font-variation-settings: 'FILL' 1;">❤️</span>
+<span class="text-secondary text-lg" style="font-variation-settings: 'FILL' 1;">❤️</span>
+</div>
+</div>
+</div>
+<!-- Central Gameplay Screen Arena with Dynamic Motion AR Overlays -->
+<div class="relative w-full aspect-[16/9] max-h-[640px] rounded-xl overflow-hidden bg-surface-container-lowest shadow-2xl flex items-center justify-center">
+<!-- Real-time Game Perspective Cyber Highway Video Stream Background -->
+<img alt="Astro Jump Runner live motion party game perspective showing cyber neon highway rushing forward with jumping astronaut mascot, floating gold star coins, neon laser hurdles, and glowing futuristic skyscrapers under starlight." class="absolute inset-0 w-full h-full object-cover select-none pointer-events-none" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-yU_DxOstDflDSZHle8joyFEC5k97p0hc1zVc9rs-eAktoyn6-VJq2fwYNiJpsDqDDG3ZMIq089xgc5_z8i7VGOj5p-PwxYKv2wSYjKR_sBCBrISoVq9JFIsRQe8wqyQ4g9Itz_RYbLLubrciiCShzZwwZ_ja-72P3UHIs6T4htgIZVBT-dQiBXzdYwMx33hHfXiiLi7mwSxQn6lNtQVbl6WzXSEBAGP49FTgQ8DrRuztltd-zfwt"/>
+<!-- Holographic High-Jump Optical Target & Trajectory Arc -->
+<div class="absolute inset-0 flex flex-col justify-between p-space-md md:p-space-lg pointer-events-none select-none">
+<!-- Top Zone Overlays: Live Skeleton Tracking Miniature PiP & Status Tags -->
+<div class="flex justify-between items-start w-full">
+<!-- Floating Streak Popups -->
+<div class="flex flex-col gap-2">
+<div class="inline-flex items-center gap-2 bg-secondary-container text-on-secondary-container px-4 py-1.5 rounded-full shadow-lg transform -rotate-3 animate-bounce">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">electric_bolt</span>
+<span class="text-label-badge font-label-badge tracking-wider uppercase">FEVER RUNNER STREAK: 18x</span>
+</div>
+<div class="inline-flex items-center gap-2 bg-surface-container-high/90 px-3.5 py-1 rounded-full text-primary-fixed shadow-md backdrop-blur-md">
+<span class="text-label-sensor font-label-sensor">SUPER AIRTIME! +2,000 PTS</span>
+</div>
+</div>
+<!-- Live Optical Skeleton Tracking PiP (Right Upper Quadrant) -->
+<div class="w-56 md:w-64 bg-surface-container-lowest/90 rounded-2xl p-space-xs shadow-2xl backdrop-blur-xl pointer-events-auto flex flex-col gap-1.5">
+<div class="flex items-center justify-between px-2 pt-1">
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container animate-ping"></span>
+<span class="text-label-sensor font-label-sensor text-white tracking-widest uppercase">BODY SKELETON PiP</span>
+</div>
+<span class="text-label-sensor font-label-sensor bg-primary/20 text-primary px-2 py-0.5 rounded-full font-black">60 FPS</span>
+</div>
+<!-- Mini Skeleton Canvas Simulation Box -->
+<div class="relative w-full h-28 bg-surface-container rounded-xl overflow-hidden flex items-center justify-center">
+<!-- Simulated Optical Pose Joint Overlay -->
+<svg class="w-full h-full text-primary-container" fill="none" viewbox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+<!-- Floor baseline -->
+<line opacity="0.4" stroke="currentColor" stroke-dasharray="4 4" stroke-width="1.5" x1="20" x2="180" y1="105" y2="105"></line>
+<text fill="currentColor" font-family="Rubik" font-size="8" font-weight="800" opacity="0.6" x="24" y="115">CALIBRATED FLOOR PLANE</text>
+<!-- Real-time Jump Apex Trajectory Curve -->
+<path d="M 60 100 Q 100 20 140 100" opacity="0.8" stroke="#ffb0c9" stroke-dasharray="3 3" stroke-linecap="round" stroke-width="2.5"></path>
+<!-- Skeleton Points & Bones -->
+<!-- Head -->
+<circle cx="100" cy="38" fill="#14062b" r="7" stroke="#00d2ff" stroke-width="2"></circle>
+<!-- Spine -->
+<line stroke="#00d2ff" stroke-width="2.5" x1="100" x2="100" y1="45" y2="70"></line>
+<!-- Arms in Super-Jump Flex -->
+<line stroke="#00d2ff" stroke-width="2" x1="100" x2="78" y1="50" y2="35"></line>
+<line stroke="#00d2ff" stroke-width="2" x1="100" x2="122" y1="50" y2="35"></line>
+<circle cx="78" cy="35" fill="#ffd894" r="3"></circle>
+<circle cx="122" cy="35" fill="#ffd894" r="3"></circle>
+<!-- Pelvis -->
+<circle cx="100" cy="70" fill="#e1037d" r="3.5"></circle>
+<!-- Legs in Air Tuck -->
+<line stroke="#00d2ff" stroke-width="2.5" x1="100" x2="84" y1="70" y2="84"></line>
+<line stroke="#00d2ff" stroke-width="2" x1="84" x2="88" y1="84" y2="96"></line>
+<line stroke="#00d2ff" stroke-width="2.5" x1="100" x2="116" y1="70" y2="84"></line>
+<line stroke="#00d2ff" stroke-width="2" x1="116" x2="112" y1="84" y2="96"></line>
+<circle cx="88" cy="96" fill="#22c55e" r="3"></circle>
+<circle cx="112" cy="96" fill="#22c55e" r="3"></circle>
+<!-- Vertical Jump Distance indicator line -->
+<line marker-end="url(#arrow)" stroke="#ffd894" stroke-width="2" x1="150" x2="150" y1="105" y2="40"></line>
+<text fill="#ffd894" font-family="Rubik" font-size="9" font-weight="900" x="156" y="70">+38 cm</text>
+</svg>
+<!-- Real-time Apex Pill Badge -->
+<div class="absolute bottom-1.5 left-2 bg-surface-container-lowest/90 px-2 py-0.5 rounded text-[10px] font-label-sensor text-primary font-bold">
+              APEX: <span class="text-white">38 CM (PERFECT AIRTIME!)</span>
+</div>
+</div>
+<!-- Telemetry mini readouts -->
+<div class="flex items-center justify-between px-2 text-[11px] font-body-sm text-on-surface-variant font-bold pb-1">
+<span>SQUAT DEPTH: <strong class="text-primary-container">92%</strong></span>
+<span>BALANCE: <strong class="text-tertiary">CENTER 0.0</strong></span>
+</div>
+</div>
+</div>
+<!-- Mid-Zone Approaching Neon Obstacle HUD Alerts -->
+<div class="w-full flex flex-col items-center gap-space-sm">
+<!-- Action Jump Indicator Banner positioned over upcoming obstacle -->
+<div class="flex flex-col items-center bg-surface-container-lowest/90 px-space-lg py-2.5 rounded-full shadow-2xl backdrop-blur-lg transform hover:scale-105 transition-transform animate-pulse">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary-container text-2xl font-black">arrow_upward</span>
+<span class="text-headline-md font-headline-md text-white font-black tracking-wider">JUMP! 높이 뛰어넘기!</span>
+<span class="material-symbols-outlined text-secondary-container text-2xl font-black">arrow_upward</span>
+</div>
+<span class="text-body-sm font-body-sm text-primary font-extrabold tracking-wide">
+            &gt; 30cm VERTICAL AIRTIME REQUIRED • DETECTED JUMP HEIGHT: 38cm
+          </span>
+</div>
+<!-- Approaching Next Obstacle Alert Tag -->
+<div class="bg-surface-container-high/90 px-space-md py-1 rounded-full flex items-center gap-2 shadow-md">
+<span class="text-tertiary text-xs font-black uppercase">NEXT HAZARD IN 3.8s:</span>
+<span class="text-white text-body-sm font-body-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm text-tertiary" style="font-variation-settings: 'FILL' 1;">expand_more</span>
+            LOW LASER BARRIER (SQUAT SLIDE!)
+          </span>
+</div>
+</div>
+<!-- Bottom In-Game Floor Alignment & Magnet Aura Readout -->
+<div class="flex justify-between items-end w-full">
+<!-- Coin Magnet Zone Active Indicator -->
+<div class="flex items-center gap-2 bg-surface-container-lowest/80 px-space-sm py-1.5 rounded-full shadow-md">
+<div class="w-3 h-3 rounded-full bg-tertiary-container animate-ping"></div>
+<span class="text-label-sensor font-label-sensor text-tertiary tracking-wider uppercase">
+            COIN MAGNET AURA ACTIVE (RADIUS: 3.5M)
+          </span>
+</div>
+<!-- Center Trajectory Runway Indicator -->
+<div class="flex items-center gap-1 bg-surface-container-lowest/80 px-4 py-1.5 rounded-full text-label-sensor font-label-sensor text-white">
+<span>CENTER RUNWAY</span>
+<span class="text-primary-container font-black">▲ TRACK LOCKED</span>
+</div>
+<!-- Fast Assist Calibration Pill -->
+<div class="flex items-center gap-2 bg-surface-container-lowest/80 px-space-sm py-1.5 rounded-full shadow-md">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-fixed"></span>
+<span class="text-label-sensor font-label-sensor text-primary-fixed tracking-wider uppercase">
+            KID SOFT-LANDING HITBOX (+20CM)
+          </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Telemetry, Super Abilities & Controls Dashboard (3 High-Impact Cards) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- CARD 1: Vertical Motion Telemetry & Bio-Metrics -->
+<div class="flex flex-col justify-between bg-surface-container-high p-space-md rounded-lg shadow-xl">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-black">
+<span class="material-symbols-outlined text-base">monitoring</span>
+</div>
+<span class="text-headline-sm font-headline-sm text-white font-extrabold">도약 텔레메트리</span>
+</div>
+<span class="bg-primary/20 text-primary font-label-sensor text-[11px] px-2 py-0.5 rounded-full font-black">SENSORS ON</span>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">Vertical Motion Dynamics &amp; Airtime Tracking</span>
+</div>
+<!-- Live Metric Grid -->
+<div class="grid grid-cols-2 gap-space-xs my-space-sm">
+<!-- Metric 1: Peak Jump Height -->
+<div class="flex flex-col bg-surface-container p-2.5 rounded-xl shadow-inner">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">최대 도약 높이</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="text-headline-md font-headline-md text-primary font-black">42</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">cm</span>
+</div>
+<span class="text-[11px] font-body-sm text-primary-fixed">Family Record: 45 cm</span>
+</div>
+<!-- Metric 2: Airtime -->
+<div class="flex flex-col bg-surface-container p-2.5 rounded-xl shadow-inner">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">공중 체공 시간</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="text-headline-md font-headline-md text-tertiary font-black">0.62</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">sec</span>
+</div>
+<span class="text-[11px] font-body-sm text-tertiary-fixed">Super Float Bonus</span>
+</div>
+<!-- Metric 3: Squat Depth -->
+<div class="flex flex-col bg-surface-container p-2.5 rounded-xl shadow-inner">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">스쿼트 반응 속도</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="text-headline-md font-headline-md text-secondary font-black">98.4</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">%</span>
+</div>
+<span class="text-[11px] font-body-sm text-secondary-fixed">Instant Reaction</span>
+</div>
+<!-- Metric 4: Takeoff G-Force -->
+<div class="flex flex-col bg-surface-container p-2.5 rounded-xl shadow-inner">
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">이륙 가속도 (G)</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="text-headline-md font-headline-md text-white font-black">14.2</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">G</span>
+</div>
+<span class="text-[11px] font-body-sm text-primary">Kinetic Kinetic</span>
+</div>
+</div>
+<!-- Assist Status Footer Banner -->
+<div class="flex items-center justify-between bg-surface-container px-3 py-1.5 rounded-full">
+<span class="text-label-sensor font-label-sensor text-primary font-bold">KID ASSIST ENABLED:</span>
+<span class="text-label-sensor font-label-sensor text-white font-black">+20cm Jump Forgiveness</span>
+</div>
+</div>
+<!-- CARD 2: Special Ability Charged / Gesture Trigger (Astro Booster) -->
+<div class="flex flex-col justify-between bg-surface-container-high p-space-md rounded-lg shadow-xl relative overflow-hidden">
+<!-- Ambient Booster Glow behind card -->
+<div class="absolute -top-12 -right-12 w-36 h-36 bg-secondary-container/30 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex flex-col gap-1 relative z-10">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-white flex items-center justify-center font-black">
+<span class="material-symbols-outlined text-base">auto_awesome</span>
+</div>
+<span class="text-headline-sm font-headline-sm text-white font-extrabold">특수 필살기 가동</span>
+</div>
+<span class="bg-secondary-container text-on-secondary-container font-label-badge text-xs px-2.5 py-0.5 rounded-full uppercase tracking-wider font-black animate-pulse">100% READY</span>
+</div>
+<span class="text-body-sm font-body-sm text-secondary-fixed font-bold">SUPER ASTRO BOOSTER • 초고속 무적 비행</span>
+</div>
+<!-- Gesture Visual Guidance Instruction -->
+<div class="flex flex-col gap-2 my-space-sm bg-surface-container p-3 rounded-2xl relative z-10">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-tertiary text-2xl animate-bounce">front_hand</span>
+<div class="flex flex-col">
+<span class="text-headline-sm font-headline-sm text-white text-sm font-black">양팔을 앞으로 쭉 뻗으세요!</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">슈퍼맨 자세를 감지하면 5초간 무적 대시 발동</span>
+</div>
+</div>
+<!-- Super Gauge Bar -->
+<div class="w-full bg-surface-container-lowest h-3 rounded-full overflow-hidden mt-1 p-0.5">
+<div class="w-full h-full bg-secondary-container rounded-full shadow-inner animate-pulse"></div>
+</div>
+</div>
+<!-- Tactical 3D Action Push Button -->
+<button class="relative z-10 w-full py-3.5 px-space-md rounded-full bg-secondary-container text-white font-headline-sm text-sm font-black uppercase tracking-wider shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer" id="boostButton">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">speed</span>
+<span>부스터 대시 발동 (ASTRO BOOST DASH)</span>
+</button>
+</div>
+<!-- CARD 3: Runner Session Controls & Real-time Sensor Tuning -->
+<div class="flex flex-col justify-between bg-surface-container-high p-space-md rounded-lg shadow-xl">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-black">
+<span class="material-symbols-outlined text-base">tune</span>
+</div>
+<span class="text-headline-sm font-headline-sm text-white font-extrabold">러너 세션 컨트롤</span>
+</div>
+<span class="text-label-sensor font-label-sensor text-on-surface-variant uppercase">P1 LEO HOST</span>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-bold">Fast Sensor Recalibration &amp; Sound Toggles</span>
+</div>
+<!-- Control Sliders and Diagnostics -->
+<div class="flex flex-col gap-space-xs my-space-sm">
+<!-- Floor Plane Sensor Recalibration Button -->
+<button class="w-full flex items-center justify-between bg-surface-container hover:bg-surface-bright px-space-sm py-2 rounded-xl transition-all active:scale-95 cursor-pointer" id="calibrateFloorBtn">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">floor</span>
+<span class="text-body-sm font-body-sm text-white font-bold">바닥 영점 재설정 (Floor Reset)</span>
+</div>
+<span class="text-label-sensor font-label-sensor text-primary font-black uppercase bg-primary/20 px-2 py-0.5 rounded-full">Tap To Zero</span>
+</button>
+<!-- BGM Volume Quick Preset -->
+<div class="flex items-center justify-between bg-surface-container px-space-sm py-2 rounded-xl">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-xl">music_note</span>
+<span class="text-body-sm font-body-sm text-white font-bold">BGM: 사이버 웨이브 비트</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="w-6 h-6 rounded-full bg-surface-bright text-white flex items-center justify-center text-xs font-black">-</button>
+<span class="text-label-sensor font-label-sensor text-tertiary font-black px-1">85%</span>
+<button class="w-6 h-6 rounded-full bg-surface-bright text-white flex items-center justify-center text-xs font-black">+</button>
+</div>
+</div>
+<!-- Latency / Packet Diagnostic Readout -->
+<div class="flex items-center justify-between bg-surface-container px-space-sm py-2 rounded-xl">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed text-xl">sensors</span>
+<span class="text-body-sm font-body-sm text-white font-bold">센서 프레임 딜레이</span>
+</div>
+<span class="text-label-sensor font-label-sensor text-white font-black bg-surface-container-lowest px-2 py-0.5 rounded-full">3.4 ms (ULTRA-LOW)</span>
+</div>
+</div>
+<!-- Action Buttons Row (Pause / Quit to Lobby) -->
+<div class="flex items-center gap-space-xs">
+<button class="flex-1 py-2.5 rounded-full bg-surface-container hover:bg-surface-bright text-white font-headline-sm text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1 cursor-pointer" id="pauseSessionBtn">
+<span class="material-symbols-outlined text-sm">pause</span>
+<span>일시정지 (PAUSE)</span>
+</button>
+<button class="flex-1 py-2.5 rounded-full bg-surface-container hover:bg-surface-bright text-error font-headline-sm text-xs font-black uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1 cursor-pointer">
+<span class="material-symbols-outlined text-sm">logout</span>
+<span>로비 퇴장 (LOBBY)</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Countdown Timer Simulation
+  let remainingSeconds = 35;
+  const timerDisplay = document.getElementById('gameTimer');
+  if (timerDisplay) {
+    const timerInterval = setInterval(() => {
+      if (remainingSeconds > 0) {
+        remainingSeconds--;
+        const formatted = `0:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        timerDisplay.textContent = formatted;
+      } else {
+        clearInterval(timerInterval);
+      }
+    }, 1000);
+  }
+
+  // Interactive Super Astro Booster Trigger
+  const boostBtn = document.getElementById('boostButton');
+  const scoreCounter = document.getElementById('liveScoreCounter');
+  if (boostBtn) {
+    boostBtn.addEventListener('click', () => {
+      boostBtn.classList.add('scale-95');
+      setTimeout(() => boostBtn.classList.remove('scale-95'), 150);
+      
+      // Update dynamic score
+      if (scoreCounter) {
+        let currentScore = parseInt(scoreCounter.textContent.replace(/,/g, ''), 10) || 94800;
+        currentScore += 5000;
+        scoreCounter.textContent = currentScore.toLocaleString();
+      }
+
+      // Tactile feedback
+      if (navigator.vibrate) navigator.vibrate([40, 20, 80]);
+    });
+  }
+
+  // Floor plane zeroing simulation
+  const floorBtn = document.getElementById('calibrateFloorBtn');
+  if (floorBtn) {
+    floorBtn.addEventListener('click', () => {
+      const badge = floorBtn.querySelector('span:last-child');
+      if (badge) {
+        badge.textContent = "CALIBRATED!";
+        badge.classList.remove('text-primary');
+        badge.classList.add('text-secondary');
+        setTimeout(() => {
+          badge.textContent = "Tap To Zero";
+          badge.classList.remove('text-secondary');
+          badge.classList.add('text-primary');
+        }, 1800);
+      }
+    });
+  }
+</script></main>
+<!-- ========================================================================= -->
+<!-- DOCKED BOTTOM PARTY ROSTER & ASSIST CONTROLS BAR -->
+<!-- ========================================================================= -->
+<aside class="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-2xl border-t border-outline-variant/30 px-space-md py-3 shadow-[0_-8px_32px_rgba(0,0,0,0.7)]">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+<!-- Left: Active Family Members In the Room Roster -->
+<div class="flex items-center gap-3 overflow-x-auto w-full md:w-auto">
+<!-- P1 Pill -->
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-primary/50 shrink-0 shadow-sm">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-badge text-[10px] font-black">
+            P1
+          </div>
+<span class="text-body-sm font-body-sm text-white font-extrabold">Leo (Dino Pilot)</span>
+<span class="w-2 h-2 rounded-full bg-[#22C55E]" title="Motion Calibrated"></span>
+</div>
+<!-- P2 Pill -->
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-secondary/50 shrink-0 shadow-sm">
+<div class="w-6 h-6 rounded-full bg-secondary-container text-white flex items-center justify-center font-label-badge text-[10px] font-black">
+            P2
+          </div>
+<span class="text-body-sm font-body-sm text-white font-extrabold">Maya (Star Fox)</span>
+<span class="w-2 h-2 rounded-full bg-[#22C55E]" title="Motion Calibrated"></span>
+</div>
+<!-- P3/P4 Empty Slot Invitation -->
+<button class="flex items-center gap-1.5 bg-surface-container-high/60 hover:bg-surface-bright px-3.5 py-1.5 rounded-full border-2 border-dashed border-primary/40 text-primary-fixed hover:text-white text-xs font-label-badge uppercase tracking-wider shrink-0 transition-transform active:scale-95">
+<span class="text-sm font-black">+</span>
+<span>Invite P3 &amp; P4</span>
+</button>
+</div>
+<!-- Right: Kid Assist & Accessibility Toggles -->
+<div class="flex items-center gap-4 text-xs font-label-sensor uppercase tracking-wider shrink-0 w-full md:w-auto justify-end">
+<!-- Kid Assist Switch -->
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/40">
+<span class="text-primary font-bold">Kid Assist:</span>
+<button class="w-10 h-5 bg-[#22C55E] rounded-full p-0.5 flex items-center transition-colors" id="kidAssistToggle">
+<div class="w-4 h-4 bg-white rounded-full shadow-md transform translate-x-5 transition-transform"></div>
+</button>
+<span class="text-[10px] text-on-surface-variant font-extrabold">Wide Hitbox</span>
+</div>
+<!-- Tracking Sensitivity -->
+<div class="hidden lg:flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/40">
+<span class="text-on-surface-variant">Sensitivity:</span>
+<span class="text-tertiary font-black">MEDIUM (Kid Safe)</span>
+</div>
+<!-- Camera Diagnostic Trigger -->
+<button class="flex items-center gap-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 px-3 py-1.5 rounded-full transition-transform active:scale-95" title="Run Camera Framing Check">
+<span class="material-symbols-outlined text-sm" data-icon="center_focus_strong">center_focus_strong</span>
+<span class="hidden sm:inline">Camera Check</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Interactive script for playful micro-interactions -->
+<script>
+    // Kid Assist quick toggle
+    const toggleBtn = document.getElementById('kidAssistToggle');
+    if (toggleBtn) {
+      let active = true;
+      toggleBtn.addEventListener('click', () => {
+        active = !active;
+        const knob = toggleBtn.querySelector('div');
+        if (active) {
+          toggleBtn.classList.remove('bg-surface-bright');
+          toggleBtn.classList.add('bg-[#22C55E]');
+          knob.classList.remove('translate-x-0');
+          knob.classList.add('translate-x-5');
+        } else {
+          toggleBtn.classList.remove('bg-[#22C55E]');
+          toggleBtn.classList.add('bg-surface-bright');
+          knob.classList.remove('translate-x-5');
+          knob.classList.add('translate-x-0');
+        }
+      });
+    }
+
+    // Audio SFX placeholder feedback on buttons
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('mousedown', () => {
+        // tactile vibration if supported on touch screens
+        if (navigator.vibrate) navigator.vibrate(12);
+      });
+    });
+  </script>
+</body></html>
