@@ -368,3 +368,537 @@ body.tv-fullscreen-mode .hub {
   stroke: #111 !important;
 }
 
+/* ==========================================================================
+   Stitch 기반 Live In-Game Motion HUD 스타일링 (Beat Saber Inspired)
+   ========================================================================== */
+.stitch-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(10px, 2vw, 24px);
+  box-sizing: border-box;
+  font-family: var(--font-display);
+}
+
+/* 상단 라이브 헤더 바 */
+.stitch-hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.hud-card {
+  pointer-events: auto;
+  background: rgba(20, 6, 43, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  border-radius: 18px;
+  padding: 10px 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 210, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud-left-card {
+  min-width: 220px;
+}
+
+.hud-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hud-badge-pill {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #e1037d, #ff2a8d);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(225, 3, 125, 0.6);
+}
+
+.hud-title-text {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.hud-sub-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--neon-cyan);
+}
+
+.hud-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.hud-score-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.hud-score-num {
+  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 20px rgba(0, 210, 255, 0.8), 0 0 35px rgba(0, 210, 255, 0.4);
+}
+
+.hud-score-unit {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--neon-gold);
+}
+
+/* 중앙 원형 멀티플라이어 게이지 */
+.hud-center-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.multiplier-radial-wrap {
+  position: relative;
+  width: clamp(68px, 6.5vw, 84px);
+  height: clamp(68px, 6.5vw, 84px);
+  border-radius: 50%;
+  background: rgba(20, 6, 43, 0.9);
+  border: 2px solid var(--neon-cyan);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.5), inset 0 0 12px rgba(0, 210, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.multiplier-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 7;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: #00d2ff;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.15s ease-out, stroke 0.3s;
+}
+
+.multiplier-core {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  line-height: 1;
+}
+
+.multiplier-caption {
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: var(--neon-cyan);
+}
+
+.multiplier-val {
+  font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  margin: 2px 0;
+}
+
+.multiplier-max {
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: #ffb0c9;
+}
+
+.hud-streak-pill {
+  margin-top: 6px;
+  transform: rotate(-2deg);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e1037d, #9333ea, #00d2ff);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 900;
+  box-shadow: 0 4px 16px rgba(225, 3, 125, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: streakPulse 1.4s infinite alternate;
+}
+
+@keyframes streakPulse {
+  0% { transform: rotate(-2deg) scale(0.98); }
+  100% { transform: rotate(-2deg) scale(1.04); }
+}
+
+/* 우측 카드 (타이머, 에너지 바, 락 상태, 조작 버튼) */
+.hud-right-card {
+  min-width: 200px;
+  align-items: flex-end;
+}
+
+.hud-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-time-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.hud-time-val {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.hud-energy-wrap {
+  width: 100%;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.hud-energy-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--neon-cyan);
+}
+
+.energy-pct {
+  color: #ffd894;
+}
+
+.energy-track {
+  width: 100%;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  padding: 1.5px;
+}
+
+.energy-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #00d2ff, #22c55e, #fbb500);
+  box-shadow: 0 0 10px #00d2ff;
+  transition: width 0.2s ease-out;
+}
+
+.hud-cam-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+  font-size: 0.65rem;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.cam-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: ping 1.5s infinite;
+}
+
+.hud-actions-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.hud-btn-pill {
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.78rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-btn-pill:hover {
+  transform: scale(1.06);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.quit-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.quit-btn:hover {
+  background: #b91c1c;
+}
+
+/* 중앙 상단 가이드 배너 */
+.hud-guide-banner {
+  align-self: center;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: rgba(20, 6, 43, 0.85);
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 210, 255, 0.25);
+  margin-top: -10px;
+}
+
+.guide-icon {
+  font-size: 1rem;
+}
+
+.guide-main {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: var(--neon-cyan);
+}
+
+.guide-sub {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+/* 하단 듀얼 세이버 텔레메트리 독 */
+.stitch-hud-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.telemetry-pod {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 6, 43, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 18px;
+  padding: 8px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.pod-left {
+  border: 1.5px solid rgba(0, 210, 255, 0.5);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.25);
+}
+
+.pod-right {
+  border: 1.5px solid rgba(225, 3, 125, 0.5);
+  box-shadow: 0 0 20px rgba(225, 3, 125, 0.25);
+}
+
+.saber-light-bar {
+  width: 8px;
+  height: 38px;
+  border-radius: 999px;
+  animation: pulseGlow 1.6s infinite alternate;
+}
+
+.left-bar {
+  background: #00d2ff;
+  box-shadow: 0 0 14px #00d2ff;
+}
+
+.right-bar {
+  background: #e1037d;
+  box-shadow: 0 0 14px #e1037d;
+}
+
+@keyframes pulseGlow {
+  0% { opacity: 0.7; transform: scaleY(0.92); }
+  100% { opacity: 1; transform: scaleY(1.08); }
+}
+
+.pod-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pod-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pod-name {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.pod-left .pod-name { color: var(--neon-cyan); }
+.pod-right .pod-name { color: #ffb0c9; }
+
+.pod-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.cyan-dot { background: #00d2ff; box-shadow: 0 0 6px #00d2ff; }
+.magenta-dot { background: #e1037d; box-shadow: 0 0 6px #e1037d; }
+
+.pod-speed {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.1;
+  margin: 2px 0;
+}
+
+.pod-speed small {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.pod-detail {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+
+/* 중앙 특수 필살기 하이퍼 오버드라이브 */
+.overdrive-dock {
+  pointer-events: auto;
+  min-width: 220px;
+  background: linear-gradient(135deg, rgba(20, 6, 43, 0.9), rgba(60, 16, 75, 0.9));
+  border: 1.5px solid rgba(225, 3, 125, 0.6);
+  border-radius: 16px;
+  padding: 8px 14px;
+  box-shadow: 0 0 24px rgba(225, 3, 125, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.od-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.od-title {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #ffb0c9;
+  letter-spacing: 0.05em;
+}
+
+.od-status {
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #ffd894;
+}
+
+.od-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  padding: 1px;
+}
+
+.od-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e1037d, #fbb500, #00d2ff);
+  box-shadow: 0 0 10px #e1037d;
+  transition: width 0.15s ease-out;
+}
+
+/* 모바일 화면 대응 */
+@media (max-width: 768px) {
+  .stitch-hud {
+    padding: 8px;
+  }
+  .hud-badge-row .hud-title-text,
+  .hud-badge-row .hud-sub-pill {
+    display: none;
+  }
+  .hud-left-card {
+    min-width: 140px;
+    padding: 8px 12px;
+  }
+  .hud-right-card {
+    min-width: 130px;
+    padding: 8px 12px;
+  }
+  .hud-guide-banner {
+    display: none;
+  }
+  .overdrive-dock {
+    display: none;
+  }
+  .telemetry-pod {
+    padding: 6px 10px;
+  }
+}
+
+

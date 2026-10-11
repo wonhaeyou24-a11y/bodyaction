@@ -33,26 +33,119 @@
   <div id="waveBannerSub" class="wave-banner-sub">START!</div>
 </div>
 
-<div id="hud" class="hidden">
-  <div class="hud-box stage-box">
-    <span class="hud-label">STAGE</span>
-    <div id="stageWave">WAVE 1</div>
+<!-- ================= Stitch 기반 Live In-Game Motion HUD ================= -->
+<div id="hud" class="stitch-hud hidden">
+  <!-- 1. 상단 라이브 헤더 (트랙/게임명, 점수, 멀티플라이어 게이지, 타이머 & 에너지) -->
+  <header class="stitch-hud-top">
+    <!-- 좌측: 트랙/게임 배지 & 대형 네온 스코어 -->
+    <div class="hud-card hud-left-card">
+      <div class="hud-badge-row">
+        <span id="hudBadge" class="hud-badge-pill">EXPERT +</span>
+        <span id="hudTitle" class="hud-title-text">NEON NOTE SLASH</span>
+        <span id="hudSubDetail" class="hud-sub-pill">132 BPM</span>
+      </div>
+      <div class="hud-score-row">
+        <span class="hud-score-label">SCORE:</span>
+        <div id="score" class="hud-score-num">0</div>
+        <span class="hud-score-unit">PTS</span>
+      </div>
+    </div>
+
+    <!-- 중앙: Stitch 원형 멀티플라이어 링 & 불꽃 스트릭 -->
+    <div class="hud-center-cluster">
+      <div class="multiplier-radial-wrap">
+        <svg class="multiplier-svg" viewBox="0 0 100 100">
+          <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+          <circle id="multCircle" class="ring-fill" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="multiplier-core">
+          <span class="multiplier-caption">COMBO</span>
+          <span id="hudMultVal" class="multiplier-val">x1</span>
+          <span id="hudMultMax" class="multiplier-max">BASE</span>
+        </div>
+      </div>
+      <div id="hudStreakBadge" class="hud-streak-pill hidden">
+        <span class="streak-fire">🔥</span>
+        <span id="hudStreakText">0 STREAK!</span>
+      </div>
+    </div>
+
+    <!-- 우측: 남은 시간, 라이프 에너지 바, 센서 상태 및 액션 버튼 -->
+    <div class="hud-card hud-right-card">
+      <div class="hud-time-row">
+        <span class="hud-icon">⏱</span>
+        <span class="hud-time-label">TIME</span>
+        <div id="time" class="hud-time-val">60</div>
+      </div>
+      <div class="hud-energy-wrap">
+        <div class="hud-energy-labels">
+          <span class="energy-title">LIFE ENERGY</span>
+          <span id="hudEnergyPct" class="energy-pct">100%</span>
+        </div>
+        <div class="energy-track">
+          <div id="hudEnergyFill" class="energy-fill" style="width: 100%;"></div>
+        </div>
+      </div>
+      <div class="hud-cam-pill">
+        <span class="cam-dot"></span>
+        <span id="hudFpsText">60 FPS LOCKED • 0ms</span>
+      </div>
+      <div class="hud-actions-strip">
+        <button id="btnFsHud" class="hud-btn-pill" title="전체화면" aria-label="전체화면">
+          <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          <svg class="fs-icon fs-icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6m0 0v6m0-6-7 7m17-11h-6m0 0V4m0 6 7-7"/></svg>
+        </button>
+        <button id="quit" class="hud-btn-pill quit-btn" title="게임 종료" aria-label="게임 종료">✕ 나가기</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. 중앙 상단 조작 가이드 배너 -->
+  <div id="hudGuideBanner" class="hud-guide-banner">
+    <span class="guide-icon">⚡</span>
+    <span id="hudGuideMain" class="guide-main">SLASH IN DIRECTION OF ARROWS!</span>
+    <span id="hudGuideSub" class="guide-sub">화살표 방향으로 리듬에 맞춰 슬라이스하세요!</span>
   </div>
-  <div class="hud-box score-box">
-    <span class="hud-label">SCORE</span>
-    <div id="score">0점</div>
-  </div>
-  <div class="hud-box time-box">
-    <span class="hud-label">TIME</span>
-    <div id="time">60</div>
-  </div>
-  <div class="hud-actions">
-    <button id="btnFsHud" class="candy-btn cyan-btn fs-btn" title="TV/대화면 전체화면 토글" aria-label="TV/대화면 전체화면 토글">
-      <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-      <svg class="fs-icon fs-icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6m0 0v6m0-6-7 7m17-11h-6m0 0V4m0 6 7-7"/></svg>
-    </button>
-    <button id="quit" class="candy-btn red-btn">나가기</button>
-  </div>
+
+  <!-- 3. 하단 듀얼 모션 텔레메트리 독 (좌/우 세이버 속도 & 필살기 게이지) -->
+  <footer class="stitch-hud-bottom">
+    <!-- 좌측 세이버/모션 텔레메트리 팟 (CYAN) -->
+    <div id="hudLeftPod" class="telemetry-pod pod-left">
+      <div class="saber-light-bar left-bar"></div>
+      <div class="pod-info">
+        <div class="pod-header">
+          <span class="pod-dot cyan-dot"></span>
+          <span id="hudLeftLabel" class="pod-name">LEFT SABER (CYAN)</span>
+        </div>
+        <div class="pod-speed"><span id="hudLeftSpeed">0</span> <small>KM/H</small></div>
+        <div id="hudLeftDesc" class="pod-detail">SMOOTH ARC • READY</div>
+      </div>
+    </div>
+
+    <!-- 중앙 특수 필살기 (HYPER OVERDRIVE FRENZY) 게이지 바 -->
+    <div id="hudOverdriveWrap" class="overdrive-dock">
+      <div class="od-header">
+        <span class="od-title">⚡ HYPER OVERDRIVE</span>
+        <span id="hudOdStatus" class="od-status">CHARGING...</span>
+      </div>
+      <div class="od-track">
+        <div id="hudOdFill" class="od-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- 우측 세이버/모션 텔레메트리 팟 (MAGENTA) -->
+    <div id="hudRightPod" class="telemetry-pod pod-right">
+      <div class="pod-info text-right">
+        <div class="pod-header justify-end">
+          <span id="hudRightLabel" class="pod-name">RIGHT SABER (MAGENTA)</span>
+          <span class="pod-dot magenta-dot"></span>
+        </div>
+        <div class="pod-speed"><span id="hudRightSpeed">0</span> <small>KM/H</small></div>
+        <div id="hudRightDesc" class="pod-detail">CRITICAL POWER • READY</div>
+      </div>
+      <div class="saber-light-bar right-bar"></div>
+    </div>
+  </footer>
 </div>
 
 <!-- ================= 아케이드 허브 (Stitch 시안 반영) ================= -->

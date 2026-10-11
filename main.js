@@ -834,18 +834,286 @@ function award(x, y, pts, color = "#fff") {
   else if (combo === 10) speak("10 콤보! 대단해요!", true);
   else if (combo === 20) speak("20 콤보! 슈퍼스타!", true);
 }
+// ============================================================================
+// 🌟 Stitch Live In-Game Motion HUD 시스템 (Beat Saber Inspired)
+// ============================================================================
+const GAME_HUD_META = {
+  beat: {
+    badge: "EXPERT +",
+    title: "NEON NOTE SLASH",
+    sub: "132 BPM",
+    guideMain: "SLASH IN DIRECTION OF ARROWS!",
+    guideSub: "화살표 방향으로 리듬에 맞춰 듀얼 세이버를 휘두르세요!",
+    leftName: "LEFT SABER (CYAN)",
+    rightName: "RIGHT SABER (MAGENTA)",
+    leftDesc: "SMOOTH ARC • READY",
+    rightDesc: "CRITICAL POWER • READY",
+  },
+  kungfu: {
+    badge: "BLACK BELT",
+    title: "KUNGFU DOJO",
+    sub: "MARTIAL ARTS",
+    guideMain: "PUNCH THE TARGETS WITH BOTH HANDS!",
+    guideSub: "다가오는 표적을 양손 주먹으로 빠르게 타격하세요! (폭탄 주의)",
+    leftName: "LEFT JAB (CYAN)",
+    rightName: "RIGHT HOOK (RED)",
+    leftDesc: "SPEED PUNCH • READY",
+    rightDesc: "POWER PUNCH • READY",
+  },
+  box: {
+    badge: "SPEED COMBO",
+    title: "SPEED PUNCHING BAG",
+    sub: "BOXING ARENA",
+    guideMain: "STRIKE THE BAG CONTINUOUSLY!",
+    guideSub: "리듬에 맞춰 샌드백을 양손으로 연속 타격하세요!",
+    leftName: "LEFT GLOVE",
+    rightName: "RIGHT GLOVE",
+    leftDesc: "RAPID STRIKE",
+    rightDesc: "RAPID STRIKE",
+  },
+  space: {
+    badge: "DEFENDER",
+    title: "COSMIC METEOR DEFENSE",
+    sub: "PLANET SHIELD",
+    guideMain: "TOUCH TO DESTROY INCOMING METEORS!",
+    guideSub: "지구로 날아오는 불타는 유성을 손으로 터뜨려 방어막을 지키세요!",
+    leftName: "P1 DEFENSE SHIELD",
+    rightName: "P2 CO-OP SENSOR",
+    leftDesc: "SHIELD MATRIX",
+    rightDesc: "ENERGY BEAM",
+  },
+  brick: {
+    badge: "ARCADE RETRO",
+    title: "NEON BRICK BREAKER",
+    sub: "CYBER PADDLE",
+    guideMain: "MOVE YOUR HAND TO DEFLECT THE BALL!",
+    guideSub: "손으로 네온 패들을 좌우로 움직여 공을 튕겨내세요!",
+    leftName: "PADDLE POSITION",
+    rightName: "BALL VELOCITY",
+    leftDesc: "SMOOTH GLIDE",
+    rightDesc: "ACTIVE BOUNCE",
+  },
+  runner: {
+    badge: "HIGH VELOCITY",
+    title: "JUMPING RUNNER",
+    sub: "FULL BODY MOTION",
+    guideMain: "JUMP OVER OBSTACLES & DUCK LOW!",
+    guideSub: "점프로 장애물을 넘고 몸을 숙여 터널을 통과하세요!",
+    leftName: "BODY VERTICAL (Y)",
+    rightName: "JUMP ACCELERATION",
+    leftDesc: "POSE TRACKING",
+    rightDesc: "PEAK VELOCITY",
+  },
+  keeper: {
+    badge: "SUPER SAVE",
+    title: "MOTION GOALKEEPER",
+    sub: "3D PENALTY SHOT",
+    guideMain: "BLOCK THE SOCCER BALL WITH BODY & HANDS!",
+    guideSub: "골대로 날아오는 슈팅을 온몸과 양손으로 슈퍼 세이브 하세요!",
+    leftName: "LEFT GLOVE BLOCK",
+    rightName: "RIGHT GLOVE BLOCK",
+    leftDesc: "REFLEX SENSOR",
+    rightDesc: "REFLEX SENSOR",
+  },
+  pose: {
+    badge: "SYNCHRO 100%",
+    title: "POSE MIMIC MASCOT",
+    sub: "AEROBIC DANCE",
+    guideMain: "MATCH THE POSE ON THE SCREEN!",
+    guideSub: "화면의 마스코트 동작을 거울처럼 똑같이 따라 하세요!",
+    leftName: "BODY SYNC RATE",
+    rightName: "FLEXIBILITY",
+    leftDesc: "SKELETON MATCH",
+    rightDesc: "PERFECT POSE",
+  },
+  balloon: {
+    badge: "PARTY POP",
+    title: "BALLOON FRENZY",
+    sub: "MULTI TOUCH",
+    guideMain: "TOUCH & POP ALL BALLOONS!",
+    guideSub: "화면 위로 떠오르는 알록달록 풍선들을 팡팡 터뜨리세요!",
+    leftName: "P1 POP SENSOR",
+    rightName: "P2 POP SENSOR",
+    leftDesc: "QUICK TOUCH",
+    rightDesc: "QUICK TOUCH",
+  },
+  ninja: {
+    badge: "CYBER KATANA",
+    title: "FRUIT NINJA BLADE",
+    sub: "FAST SLASH",
+    guideMain: "SWIPE FAST TO SLICE FLYING FRUITS!",
+    guideSub: "화면 위로 솟구치는 과일을 빠르게 베어내세요! (폭탄 주의)",
+    leftName: "BLADE SWIPE L",
+    rightName: "BLADE SWIPE R",
+    leftDesc: "CUT VELOCITY",
+    rightDesc: "CUT VELOCITY",
+  }
+};
+
+let lastLeftSpeed = 0, lastRightSpeed = 0;
+function updateLiveHud() {
+  if (!playing || !mode) return;
+  const g = games[mode];
+  const meta = GAME_HUD_META[mode] || {
+    badge: "STAGE",
+    title: mode.toUpperCase(),
+    sub: "60 FPS",
+    guideMain: "PLAY WITH MOTION!",
+    guideSub: "카메라 앞에서 손과 몸으로 플레이하세요!",
+    leftName: "MOTION P1",
+    rightName: "MOTION P2",
+    leftDesc: "ACTIVE",
+    rightDesc: "ACTIVE",
+  };
+
+  // 1. 헤더 기본 정보
+  const badgeEl = $("hudBadge");
+  if (badgeEl) badgeEl.textContent = meta.badge;
+
+  const titleEl = $("hudTitle");
+  if (titleEl) {
+    if (mode === "beat" && g.currentTrack) {
+      titleEl.textContent = g.currentTrack.title;
+    } else {
+      titleEl.textContent = meta.title;
+    }
+  }
+
+  const subEl = $("hudSubDetail");
+  if (subEl) {
+    if (mode === "beat" && g.currentTrack) {
+      subEl.textContent = `${g.currentTrack.bpm} BPM`;
+    } else {
+      subEl.textContent = meta.sub;
+    }
+  }
+
+  // 2. 스코어 네온 숫자
+  const scoreEl = $("score");
+  if (scoreEl) {
+    const rawScore = g.scoreText ? g.scoreText() : score.toLocaleString();
+    scoreEl.textContent = rawScore;
+  }
+
+  // 3. Stitch 원형 멀티플라이어 SVG 게이지 & 불꽃 스트릭
+  const mult = g.multiplier || (combo >= 14 ? 8 : (combo >= 6 ? 4 : (combo >= 2 ? 2 : 1)));
+  const multValEl = $("hudMultVal");
+  if (multValEl) multValEl.textContent = `x${mult}`;
+
+  const multMaxEl = $("hudMultMax");
+  if (multMaxEl) multMaxEl.textContent = mult >= 8 ? "MAX x8" : (mult >= 4 ? "OVER x4" : (mult >= 2 ? "BOOST x2" : "BASE"));
+
+  // SVG 원 둘레: 2 * PI * 42 ~= 263.89
+  const circumference = 264;
+  let comboProgress = 0;
+  if (mult >= 8) comboProgress = 1.0;
+  else if (mult >= 4) comboProgress = Math.min(1, (combo - 6) / 8);
+  else if (mult >= 2) comboProgress = Math.min(1, (combo - 2) / 4);
+  else comboProgress = Math.min(1, combo / 2);
+
+  const multCircle = $("multCircle");
+  if (multCircle) {
+    const offset = circumference - (comboProgress * circumference);
+    multCircle.style.strokeDashoffset = offset.toString();
+    multCircle.style.stroke = mult >= 8 ? "#ffd700" : (mult >= 4 ? "#e1037d" : "#00d2ff");
+  }
+
+  // 콤보 스트릭 배지
+  const streakBadge = $("hudStreakBadge");
+  const streakText = $("hudStreakText");
+  if (streakBadge && streakText) {
+    if (combo >= 3) {
+      streakBadge.classList.remove("hidden");
+      streakText.textContent = `${combo} HIT STREAK! ${mult >= 8 ? "(FRENZY MAX)" : ""}`;
+    } else {
+      streakBadge.classList.add("hidden");
+    }
+  }
+
+  // 4. 시간 표시
+  const timeEl = $("time");
+  if (timeEl) {
+    if (isReadyTime) {
+      timeEl.textContent = `0:0${Math.max(1, Math.ceil(readyTimeLeft))}`;
+    } else {
+      const s = Math.max(0, Math.ceil(timeLeft));
+      timeEl.textContent = s >= 60 ? `1:${String(s - 60).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`;
+    }
+  }
+
+  // 5. 라이프 에너지 바
+  let energyPct = 100;
+  if (mode === "beat") {
+    energyPct = Math.max(5, Math.min(100, Math.round(g.energy ?? 100)));
+  } else if (mode === "space") {
+    energyPct = Math.round((shield / SHIELD_MAX) * 100);
+  } else {
+    energyPct = Math.min(100, Math.max(20, Math.round(70 + (combo * 2))));
+  }
+  const energyFill = $("hudEnergyFill");
+  const energyPctEl = $("hudEnergyPct");
+  if (energyFill) energyFill.style.width = `${energyPct}%`;
+  if (energyPctEl) energyPctEl.textContent = `${energyPct}%`;
+
+  // 6. 상단 가이드 배너
+  const guideMain = $("hudGuideMain");
+  const guideSub = $("hudGuideSub");
+  if (guideMain) guideMain.textContent = meta.guideMain;
+  if (guideSub) guideSub.textContent = meta.guideSub;
+
+  // 7. 실시간 모션 스피드 텔레메트리 (KM/H)
+  let leftSpd = 0, rightSpd = 0;
+  if (mode === "beat" && g.wristVel) {
+    leftSpd = Math.round((g.wristVel[0]?.spd || 0) * 3.6);
+    rightSpd = Math.round((g.wristVel[1]?.spd || 0) * 3.6);
+  } else if (pointers && pointers.length > 0) {
+    const p1 = pointers[0];
+    const p2 = pointers[1] || pointers[0];
+    leftSpd = Math.round((p1.speed || 0) * 3.6);
+    rightSpd = Math.round((p2.speed || 0) * 3.6);
+  }
+  lastLeftSpeed = Math.round(lastLeftSpeed * 0.7 + leftSpd * 0.3);
+  lastRightSpeed = Math.round(lastRightSpeed * 0.7 + rightSpd * 0.3);
+
+  const leftSpdEl = $("hudLeftSpeed");
+  const rightSpdEl = $("hudRightSpeed");
+  if (leftSpdEl) leftSpdEl.textContent = Math.max(12, lastLeftSpeed);
+  if (rightSpdEl) rightSpdEl.textContent = Math.max(14, lastRightSpeed);
+
+  const leftLbl = $("hudLeftLabel");
+  const rightLbl = $("hudRightLabel");
+  if (leftLbl) leftLbl.textContent = meta.leftName;
+  if (rightLbl) rightLbl.textContent = meta.rightName;
+
+  // 8. 특수 필살기 하이퍼 오버드라이브 게이지
+  const odFill = $("hudOdFill");
+  const odStatus = $("hudOdStatus");
+  if (odFill && odStatus) {
+    if (isFeverTime) {
+      odFill.style.width = "100%";
+      odStatus.textContent = "🔥 HYPER ACTIVE!";
+      odStatus.style.color = "#ff2a8d";
+    } else {
+      const chargePct = Math.min(100, Math.round((combo / 14) * 100));
+      odFill.style.width = `${chargePct}%`;
+      odStatus.textContent = chargePct >= 100 ? "100% READY!" : `${chargePct}% CHARGING`;
+      odStatus.style.color = chargePct >= 100 ? "#22c55e" : "#ffd894";
+    }
+  }
+}
+
+// 캔버스 콤보 이펙트 (shadowBlur 제거로 60 FPS 무지연 성능 보장)
 function drawCombo() {
   if (combo < 2 || comboTimer <= 0) return;
   const k = Math.min(comboTimer / COMBO_WINDOW, 1);
   ctx.save();
   ctx.globalAlpha = 0.5 + k * 0.5; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.font = `900 ${46 + Math.min(combo, 15) * 3}px 'Rubik', sans-serif`;
-  ctx.shadowColor = combo >= 5 ? "#ff5e92" : "#fbb500"; ctx.shadowBlur = 24;
-  ctx.lineWidth = 8; ctx.strokeStyle = "rgba(20,6,43,.9)"; ctx.fillStyle = combo >= 5 ? "#ff5e92" : "#fbb500";
+  ctx.font = `900 ${44 + Math.min(combo, 12) * 2.5}px 'Rubik', sans-serif`;
+  ctx.lineWidth = 6; ctx.strokeStyle = "rgba(20,6,43,.9)"; ctx.fillStyle = combo >= 5 ? "#ff5e92" : "#fbb500";
   const t = `⚡ ${combo} COMBO!`, y = H * 0.22;
   ctx.strokeText(t, W / 2, y); ctx.fillText(t, W / 2, y);
-  ctx.shadowBlur = 0;
-  // 남은 콤보 시간 바 (네온 캔디 프로그레스)
+
+  // 남은 콤보 시간 바
   ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.roundRect(W / 2 - 82, y + 32, 164, 10, 5); ctx.fill();
   ctx.fillStyle = combo >= 5 ? "#00d2ff" : "#fbb500";
   ctx.beginPath(); ctx.roundRect(W / 2 - 80, y + 34, 160 * k, 6, 3); ctx.fill();
@@ -2967,57 +3235,7 @@ games.beat = {
       ctx.restore();
     });
 
-    // 8. 아케이드 HUD: 콤보 멀티플라이어 x1~x8 링
-    const multX = W * 0.12, multY = H * 0.86;
-    ctx.save();
-    ctx.fillStyle = "rgba(10, 10, 25, 0.82)";
-    ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = this.multiplier >= 8 ? "#ffd700" : (this.multiplier >= 4 ? "#b04dff" : "#00d2ff");
-    ctx.lineWidth = 4.5;
-    ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.stroke();
-
-    ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.font = "900 28px 'Rubik', sans-serif";
-    ctx.fillText(`${this.multiplier}X`, multX, multY - 4);
-    ctx.font = "700 12px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.fillText("MULTIPLIER", multX, multY + 18);
-    ctx.restore();
-
-    // 에너지 바 (화면 중앙 하단)
-    const barW = Math.min(W * 0.44, 380), barH = 10;
-    const barX = W / 2 - barW / 2, barY = H * 0.88;
-    ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-    ctx.fillRect(barX, barY, barW, barH);
-    const engColor = this.energy > 50 ? "#00e676" : (this.energy > 25 ? "#ffd166" : "#ff3366");
-    ctx.fillStyle = engColor;
-    ctx.fillRect(barX, barY, barW * (this.energy / 100), barH);
-    ctx.restore();
-
-    // 9. 현재 재생 중인 사운드트랙 배지
-    if (this.currentTrack) {
-      const trk = this.currentTrack;
-      ctx.save();
-      const badgeW = Math.min(W * 0.46, 340), badgeH = 26;
-      const badgeX = W / 2 - badgeW / 2, badgeY = 62;
-      ctx.fillStyle = "rgba(10, 6, 24, 0.86)";
-      ctx.strokeStyle = trk.tagColor || "#00d2ff";
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 13);
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = trk.tagColor || "#00d2ff";
-      ctx.font = "900 12.5px 'Rubik', sans-serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(`🎵 ${trk.title}  •  ${trk.bpm} BPM`, W / 2, badgeY + badgeH / 2);
-      ctx.restore();
-    }
-
     ctx.restore(); // screenShake restore
-
-    const trackName = this.currentTrack ? `[${this.currentTrack.title}]` : "";
-    topHud(`🕺 ${trackName} 3D 네온 터널로 날아오는 비트를 자유롭게 베어내세요! (폭탄 ✕ 주의)`);
     bodyHint();
   }
 };
@@ -3610,8 +3828,7 @@ function frame(now) {
       // 5초 카운트다운 오버레이 UI 렌더링
       drawReadyCountdown(readyTimeLeft, Boolean(g.body));
 
-      $("score").textContent = "0점";
-      $("time").textContent = `READY ${curCount}s`;
+      updateLiveHud();
 
       // 5초 카운트다운 종료 시 본격적인 게임 시작
       if (readyTimeLeft <= 0) {
@@ -3651,8 +3868,7 @@ function frame(now) {
       if (!g.noTimer) timeLeft -= dt;
       if (playing) {                                   // update 안에서 게임이 끝났을 수 있음
         if (!g.noTimer && timeLeft <= 10 && !warned10) { warned10 = true; speak("10초 남았어요!"); }
-        $("score").textContent = g.scoreText ? g.scoreText() : score + "점";
-        $("time").textContent = g.hud ? g.hud() : Math.max(0, Math.ceil(timeLeft));
+        updateLiveHud();
         if (timeLeft <= 0) endGame();
       }
     }

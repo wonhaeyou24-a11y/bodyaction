@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KINETIC KABOOM - Stage 10: Neon Note Slash (네온 노트 슬래시)</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Fonts: Rubik & Nunito Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,700&amp;family=Rubik:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800;1,900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-lowest": "#14062b",
+            "on-secondary-fixed-variant": "#8e004c",
+            "tertiary-fixed-dim": "#ffba20",
+            "tertiary": "#ffd894",
+            "on-background": "#ecdcff",
+            "background": "#190b30",
+            "primary": "#a5e7ff",
+            "tertiary-container": "#fbb500",
+            "on-error": "#690005",
+            "surface-container-highest": "#3c2e54",
+            "surface-container": "#26183d",
+            "on-primary-fixed-variant": "#004e60",
+            "on-primary-fixed": "#001f28",
+            "on-error-container": "#ffdad6",
+            "surface-container-low": "#221439",
+            "on-tertiary-container": "#684900",
+            "surface": "#190b30",
+            "error": "#ffb4ab",
+            "surface-bright": "#403259",
+            "inverse-primary": "#00677f",
+            "outline-variant": "#3c494e",
+            "error-container": "#93000a",
+            "surface-variant": "#3c2e54",
+            "on-tertiary-fixed-variant": "#5e4200",
+            "inverse-surface": "#ecdcff",
+            "inverse-on-surface": "#37294f",
+            "primary-container": "#00d2ff",
+            "on-primary-container": "#00566a",
+            "primary-fixed": "#b6ebff",
+            "on-surface": "#ecdcff",
+            "secondary-fixed-dim": "#ffb0c9",
+            "on-secondary-container": "#fffbff",
+            "secondary-fixed": "#ffd9e3",
+            "secondary": "#ffb0c9",
+            "on-tertiary-fixed": "#271900",
+            "surface-dim": "#190b30",
+            "on-tertiary": "#412d00",
+            "tertiary-fixed": "#ffdea8",
+            "secondary-container": "#e1037d",
+            "outline": "#859399",
+            "on-surface-variant": "#bbc9cf",
+            "surface-tint": "#47d6ff",
+            "surface-container-high": "#312348",
+            "on-secondary-fixed": "#3e001e",
+            "primary-fixed-dim": "#47d6ff",
+            "on-secondary": "#640034",
+            "on-primary": "#003543"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "gutter-mobile": "1rem",
+            "space-sm": "0.75rem",
+            "margin": "2.5rem",
+            "gutter": "1.5rem",
+            "space-xs": "0.375rem",
+            "space-md": "1.25rem",
+            "margin-mobile": "1.25rem",
+            "space-xl": "3rem",
+            "space-lg": "2rem"
+          },
+          "fontFamily": {
+            "label-badge": ["Rubik"],
+            "headline-lg": ["Rubik"],
+            "label-sensor": ["Rubik"],
+            "headline-sm": ["Rubik"],
+            "headline-md": ["Rubik"],
+            "display-hero": ["Rubik"],
+            "body-sm": ["Nunito Sans"],
+            "body-lg": ["Nunito Sans"],
+            "display-hero-mobile": ["Rubik"],
+            "body-md": ["Nunito Sans"],
+            "headline-lg-mobile": ["Rubik"]
+          },
+          "fontSize": {
+            "label-badge": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "900" }],
+            "headline-lg": ["38px", { "lineHeight": "48px", "letterSpacing": "-0.01em", "fontWeight": "800" }],
+            "label-sensor": ["12px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "800" }],
+            "headline-sm": ["20px", { "lineHeight": "28px", "letterSpacing": "0em", "fontWeight": "700" }],
+            "headline-md": ["26px", { "lineHeight": "34px", "letterSpacing": "0em", "fontWeight": "800" }],
+            "display-hero": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.02em", "fontWeight": "900" }],
+            "body-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "body-lg": ["18px", { "lineHeight": "26px", "letterSpacing": "0em", "fontWeight": "700" }],
+            "display-hero-mobile": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.01em", "fontWeight": "900" }],
+            "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "600" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "800" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .material-symbols-outlined[data-weight="fill"] {
+      font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
+    }
+    
+    @keyframes pulseGlowCyan {
+      0%, 100% { box-shadow: 0 0 16px rgba(0, 210, 255, 0.4), inset 0 0 10px rgba(0, 210, 255, 0.2); }
+      50% { box-shadow: 0 0 32px rgba(0, 210, 255, 0.8), inset 0 0 18px rgba(0, 210, 255, 0.5); }
+    }
+    @keyframes pulseGlowMagenta {
+      0%, 100% { box-shadow: 0 0 16px rgba(225, 3, 125, 0.4), inset 0 0 10px rgba(225, 3, 125, 0.2); }
+      50% { box-shadow: 0 0 32px rgba(225, 3, 125, 0.8), inset 0 0 20px rgba(225, 3, 125, 0.6); }
+    }
+    @keyframes floatParticle {
+      0% { transform: translateY(0px) scale(0.95); opacity: 0.9; }
+      50% { transform: translateY(-8px) scale(1.05); opacity: 1; }
+      100% { transform: translateY(0px) scale(0.95); opacity: 0.9; }
+    }
+    @keyframes sweepGleam {
+      0% { transform: translateX(-150%) skewX(-20deg); }
+      100% { transform: translateX(250%) skewX(-20deg); }
+    }
+    
+    .glow-cyan { animation: pulseGlowCyan 2.4s infinite ease-in-out; }
+    .glow-magenta { animation: pulseGlowMagenta 2.4s infinite ease-in-out; }
+    .float-anim { animation: floatParticle 3s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container overflow-x-hidden">
+<!-- =========================================================================
+       1. TOP APP BAR (Shared Components JSON Anchor)
+       ========================================================================= -->
+<header class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl docked full-width top-0 sticky z-50 shadow-lg shadow-surface-container-lowest/50 shadow-[0_8px_32px_rgba(0,210,255,0.2)]">
+<div class="flex justify-between items-center w-full px-space-md md:px-margin py-space-sm max-w-7xl mx-auto">
+<!-- Brand & Lobby PIN -->
+<div class="flex items-center gap-space-md">
+<a class="text-headline-md font-headline-md font-black tracking-tight text-primary-container dark:text-primary-container uppercase drop-shadow-md flex items-center gap-space-xs" href="#">
+<span class="material-symbols-outlined text-3xl text-secondary-container" data-icon="electric_bolt" data-weight="fill">electric_bolt</span>
+<span>KINETIC KABOOM</span>
+</a>
+<div class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high border border-primary/20 text-primary">
+<span class="material-symbols-outlined text-sm" data-icon="vpn_key">vpn_key</span>
+<span class="font-label-badge text-label-badge tracking-wider">ROOM: KABOOM-88</span>
+</div>
+</div>
+<!-- Navigation Links (Hand Swipes active) -->
+<nav class="hidden md:flex items-center gap-space-md">
+<a class="text-on-surface-variant dark:text-on-surface-variant font-semibold hover:text-on-surface hover:scale-105 transition-all duration-200" href="#">All Action</a>
+<a class="text-primary dark:text-primary font-bold border-b-2 border-primary-container pb-1 flex items-center gap-1" href="#">
+<span>Hand Swipes</span>
+<span class="px-1.5 py-0.5 rounded-full bg-secondary-container text-white font-label-sensor text-[10px] tracking-wide">60s BLITZ</span>
+</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-semibold hover:text-on-surface hover:scale-105 transition-all duration-200" href="#">Full Body Jump</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-semibold hover:text-on-surface hover:scale-105 transition-all duration-200" href="#">Co-op Party</a>
+</nav>
+<!-- Player Leader Avatar & Live Motion Sensor Trailing Actions -->
+<div class="flex items-center gap-space-sm md:gap-space-md">
+<!-- Live Motion Calibrate Status Pill -->
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-high border border-primary-container/40 text-primary shadow-[0_0_12px_rgba(0,210,255,0.25)] hover:scale-105 active:scale-95 transition-all">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container"></span>
+</span>
+<span class="font-label-sensor text-label-sensor hidden lg:inline">LIVE SENSOR: Dual Saber 60 FPS • Calibrated</span>
+<span class="font-label-sensor text-label-sensor lg:hidden">60 FPS OK</span>
+</button>
+<!-- Currency / Rewards Strip -->
+<div class="hidden xl:flex items-center gap-3 px-3 py-1 bg-surface-container rounded-full">
+<div class="flex items-center gap-1 text-tertiary-container font-headline-sm text-sm font-bold">
+<span class="material-symbols-outlined text-base" data-icon="star" data-weight="fill">star</span>
+<span>4,850</span>
+</div>
+<div class="h-3 w-px bg-surface-container-highest"></div>
+<div class="flex items-center gap-1 text-secondary font-headline-sm text-sm font-bold">
+<span class="material-symbols-outlined text-base" data-icon="confirmation_number" data-weight="fill">confirmation_number</span>
+<span>120</span>
+</div>
+</div>
+<!-- Trailing System Icon Buttons -->
+<div class="flex items-center gap-1">
+<button class="p-2 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-bright active:scale-95 transition-all" title="Optical Webcam Active">
+<span class="material-symbols-outlined text-xl" data-icon="videocam">videocam</span>
+</button>
+<button class="p-2 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-bright active:scale-95 transition-all" title="Arcade Controllers">
+<span class="material-symbols-outlined text-xl" data-icon="sports_esports">sports_esports</span>
+</button>
+<button class="p-2 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-bright active:scale-95 transition-all" title="Sound FX">
+<span class="material-symbols-outlined text-xl" data-icon="volume_up">volume_up</span>
+</button>
+</div>
+<!-- Leader Profile Avatar Pill -->
+<div class="flex items-center gap-2 pl-2 border-l border-surface-container-highest">
+<div class="relative w-9 h-9 rounded-full ring-2 ring-primary-container p-0.5 bg-gradient-to-tr from-primary-container to-secondary-container">
+<img alt="Cute energetic cosmic mascot profile avatar wearing pilot goggles" class="w-full h-full object-cover rounded-full" data-alt="A vibrant 3D stylized cute energetic cosmic mascot profile avatar wearing neon teal pilot goggles and an aviator helmet, illuminated by vivid magenta and cyan synthwave stage lights on a glossy dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCk7ydre6w0v0VYubjfKIWLh7gi6jdBjXh7yInnYTIoTDp-0zGRYW21oi_t-ODYPb5CmaKwWZJvPg1AY-9TEpWlDjDZzFvVAm51RVdS1kz6wGhc7Pb1aTu_pNHghuUUx7Bfpe_9srROg765y7mrS6Fvww3E0hD3T-y-SM-FrQ5mq3KewoEwzyxABX_dGOmgTUC36GBaH7WL1bdFvSiKwBaqV3fy-38IegqiRRLgCMpKjk2KwH69hnoxUy0qbgZkbcczO2-T689b46M"/>
+<span class="absolute -bottom-1 -right-1 bg-secondary-container text-white text-[9px] font-black rounded-full px-1 border border-surface">P1</span>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- =========================================================================
+       STAGE SUB-BAR TELEMETRY RIBBON
+       ========================================================================= -->
+<section class="w-full bg-surface-container-low/90 border-b border-surface-container-highest/60 px-space-md md:px-margin py-2">
+<div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+<!-- Stage Info Badge -->
+<div class="flex items-center gap-2 md:gap-3 flex-wrap">
+<span class="px-2.5 py-0.5 rounded-md bg-secondary-container text-white font-label-badge text-xs tracking-wider uppercase shadow-[0_0_10px_rgba(225,3,125,0.5)]">
+          STAGE 10
+        </span>
+<h1 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+<span>NEON NOTE SLASH</span>
+<span class="text-on-surface-variant text-sm font-body-sm font-normal hidden sm:inline">(네온 노트 슬래시 • 듀얼 광선검 리듬 슬라이스)</span>
+</h1>
+<span class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-container/15 text-primary text-xs font-label-sensor">
+<span class="material-symbols-outlined text-xs" data-icon="speed">speed</span> 132 BPM CYBER NEON RUSH
+        </span>
+</div>
+<!-- Live Hardware Telemetry Chips -->
+<div class="flex items-center gap-2 text-xs font-label-sensor">
+<span class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container text-primary border border-primary/20">
+<span class="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+<span>60.0 FPS LOCKED</span>
+</span>
+<span class="flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container text-on-surface border border-surface-container-high">
+<span class="material-symbols-outlined text-xs text-tertiary-container" data-icon="bolt">bolt</span>
+<span>2.8ms ULTRA-LOW LATENCY</span>
+</span>
+<span class="hidden lg:flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container text-secondary-fixed border border-secondary-container/30">
+<span class="material-symbols-outlined text-xs" data-icon="front_hand">front_hand</span>
+<span>DUAL OPTICAL SKELETON</span>
+</span>
+</div>
+</div>
+</section>
+<!-- =========================================================================
+       MAIN LIVE GAMEPLAY CANVAS & IN-GAME HUD
+       ========================================================================= -->
+<main class="w-full max-w-7xl mx-auto px-space-sm md:px-margin pt-space-sm pb-space-lg flex flex-col gap-space-md">
+<!-- 2. LIVE GAMEPLAY ARENA VIEWPORT (BEAT SABER INSPIRED HERO) -->
+<section class="relative w-full rounded-2xl md:rounded-3xl overflow-hidden border-2 border-primary-container/30 bg-surface-container-lowest shadow-[0_12px_48px_rgba(0,0,0,0.8)] aspect-[16/9] min-h-[520px] max-h-[740px]">
+<!-- HERO GAMEPLAY BACKGROUND IMAGE -->
+<img alt="Live Neon Note Slash Beat Saber Motion Rhythm Gameplay" class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none z-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBerXV2UW5zsj6tGVUI_UrlI7MEBD2pQvHTz1bIFgZKkUA8eKMVUyojHnYe7WrNFLAWE6y1unJ7ca7I3_xpeJ2I-77AK_9y5kwMJRA7KdVDJQXGUS7pDAqg1I1P6NGYwDcK8FZG2C9W3WPSFsu6IJXQSVlC14QSi-R2APe7bBChwYLGIw_c_kw4GkjB_LB-isD06ES3-TZgd56403CH_DXs43VSwsYfVfv7pM8NoipAkwg4scMF-v_4V2OuvdODm_mVxeuBqWRR4co"/>
+<!-- Dynamic Ambient Vignette & Neon Atmospheric Sheen -->
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/90 via-transparent to-surface-container-lowest/70 pointer-events-none z-10"></div>
+<div class="absolute inset-0 bg-radial from-transparent via-background/20 to-surface-container-lowest/90 pointer-events-none z-10"></div>
+<!-- =====================================================================
+           OVERLAY 1: TOP HUD HEADER (Score, Multiplier, Streak, Energy, Timer)
+           ===================================================================== -->
+<div class="absolute top-0 inset-x-0 p-4 md:p-6 z-20 flex items-start justify-between gap-4 pointer-events-auto">
+<!-- Left: Track Title & Live Score -->
+<div class="flex flex-col gap-1 backdrop-blur-md bg-surface-container-lowest/80 p-3 md:p-4 rounded-2xl border border-primary/20 shadow-lg">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-secondary-container/90 text-white font-label-badge text-[11px] tracking-wider uppercase">EXPERT +</span>
+<span class="font-headline-sm text-sm md:text-base text-on-surface font-bold tracking-tight">Cyber Neon Rush (사이버 네온 러시)</span>
+<span class="text-xs text-primary font-label-sensor">132 BPM</span>
+</div>
+<div class="flex items-baseline gap-2 mt-0.5">
+<span class="font-label-sensor text-xs text-on-surface-variant uppercase tracking-wider">SCORE:</span>
+<span class="font-display-hero text-headline-lg md:text-display-hero-mobile lg:text-display-hero text-primary font-black tracking-tight drop-shadow-[0_0_15px_rgba(0,210,255,0.7)] leading-none">
+              148,250
+            </span>
+<span class="text-xs font-bold text-tertiary uppercase tracking-widest pl-1">PTS</span>
+</div>
+</div>
+<!-- Center: Multiplier Radial & Frenzy Streak -->
+<div class="flex flex-col items-center">
+<!-- Circular Multiplier Badge -->
+<div class="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-surface-container-lowest/90 border-2 border-primary-container p-1 flex items-center justify-center glow-cyan backdrop-blur-lg">
+<!-- Circular svg meter ring -->
+<svg class="absolute inset-0 w-full h-full -rotate-90" viewbox="0 0 100 100">
+<circle class="text-surface-container-highest" cx="50" cy="50" fill="none" r="42" stroke="currentColor" stroke-width="7"></circle>
+<circle cx="50" cy="50" fill="none" r="42" stroke="url(#cyanMagentaGradient)" stroke-dasharray="264" stroke-dashoffset="30" stroke-linecap="round" stroke-width="8"></circle>
+<defs>
+<lineargradient id="cyanMagentaGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00d2ff"></stop>
+<stop offset="100%" stop-color="#e1037d"></stop>
+</lineargradient>
+</defs>
+</svg>
+<div class="flex flex-col items-center justify-center relative z-10 text-center">
+<span class="font-label-badge text-[10px] text-primary tracking-widest font-black leading-tight">COMBO</span>
+<span class="font-display-hero text-headline-sm md:text-headline-md text-white font-black leading-none drop-shadow">x8</span>
+<span class="text-[9px] font-bold text-secondary-fixed leading-tight">MAX</span>
+</div>
+</div>
+<!-- Streak Badge tilted at -2 deg -->
+<div class="mt-2 -rotate-2 px-3 py-1 rounded-full bg-gradient-to-r from-secondary-container via-purple-600 to-primary-container text-white font-label-badge text-xs font-black shadow-[0_4px_16px_rgba(225,3,125,0.6)] flex items-center gap-1">
+<span class="material-symbols-outlined text-sm animate-bounce" data-icon="local_fire_department" data-weight="fill">local_fire_department</span>
+<span>64 HIT STREAK! (FRENZY ACTIVE)</span>
+</div>
+</div>
+<!-- Right: Neon Energy Bar & Song Timer Gauge -->
+<div class="flex flex-col items-end gap-2 backdrop-blur-md bg-surface-container-lowest/80 p-3 md:p-4 rounded-2xl border border-secondary-container/20 shadow-lg">
+<!-- Time Left -->
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-base" data-icon="timer">timer</span>
+<span class="font-label-sensor text-xs text-on-surface-variant uppercase tracking-wider">TIME REMAINING</span>
+<span class="font-headline-sm text-lg text-white font-black tracking-tight">0:42</span>
+</div>
+<!-- Energy Bar -->
+<div class="w-36 md:w-48 flex flex-col gap-1">
+<div class="flex justify-between items-center text-[10px] font-label-sensor">
+<span class="text-primary font-bold">LIFE ENERGY</span>
+<span class="text-tertiary-fixed font-black">96% FULL</span>
+</div>
+<div class="w-full h-3 rounded-full bg-surface-container-highest p-0.5 overflow-hidden">
+<div class="h-full rounded-full bg-gradient-to-r from-primary-container via-emerald-400 to-tertiary-container shadow-[0_0_12px_#00d2ff]" style="width: 96%;"></div>
+</div>
+</div>
+<!-- Optical PiP Feed Mini Preview Docked -->
+<div class="mt-1 flex items-center gap-2 px-2.5 py-1 rounded-lg bg-surface-container/90 border border-emerald-500/40 text-[11px] font-label-sensor text-emerald-300">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+<span>CAM: OPTICAL SKELETON (60 FPS)</span>
+</div>
+</div>
+</div>
+<!-- =====================================================================
+           OVERLAY 2: WEBCAM SENSOR AR PiP (Top-Right of game arena)
+           ===================================================================== -->
+<div class="hidden lg:flex absolute top-28 right-6 z-20 w-52 flex-col rounded-xl bg-surface-container-lowest/85 backdrop-blur-md border border-primary/40 p-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+<div class="flex items-center justify-between pb-1.5 border-b border-surface-container-high text-[10px] font-label-sensor">
+<span class="text-primary font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="view_in_ar">view_in_ar</span>
+            SABER GRIP SYNC
+          </span>
+<span class="text-emerald-400 font-black">LOCKED</span>
+</div>
+<!-- AR Tracking Wireframe Canvas representation -->
+<div class="relative w-full h-24 mt-1.5 rounded-lg bg-surface-container-high/80 overflow-hidden flex items-center justify-center border border-primary/20">
+<!-- Crosshairs -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="w-full h-px bg-primary/20"></div>
+<div class="h-full w-px bg-primary/20 absolute"></div>
+</div>
+<!-- Left Saber Tracker Node -->
+<div class="absolute left-6 top-8 flex flex-col items-center">
+<div class="w-4 h-4 rounded-full border-2 border-primary-container bg-primary-container/40 flex items-center justify-center animate-ping"></div>
+<span class="text-[8px] font-black text-primary font-label-sensor mt-0.5">L: 116km/h</span>
+</div>
+<!-- Right Saber Tracker Node -->
+<div class="absolute right-6 top-6 flex flex-col items-center">
+<div class="w-4 h-4 rounded-full border-2 border-secondary-container bg-secondary-container/40 flex items-center justify-center animate-ping"></div>
+<span class="text-[8px] font-black text-secondary font-label-sensor mt-0.5">R: 124km/h</span>
+</div>
+<!-- Angles Overlay -->
+<div class="absolute bottom-1 inset-x-1 flex justify-between px-1 text-[9px] font-label-sensor text-on-surface-variant">
+<span>Roll: -14°</span>
+<span>Pitch: +32°</span>
+</div>
+</div>
+</div>
+<!-- =====================================================================
+           OVERLAY 3: IN-ARENA AR NOTE TARGETS, POPUPS & SLICE EXPLOSION FX
+           ===================================================================== -->
+<!-- Center Guidance Prompt Banner -->
+<div class="absolute top-24 md:top-28 inset-x-0 flex justify-center z-20 pointer-events-none">
+<div class="px-5 py-1.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-md border border-primary/30 text-on-surface font-headline-sm text-xs md:text-sm tracking-wide shadow-[0_4px_20px_rgba(0,210,255,0.25)] flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-base" data-icon="navigation">navigation</span>
+<span class="font-extrabold text-primary">SLASH IN DIRECTION OF ARROWS!</span>
+<span class="text-on-surface-variant font-medium hidden sm:inline">화살표 방향으로 리듬에 맞춰 베어내세요!</span>
+</div>
+</div>
+<!-- Left Lane: Perfect Slice Zone (Cyan Note Target) -->
+<div class="absolute left-8 md:left-24 bottom-36 md:bottom-44 z-20 flex flex-col items-center pointer-events-none">
+<div class="px-2.5 py-1 rounded bg-primary-container/90 text-surface-container-lowest font-label-badge text-[11px] font-black mb-2 shadow-[0_0_12px_rgba(0,210,255,0.8)] animate-pulse">
+          PERFECT SLICE ZONE
+        </div>
+<div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl border-4 border-primary-container bg-primary-container/20 backdrop-blur-sm flex items-center justify-center glow-cyan">
+<span class="material-symbols-outlined text-4xl text-white drop-shadow-[0_0_10px_#00d2ff]" data-icon="arrow_back" data-weight="fill">arrow_back</span>
+</div>
+<span class="mt-1 text-[11px] font-label-sensor text-primary font-bold">LEFT SABER (←)</span>
+</div>
+<!-- Center Slice Explosion FX & Damage Popup Floating -->
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex flex-col items-center">
+<!-- Sparkling popup damage badge -->
+<div class="float-anim px-4 py-2 rounded-2xl bg-gradient-to-r from-tertiary-container via-amber-300 to-primary-container text-surface-container-lowest font-headline-md text-sm md:text-xl font-black shadow-[0_0_30px_rgba(251,181,0,0.9)] flex items-center gap-2 border-2 border-white">
+<span class="material-symbols-outlined text-xl" data-icon="auto_awesome" data-weight="fill">auto_awesome</span>
+<span>+2,400 PERFECT CUT!</span>
+</div>
+<div class="mt-1 px-3 py-0.5 rounded-full bg-surface-container-lowest/80 border border-tertiary/40 text-[11px] font-label-sensor text-tertiary">
+          SWING ANGLE: 112° (PERFECT ARC)
+        </div>
+</div>
+<!-- Right Lane: Upcoming Impact (Magenta Note Target) -->
+<div class="absolute right-8 md:right-24 bottom-36 md:bottom-44 z-20 flex flex-col items-center pointer-events-none">
+<div class="px-2.5 py-1 rounded bg-secondary-container/90 text-white font-label-badge text-[11px] font-black mb-2 shadow-[0_0_12px_rgba(225,3,125,0.8)] animate-pulse">
+          UPCOMING IMPACT 0.2s
+        </div>
+<div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl border-4 border-secondary-container bg-secondary-container/20 backdrop-blur-sm flex items-center justify-center glow-magenta">
+<span class="material-symbols-outlined text-4xl text-white drop-shadow-[0_0_10px_#e1037d]" data-icon="arrow_downward" data-weight="fill">arrow_downward</span>
+</div>
+<span class="mt-1 text-[11px] font-label-sensor text-secondary font-bold">RIGHT SABER (↓)</span>
+</div>
+<!-- =====================================================================
+           OVERLAY 4: DUAL SABER MOTION TELEMETRY OVERLAYS (Bottom Anchors)
+           ===================================================================== -->
+<div class="absolute bottom-4 inset-x-4 md:inset-x-8 z-20 flex justify-between items-end pointer-events-none">
+<!-- Left Saber Telemetry Pod -->
+<div class="flex items-center gap-3 bg-surface-container-lowest/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-primary-container/50 shadow-[0_0_20px_rgba(0,210,255,0.3)]">
+<div class="w-3.5 h-10 rounded-full bg-primary-container shadow-[0_0_14px_#00d2ff] animate-pulse"></div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="font-label-badge text-xs text-primary font-black">P1 LEFT SABER (CYAN)</span>
+</div>
+<div class="font-headline-sm text-sm text-white font-extrabold">98% EXTENSION • 116 KM/H</div>
+<div class="text-[10px] font-label-sensor text-primary/80">TRAJECTORY: STABLE HIGH ARC</div>
+</div>
+</div>
+<!-- Center Hit Accuracy Quick Readout -->
+<div class="hidden md:flex flex-col items-center bg-surface-container-lowest/80 backdrop-blur-md px-4 py-1.5 rounded-xl border border-surface-container-high">
+<span class="font-label-sensor text-[10px] text-on-surface-variant uppercase">HIT ACCURACY RATE</span>
+<span class="font-headline-sm text-base text-emerald-400 font-black">97.8% S-RANK ACCURACY</span>
+</div>
+<!-- Right Saber Telemetry Pod -->
+<div class="flex items-center gap-3 bg-surface-container-lowest/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-secondary-container/50 shadow-[0_0_20px_rgba(225,3,125,0.3)] text-right">
+<div>
+<div class="flex items-center justify-end gap-1.5">
+<span class="font-label-badge text-xs text-secondary font-black">P1 RIGHT SABER (MAGENTA)</span>
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+</div>
+<div class="font-headline-sm text-sm text-white font-extrabold">100% EXTENSION • 124 KM/H</div>
+<div class="text-[10px] font-label-sensor text-secondary/80">TRAJECTORY: CRITICAL POWER DOWN</div>
+</div>
+<div class="w-3.5 h-10 rounded-full bg-secondary-container shadow-[0_0_14px_#e1037d] animate-pulse"></div>
+</div>
+</div>
+</section>
+<!-- =========================================================================
+       3. TELEMETRY & ARCADE CONTROLS TRIPLE DOCK
+       ========================================================================= -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-space-md">
+<!-- CARD 1: 듀얼 세이버 텔레메트리 (Dual Saber Telemetry) -->
+<div class="md:col-span-4 rounded-2xl bg-surface-container p-space-md border border-primary/20 backdrop-blur-xl flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+<div>
+<!-- Header -->
+<div class="flex items-center justify-between pb-3 border-b border-surface-container-high">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="sports_martial_arts">sports_martial_arts</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-extrabold text-base">듀얼 세이버 텔레메트리</h2>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-primary font-label-sensor text-[11px]">DUAL TELEMETRY</span>
+</div>
+<!-- Metrics Bento Rows -->
+<div class="grid grid-cols-2 gap-2.5 mt-3">
+<div class="p-2.5 rounded-xl bg-surface-container-lowest/60 border border-primary/20">
+<span class="text-[10px] font-label-sensor text-on-surface-variant uppercase">LEFT PEAK SPEED</span>
+<div class="text-headline-md font-headline-md text-primary font-black text-lg mt-0.5">116 <span class="text-xs text-on-surface-variant font-normal">km/h</span></div>
+</div>
+<div class="p-2.5 rounded-xl bg-surface-container-lowest/60 border border-secondary/20">
+<span class="text-[10px] font-label-sensor text-on-surface-variant uppercase">RIGHT PEAK SPEED</span>
+<div class="text-headline-md font-headline-md text-secondary font-black text-lg mt-0.5">124 <span class="text-xs text-on-surface-variant font-normal">km/h</span></div>
+</div>
+</div>
+<div class="space-y-2.5 mt-3 text-xs font-body-sm">
+<div class="flex justify-between items-center p-2 rounded-lg bg-surface-container-low">
+<span class="text-on-surface-variant font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-tertiary" data-icon="straighten">straighten</span>
+                Slice Angle Accuracy
+              </span>
+<span class="text-white font-bold font-label-sensor">97.8% (Exact Parity)</span>
+</div>
+<div class="flex justify-between items-center p-2 rounded-lg bg-surface-container-low">
+<span class="text-on-surface-variant font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-emerald-400" data-icon="schedule">schedule</span>
+                Beat Timing Precision
+              </span>
+<span class="text-white font-bold font-label-sensor">8ms (+2ms Delta)</span>
+</div>
+</div>
+</div>
+<!-- Kid Assist Banner -->
+<div class="mt-3.5 p-2 rounded-xl bg-primary-container/10 border border-primary-container/30 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-base" data-icon="child_care">child_care</span>
+<span class="text-xs font-bold text-primary">Kid Assist Mode: Wide Hitbox</span>
+</div>
+<span class="text-[10px] font-label-badge bg-primary-container text-surface-container-lowest px-2 py-0.5 rounded-full font-black">+25% REACH</span>
+</div>
+</div>
+<!-- CARD 2: 특수 필살기 가동 (Super Ultimate Trigger) - 100% READY! -->
+<div class="md:col-span-5 rounded-2xl bg-gradient-to-b from-surface-container to-surface-container-high p-space-md border-2 border-secondary-container/60 shadow-[0_8px_32px_rgba(225,3,125,0.3)] flex flex-col justify-between relative overflow-hidden">
+<!-- Subtle Animated Beam -->
+<div class="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-secondary-container/20 blur-2xl pointer-events-none"></div>
+<div>
+<!-- Title & Charge Pill -->
+<div class="flex items-center justify-between pb-2 border-b border-surface-container-highest">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-2xl animate-spin" data-icon="rotate_right">rotate_right</span>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-white font-black text-base">특수 필살기 가동 (SUPER ULTIMATE)</h2>
+<p class="text-[11px] text-secondary font-label-badge tracking-wider">HYPER OVERDRIVE FRENZY (하이퍼 오버드라이브)</p>
+</div>
+</div>
+<span class="px-3 py-1 rounded-full bg-secondary-container text-white font-label-badge text-xs font-black shadow-[0_0_12px_#e1037d] animate-pulse">
+              100% READY!
+            </span>
+</div>
+<!-- Motion Gesture Instruction Box -->
+<div class="mt-3.5 p-3 rounded-xl bg-surface-container-lowest/80 border border-secondary-container/40 flex items-center gap-3">
+<div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-container to-secondary-container flex items-center justify-center flex-shrink-0 shadow-[0_0_16px_rgba(0,210,255,0.4)]">
+<span class="material-symbols-outlined text-2xl text-white font-black" data-icon="close">close</span>
+</div>
+<div>
+<div class="text-xs font-bold text-white">물리 동작 트리거 (Physical Motion Trigger)</div>
+<p class="text-xs font-body-sm text-on-surface-variant leading-snug mt-0.5">
+                양손의 광선검을 <span class="text-primary font-bold">X자로 교차</span>하여 전방으로 강하게 휘두르세요! (Cross Sabers in X-Slash)
+              </p>
+</div>
+</div>
+</div>
+<!-- 3D PUSH BUTTON (Tactile Neo-Skeuomorphism) -->
+<div class="mt-4 pt-1">
+<button class="relative w-full group rounded-full overflow-hidden focus:outline-none active:translate-y-1 transition-all duration-150">
+<!-- 3D base depth offset layer (8px solid offset down) -->
+<div class="w-full py-3.5 px-6 rounded-full bg-gradient-to-r from-secondary-container via-purple-600 to-primary-container text-white font-headline-sm text-base font-black shadow-[0_8px_0_#8e004c,0_12px_24px_rgba(225,3,125,0.5)] flex items-center justify-center gap-2 group-hover:brightness-110 active:shadow-[0_2px_0_#8e004c]">
+<span class="material-symbols-outlined text-xl" data-icon="bolt" data-weight="fill">bolt</span>
+<span class="tracking-wider">⚡ 오버드라이브 발동 (TRIGGER X-OVERDRIVE)</span>
+<span class="px-2 py-0.5 rounded bg-black/30 font-label-sensor text-[10px] text-primary tracking-widest">[SPACE / X-CROSS]</span>
+</div>
+</button>
+</div>
+</div>
+<!-- CARD 3: 사이드 컨트롤 & 캘리브레이션 (Quick Controls) -->
+<div class="md:col-span-3 rounded-2xl bg-surface-container p-space-md border border-surface-container-high backdrop-blur-xl flex flex-col justify-between shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+<div>
+<!-- Header -->
+<div class="flex items-center justify-between pb-3 border-b border-surface-container-high">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-container text-xl" data-icon="tune">tune</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-extrabold text-base">사이드 컨트롤</h2>
+</div>
+<span class="text-[11px] font-label-sensor text-on-surface-variant">STAGE SETTINGS</span>
+</div>
+<!-- Controls List -->
+<div class="space-y-3 mt-3.5">
+<!-- Note Jump Speed -->
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant font-medium">노트 속도 (NJS):</span>
+<div class="flex items-center gap-1 bg-surface-container-low px-2 py-1 rounded-lg">
+<span class="font-label-sensor text-primary font-bold">NJS 18</span>
+<span class="text-[10px] text-tertiary font-bold">(Fast)</span>
+</div>
+</div>
+<!-- Haptic Vibration -->
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant font-medium">햅틱 진동 피드백:</span>
+<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-label-sensor text-[10px] font-bold">ON (100%)</span>
+</div>
+<!-- Saber Recenter Action -->
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant font-medium">센서 영점 재조정:</span>
+<button class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-bright text-primary font-label-sensor text-[11px] font-bold border border-primary/30 active:scale-95 transition-all">
+                RE-CENTER
+              </button>
+</div>
+</div>
+</div>
+<!-- Pause ESC Action -->
+<div class="mt-4 pt-2 border-t border-surface-container-high flex items-center justify-between">
+<button class="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-badge text-xs font-bold active:scale-95 transition-all">
+<span class="material-symbols-outlined text-base" data-icon="pause">pause</span>
+<span>일시정지 (PAUSE ESC)</span>
+</button>
+</div>
+</div>
+</section>
+<!-- =========================================================================
+       4. BOTTOM MULTI-PLAYER PARTY DOCK
+       ========================================================================= -->
+<footer class="w-full rounded-2xl bg-surface-container/95 border border-surface-container-high p-space-md shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+<div class="flex flex-col lg:flex-row items-center justify-between gap-space-md">
+<!-- Players Lobby Cluster -->
+<div class="flex items-center gap-3 sm:gap-4 flex-wrap">
+<span class="text-xs font-label-sensor text-on-surface-variant uppercase tracking-wider hidden sm:inline">PARTY ROSTER:</span>
+<!-- P1 Leo Active (Cyan Saber) -->
+<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-surface-container-low border-2 border-primary-container shadow-[0_0_12px_rgba(0,210,255,0.25)]">
+<div class="relative w-8 h-8 rounded-full bg-primary-container/20 border border-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container text-lg" data-icon="smart_toy">smart_toy</span>
+<span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-xs text-white font-extrabold">Leo (Dino Pilot)</span>
+<span class="px-1.5 py-0.2 rounded bg-primary-container text-surface-container-lowest font-black text-[9px]">P1 HOST</span>
+</div>
+<span class="text-[10px] font-label-sensor text-primary">CYAN SABER • DUAL HAND</span>
+</div>
+</div>
+<!-- P2 Maya Active (Magenta Saber) -->
+<div class="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-surface-container-low border-2 border-secondary-container shadow-[0_0_12px_rgba(225,3,125,0.25)]">
+<div class="relative w-8 h-8 rounded-full bg-secondary-container/20 border border-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary-container text-lg" data-icon="pets">pets</span>
+<span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-xs text-white font-extrabold">Maya (Star Fox)</span>
+<span class="px-1.5 py-0.2 rounded bg-secondary-container text-white font-black text-[9px]">P2 READY</span>
+</div>
+<span class="text-[10px] font-label-sensor text-secondary">MAGENTA SABER • ASSIST ON</span>
+</div>
+</div>
+<!-- Empty Slot Invitation -->
+<button class="flex items-center gap-2 px-3 py-2 rounded-2xl border-2 border-dashed border-primary-container/40 hover:border-primary-container text-primary hover:bg-primary-container/10 transition-all active:scale-95">
+<span class="material-symbols-outlined text-base" data-icon="person_add">person_add</span>
+<span class="font-label-badge text-xs font-bold">+ INVITE P3 / P4</span>
+</button>
+</div>
+<!-- Quick Game Controls & Assist Toggles -->
+<div class="flex items-center gap-3 flex-wrap">
+<!-- Kid Assist Toggle Pill -->
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-container-low border border-surface-container-highest">
+<span class="material-symbols-outlined text-primary text-base" data-icon="family_restroom">family_restroom</span>
+<span class="text-xs font-body-sm text-on-surface font-semibold">Kid Assist:</span>
+<span class="font-label-badge text-[11px] text-emerald-400 font-black">WIDE HITBOX ACTIVE</span>
+</div>
+<!-- Sensitivity Level -->
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container-low border border-surface-container-highest text-xs">
+<span class="text-on-surface-variant font-medium">Tracking Sens:</span>
+<span class="text-tertiary font-bold font-label-sensor">MEDIUM (KID-SAFE)</span>
+</div>
+<!-- Camera Check Button -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-bright text-primary font-label-badge text-xs font-bold border border-primary/20 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-base" data-icon="videocam">videocam</span>
+<span>CAMERA CHECK</span>
+</button>
+</div>
+</div>
+</footer>
+</main>
+<!-- Interactive Click Audio FX & Motion feedback Simulation -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Tactile button micro-haptics simulation
+      const buttons = document.querySelectorAll('button');
+      buttons.forEach(btn => {
+        btn.addEventListener('mousedown', () => {
+          btn.style.transform = 'translateY(2px) scale(0.98)';
+        });
+        btn.addEventListener('mouseup', () => {
+          btn.style.transform = '';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.transform = '';
+        });
+      });
+    });
+  </script>
+</body></html>
