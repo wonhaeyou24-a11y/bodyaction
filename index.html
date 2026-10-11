@@ -583,6 +583,41 @@
   </div>
 </div>
 
-<script type="module" src="main.js?v=20261012_0056"></script>
+<!-- 🎵 펌프 잇 업 스타일 아케이드 뮤직 셀렉터 (Neon Track Wheel) -->
+<div id="beatTrackModal" class="beat-modal-backdrop hidden">
+  <div class="beat-modal-card">
+    <div class="beat-modal-header">
+      <div class="beat-modal-title-group">
+        <span class="beat-modal-badge">ARCADE MUSIC SELECT</span>
+        <h2 class="beat-modal-title">🎵 네온 노트 슬래시 • 트랙 선택</h2>
+        <p class="beat-modal-desc">원하는 명곡을 선택하고 비트와 멜로디에 맞춰 신나게 슬래시하세요!</p>
+      </div>
+      <button id="beatModalClose" class="beat-modal-close-btn" title="닫기">✕</button>
+    </div>
+
+    <!-- 곡 리스트 그리드 -->
+    <div id="beatTrackList" class="beat-track-list">
+      <!-- main.js에서 동적 생성 -->
+    </div>
+
+    <!-- 모달 하단 액션 바 -->
+    <div class="beat-modal-footer">
+      <div class="beat-selected-preview-info">
+        <span id="beatSelectedGenre" class="track-genre-pill">MARCH EDM</span>
+        <span id="beatSelectedTitle" class="track-selected-name">🎺 라데츠키 행진곡</span>
+        <span id="beatSelectedBpm" class="track-bpm-pill">140 BPM</span>
+      </div>
+      <div class="beat-modal-buttons">
+        <button id="beatModalCancel" class="btn-modal-cancel">취소</button>
+        <button id="beatModalStart" class="btn-modal-start">
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text">이 곡으로 시작하기 (START)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js?v=20261012_0100"></script>
 </body>
 </html>

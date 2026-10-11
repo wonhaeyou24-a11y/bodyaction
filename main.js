@@ -3164,11 +3164,18 @@ games.beat = {
   body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 음악 BPM 전용 정밀 스케줄러 적용
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
-    // 🎵 시작할 때마다 매번 다른 노래와 비트로 즐길 수 있도록 5종 트랙 중 랜덤 선곡 (연속 중복 방지)
-    let trackIdx = Math.floor(Math.random() * BEAT_TRACKS.length);
-    if (trackIdx === lastBeatTrackIdx) trackIdx = (trackIdx + 1) % BEAT_TRACKS.length;
-    lastBeatTrackIdx = trackIdx;
-    this.currentTrack = BEAT_TRACKS[trackIdx];
+    // 🎵 유저가 선택한 곡(또는 랜덤 셔플)으로 트랙 확정
+    let track = null;
+    if (this.chosenTrackId && this.chosenTrackId !== "random") {
+      track = BEAT_TRACKS.find((t) => t.id === this.chosenTrackId);
+    }
+    if (!track) {
+      let trackIdx = Math.floor(Math.random() * BEAT_TRACKS.length);
+      if (trackIdx === lastBeatTrackIdx) trackIdx = (trackIdx + 1) % BEAT_TRACKS.length;
+      lastBeatTrackIdx = trackIdx;
+      track = BEAT_TRACKS[trackIdx];
+    }
+    this.currentTrack = track;
     BGM.beat = { ...this.currentTrack };
 
     // 곡 시작 네온 배너 알림
@@ -4447,6 +4454,8 @@ function endGame() {
 }
 function toMenu() {
   try { speechSynthesis.cancel(); } catch {}
+  stopTrackPreview?.();
+  closeBeatTrackSelector?.();
   if (mode) games[mode].exit?.();
   playing = false; mode = null; objs = [];
   isReadyTime = false; readyTimeLeft = 0; readyStartTime = 0;
@@ -4527,17 +4536,234 @@ async function ensureModel(kind) {
   }
 }
 
+// ============================================================================
+// 🎵 펌프 잇 업 스타일 아케이드 뮤직 셀렉터 (Arcade Track Selector System)
+// ============================================================================
+let selectedBeatTrackId = "radetzky"; // 기본 선택곡: 라데츠키 행진곡
+let previewStopTimer = null;
+let isPreviewing = false;
+let currentPreviewTrackId = null;
+
+function stopTrackPreview() {
+  if (previewStopTimer) {
+    clearTimeout(previewStopTimer);
+    previewStopTimer = null;
+  }
+  isPreviewing = false;
+  currentPreviewTrackId = null;
+  document.querySelectorAll(".track-preview-btn").forEach((btn) => {
+    btn.classList.remove("playing");
+    btn.textContent = "▶ 미리듣기";
+  });
+}
+
+function playTrackPreview(track) {
+  try {
+    ac();
+    if (isPreviewing && currentPreviewTrackId === track.id) {
+      stopTrackPreview();
+      return;
+    }
+    stopTrackPreview();
+    isPreviewing = true;
+    currentPreviewTrackId = track.id;
+
+    const activeBtn = $(`previewBtn_${track.id}`);
+    if (activeBtn) {
+      activeBtn.classList.add("playing");
+      activeBtn.textContent = "⏹ 정지";
+    }
+
+    // 8마디 동안 신나는 멜로디와 펀치 킥 미리듣기 재생
+    const t0 = actx.currentTime + 0.05;
+    const bpm = track.bpm || 132;
+    const stepDur = 60 / bpm / 2; // 8분음표 단위
+    const totalSteps = 32;
+
+    for (let step = 0; step < totalSteps; step++) {
+      const t = t0 + step * stepDur;
+      const s = step % 8;
+      const v = (track.vol ?? 0.8) * 0.75;
+
+      // 1. 묵직한 서브 베이스 킥
+      if (s % 2 === 0) {
+        tone(175, t, 0.16, "sine", 0.45 * v, 36, undefined, bgmBus);
+      }
+      // 2. 찰진 스네어 (2, 4박)
+      if (s === 2 || s === 6) {
+        tone(210, t, 0.1, "sine", 0.25 * v, 80, undefined, bgmBus);
+        noise(t, 0.11, 0.18 * v, 2400, undefined, bgmBus);
+      }
+      // 3. 오픈 하이햇
+      if (s % 2 === 1) {
+        noise(t, 0.06, 0.08 * v, 7500, undefined, bgmBus);
+      }
+
+      // 4. 멜로디 시퀀스 연주
+      if (track.melody && track.melody.length > 0) {
+        const noteIdx = step % track.melody.length;
+        const semi = track.melody[noteIdx];
+        if (semi !== null && semi !== undefined) {
+          tone(track.root * (2 ** (semi / 12)), t, 0.20, track.wave || "sawtooth", 0.18 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+        }
+      } else if (track.scale && track.scale.length > 0) {
+        const idx = (ARP[s] + Math.floor(step / 8)) % track.scale.length;
+        const f = track.root * 2 * (2 ** (track.scale[idx] / 12));
+        tone(f, t, 0.18, track.wave || "sawtooth", 0.14 * v, undefined, undefined, bgmBus);
+      }
+    }
+
+    previewStopTimer = setTimeout(() => {
+      stopTrackPreview();
+    }, totalSteps * stepDur * 1000 + 200);
+  } catch (err) {
+    console.warn("미리듣기 재생 오류:", err);
+    stopTrackPreview();
+  }
+}
+
+function updateBeatSelectedInfo(track) {
+  const titleEl = $("beatSelectedTitle");
+  const genreEl = $("beatSelectedGenre");
+  const bpmEl = $("beatSelectedBpm");
+
+  if (!track || track.id === "random") {
+    if (titleEl) titleEl.textContent = "🎲 랜덤 셔플 플레이 (SHUFFLE)";
+    if (genreEl) {
+      genreEl.textContent = "ALL SONGS";
+      genreEl.style.color = "#00d2ff";
+      genreEl.style.borderColor = "#00d2ff";
+    }
+    if (bpmEl) bpmEl.textContent = "RANDOM BPM";
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = track.title;
+  if (genreEl) {
+    genreEl.textContent = track.genre;
+    genreEl.style.color = track.tagColor || "#00d2ff";
+    genreEl.style.borderColor = track.tagColor || "#00d2ff";
+  }
+  if (bpmEl) bpmEl.textContent = `${track.bpm} BPM`;
+}
+
+function openBeatTrackSelector() {
+  const modal = $("beatTrackModal");
+  const listEl = $("beatTrackList");
+  if (!modal || !listEl) {
+    startGame("beat");
+    return;
+  }
+
+  // 트랙 목록 HTML 렌더링
+  let html = `
+    <!-- 🎲 랜덤 플레이 카드 -->
+    <div class="beat-track-card ${selectedBeatTrackId === "random" ? "active" : ""}" data-track-id="random" style="border-left: 4px solid #a855f7;">
+      <div class="track-card-top">
+        <div class="track-card-badge-row">
+          <span class="track-genre-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">SHUFFLE</span>
+          <span style="font-size: 11px; color: #cbd5e1; font-weight: 700;">추천</span>
+        </div>
+        <div class="track-card-title">🎲 랜덤 셔플 플레이</div>
+      </div>
+      <div class="track-card-meta">
+        <span class="track-bpm-tag" style="color: #c084fc;">⚡ 매판 다른 명곡 자동 재생</span>
+      </div>
+    </div>
+  `;
+
+  BEAT_TRACKS.forEach((track) => {
+    const isAct = selectedBeatTrackId === track.id;
+    html += `
+      <div class="beat-track-card ${isAct ? "active" : ""}" data-track-id="${track.id}" style="border-left: 4px solid ${track.tagColor};">
+        <div class="track-card-top">
+          <div class="track-card-badge-row">
+            <span class="track-genre-badge" style="background: ${track.tagColor}26; color: ${track.tagColor}; border: 1px solid ${track.tagColor}4d;">
+              ${track.genre}
+            </span>
+          </div>
+          <div class="track-card-title">${track.title}</div>
+        </div>
+        <div class="track-card-meta">
+          <span class="track-bpm-tag">🎵 ${track.bpm} BPM</span>
+          <button id="previewBtn_${track.id}" class="track-preview-btn" data-preview-id="${track.id}">
+            ▶ 미리듣기
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  listEl.innerHTML = html;
+
+  // 카드 클릭 이벤트
+  listEl.querySelectorAll(".beat-track-card").forEach((card) => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".track-preview-btn")) return;
+      const tid = card.dataset.trackId;
+      selectedBeatTrackId = tid;
+      listEl.querySelectorAll(".beat-track-card").forEach((c) => c.classList.remove("active"));
+      card.classList.add("active");
+      const track = BEAT_TRACKS.find((t) => t.id === tid);
+      updateBeatSelectedInfo(track);
+      sfx.tick?.();
+    });
+  });
+
+  // 미리듣기 버튼 이벤트
+  listEl.querySelectorAll(".track-preview-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const tid = btn.dataset.previewId;
+      const track = BEAT_TRACKS.find((t) => t.id === tid);
+      if (track) playTrackPreview(track);
+    });
+  });
+
+  const curTrack = BEAT_TRACKS.find((t) => t.id === selectedBeatTrackId);
+  updateBeatSelectedInfo(curTrack);
+
+  modal.classList.remove("hidden");
+}
+
+function closeBeatTrackSelector() {
+  stopTrackPreview();
+  $("beatTrackModal")?.classList.add("hidden");
+}
+
+// 모달 이벤트 바인딩
+$("beatModalClose")?.addEventListener("click", closeBeatTrackSelector);
+$("beatModalCancel")?.addEventListener("click", closeBeatTrackSelector);
+$("beatModalStart")?.addEventListener("click", () => {
+  closeBeatTrackSelector();
+  games.beat.chosenTrackId = selectedBeatTrackId;
+  startGame("beat");
+});
+
 document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", async () => {
   useMouse = $("useMouse").checked;
   if (!useMouse) {
     if (!(await ensureVideo())) return;
     if (!(await ensureModel(games[b.dataset.mode].body ? "pose" : "hand"))) return;
   }
-  startGame(b.dataset.mode);
+  const modeName = b.dataset.mode;
+  if (modeName === "beat") {
+    // 🎵 네온 노트 슬래시는 펌프 스타일 아케이드 트랙 선택 모달 열기!
+    openBeatTrackSelector();
+    return;
+  }
+  startGame(modeName);
 }));
 // 카드의 아무 곳이나 눌러도 게임 시작
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", (e) => { if (!e.target.closest(".mode")) c.querySelector(".mode")?.click(); }));
-$("again").onclick = () => startGame(mode);
+$("again").onclick = () => {
+  if (mode === "beat") {
+    // 다시 하기 시 이전 선택한 곡 유지하여 즉시 재도전
+    startGame("beat");
+  } else {
+    startGame(mode);
+  }
+};
 $("toMenu").onclick = toMenu;
 $("quit").onclick = toMenu;
 
