@@ -221,7 +221,8 @@ function bgmTick() {
 let useMouse = false;
 let handLandmarker = null;
 const pointers = [];            // 현재 프레임의 포인터: {x, y, px, py, speed}
-const trails = [[], []];
+const MAX_HANDS = 4; // 2인 플레이어 최대 4손(각 2손씩) 동시 추적 지원
+const trails = Array.from({ length: MAX_HANDS }, () => []);
 const mouse = { x: -100, y: -100, down: false, p: -1e9 };
 
 addEventListener("pointermove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
@@ -274,11 +275,11 @@ class OneEuroFilter {
   }
 }
 
-// 양손 전용 독립 1유로 필터 세트
-const euroFilters = [
-  { x: new OneEuroFilter(1.2, 0.008), y: new OneEuroFilter(1.2, 0.008) },
-  { x: new OneEuroFilter(1.2, 0.008), y: new OneEuroFilter(1.2, 0.008) }
-];
+// 2인 최대 4손 독립 1유로 필터 세트
+const euroFilters = Array.from({ length: MAX_HANDS }, () => ({
+  x: new OneEuroFilter(1.2, 0.008),
+  y: new OneEuroFilter(1.2, 0.008)
+}));
 
 function videoToScreen(lm) {
   const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
@@ -291,13 +292,12 @@ let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
 let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
-let handVelocities = [{ vx: 0, vy: 0 }, { vx: 0, vy: 0 }];
+let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 
 function updatePointers() {
   if (!playing || !mode) {
     pointers.length = 0;
-    trails[0].length = 0;
-    trails[1].length = 0;
+    trails.forEach((t) => (t.length = 0));
     lastHands = [];
     body = null;
     euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
@@ -338,14 +338,14 @@ function updatePointers() {
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if (handLandmarker && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
-    camInfo = (lastHands.length ? "✋ 1유로 필터 초고속 추적 중" : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
+    camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (1유로 필터 안정화)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
     pts = lastHands;
   }
 
-  pts.slice(0, 2).forEach((p, i) => {
+  // 최대 4손(2인용 모드 완벽 대응) 포인터 생성 및 공간 일관성 1유로 필터링
+  pts.slice(0, MAX_HANDS).forEach((p, i) => {
     const pr = prev[i] ?? p;
-    // 1유로 필터 적용으로 완벽한 정밀 제어
     const fx = euroFilters[i].x.filter(p.x, now);
     const fy = euroFilters[i].y.filter(p.y, now);
     const curSpeed = Math.hypot(fx - pr.x, fy - pr.y);
@@ -354,12 +354,13 @@ function updatePointers() {
       x: fx, y: fy, px: pr.x, py: pr.y,
       speed: curSpeed,
       fist: useMouse ? !mouse.down : !!lastFist[i],
-      punch: performance.now() - (useMouse ? mouse.p : lastPunch[i] || -1e9) < 180,
+      // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
+      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 220 && curSpeed > 8.0),
       punchId: useMouse ? mouse.p : lastPunch[i]
     });
   });
 
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < MAX_HANDS; i++) {
     const t = trails[i], p = pointers[i];
     if (p) {
       t.push({ x: p.x, y: p.y });
@@ -384,13 +385,13 @@ function detectHandsNow() {
     detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
 
     const palm = $("trackMode").value === "palm" && mode !== "draw";
-    reach = palm ? 32 : 10;
+    reach = palm ? 32 : 12;
 
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0;
       const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
 
-      const raw = r.landmarks.map((l, i) => {
+      const raw = r.landmarks.slice(0, MAX_HANDS).map((l, i) => {
         // 손가락 3D 기하 분석 (주먹/검지/펀치 가속도 판정)
         const wrist = l[0];
         const d3 = (a, b) => Math.hypot((a.x - b.x) * vw, (a.y - b.y) * vh, (a.z - b.z) * vw * 1.3);
@@ -398,18 +399,18 @@ function detectHandsNow() {
         
         lastFist[i] = foldedCount >= 3;
 
-        // 펀치 가속도 충격량(Impulse) 감지
+        // 펀치 가속도 충격량(Forward Impulse) 감지: 손바닥 크기가 카메라 쪽으로 급격히 커지는 순간
         const scale = d3(l[9], wrist);
         const h = (sizeHist[i] ??= []);
         h.push({ t: t0, s: scale });
         while (h.length && t0 - h[0].t > 380) h.shift();
         const old = h.find((e) => t0 - e.t >= 80 && t0 - e.t <= 260);
-        if (old && scale / old.s > 1.20 && t0 - (lastPunch[i] || 0) > 280) {
+        if (old && scale / old.s > 1.25 && t0 - (lastPunch[i] || 0) > 260) {
           lastPunch[i] = t0;
         }
 
         if (!palm) {
-          // 검지 끝과 제2관절의 최적 가중합
+          // 검지 끝과 제2관절 최적 가중합
           return videoToScreen({ x: l[8].x * 0.88 + l[7].x * 0.12, y: l[8].y * 0.88 + l[7].y * 0.12 });
         }
         const ids = [0, 5, 9, 13, 17];
@@ -419,42 +420,63 @@ function detectHandsNow() {
         });
       });
 
-      // 속도 벡터 산출 및 관성 보정
-      lastHands = raw.map((p, i) => {
+      // 좌우 손 공간 일관성 매칭 (프레임 간 손 인덱스 뒤바뀜 방지)
+      let sortedRaw = raw;
+      if (rawPrev.length > 0 && raw.length > 1) {
+        // 이전 프레임 손 위치와의 유클리드 거리가 최소가 되도록 정렬
+        sortedRaw = [];
+        const used = new Set();
+        for (let i = 0; i < rawPrev.length; i++) {
+          let bestJ = -1, bestDist = 1e9;
+          for (let j = 0; j < raw.length; j++) {
+            if (used.has(j)) continue;
+            const d = Math.hypot(raw[j].x - rawPrev[i].x, raw[j].y - rawPrev[i].y);
+            if (d < bestDist) { bestDist = d; bestJ = j; }
+          }
+          if (bestJ !== -1 && bestDist < W * 0.45) {
+            sortedRaw.push(raw[bestJ]);
+            used.add(bestJ);
+          }
+        }
+        for (let j = 0; j < raw.length; j++) {
+          if (!used.has(j)) sortedRaw.push(raw[j]);
+        }
+      }
+
+      // 속도 벡터 산출 (손 정지 시 지터 없이 부드럽게 감쇠)
+      lastHands = sortedRaw.map((p, i) => {
         const o = rawPrev[i];
         let vx = 0, vy = 0;
         if (o) {
-          const rawVx = p.x - o.x, rawVy = p.y - o.y;
-          const dist = Math.hypot(rawVx, rawVy);
-          const maxStep = W * 0.4;
-          const scale = dist > maxStep ? maxStep / dist : 1;
-          vx = rawVx * scale; vy = rawVy * scale;
+          vx = p.x - o.x; vy = p.y - o.y;
         }
+        const prevVel = handVelocities[i] || { vx: 0, vy: 0 };
         handVelocities[i] = {
-          vx: handVelocities[i].vx * 0.2 + vx * 0.8,
-          vy: handVelocities[i].vy * 0.2 + vy * 0.8
+          vx: prevVel.vx * 0.2 + vx * 0.8,
+          vy: prevVel.vy * 0.2 + vy * 0.8
         };
+        // 정지 상태에서 속도 가산 오차 제거 (미세 보정 0.08만 적용)
         return {
-          x: p.x + handVelocities[i].vx * 0.35,
-          y: p.y + handVelocities[i].vy * 0.35
+          x: p.x + handVelocities[i].vx * 0.08,
+          y: p.y + handVelocities[i].vy * 0.08
         };
       });
-      rawPrev = raw;
+      rawPrev = sortedRaw;
     } else {
-      // 300ms 그레이스 윈도우: 초고속 스윙 시 누락되어도 감쇠 오일러 적분으로 궤적 연결
+      // 그레이스 윈도우 감쇠
       const dtMs = t0 - lastSeen;
-      if (dtMs < 280 && lastHands.length > 0) {
+      if (dtMs < 220 && lastHands.length > 0) {
         lastHands = lastHands.map((p, i) => {
           const vel = handVelocities[i] || { vx: 0, vy: 0 };
-          vel.vx *= 0.84; vel.vy *= 0.84;
+          vel.vx *= 0.75; vel.vy *= 0.75;
           return {
-            x: Math.max(0, Math.min(W, p.x + vel.vx * 0.5)),
-            y: Math.max(0, Math.min(H, p.y + vel.vy * 0.5))
+            x: Math.max(0, Math.min(W, p.x + vel.vx * 0.4)),
+            y: Math.max(0, Math.min(H, p.y + vel.vy * 0.4))
           };
         });
-      } else if (dtMs >= 280) {
+      } else if (dtMs >= 220) {
         lastHands = []; lastFist = []; rawPrev = []; sizeHist = [];
-        handVelocities = [{ vx: 0, vy: 0 }, { vx: 0, vy: 0 }];
+        handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
         euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
       }
     }
@@ -2796,14 +2818,15 @@ games.box = {
   init() {
     this.tilt = 0;
     this.tiltVel = 0;
-    this.hitCool = [0, 0];
+    // 각 손의 샌드백 접촉 상태 관리 (wasInside, cooldown)
+    this.handStates = Array.from({ length: 4 }, () => ({ inside: false, cool: 0 }));
     this.mouseCool = 0;
     this.flash = 0;
     this.punches = 0;
     this.shake = 0;
     this.targets = [];
     this.beatTimer = 0;
-    this.beatInterval = 0.72; // 음악 BPM에 동기화된 리듬 비트 펀치 큐
+    this.beatInterval = 0.72; // 음악 BPM 동기화 펀치 비트
   },
   update(dt) {
     this.shake = Math.max(0, this.shake - dt);
@@ -2812,10 +2835,13 @@ games.box = {
     this.tiltVel *= 0.93;
     this.tilt += this.tiltVel * dt;
 
-    const bw = 160, bh = Math.min(H * 0.52, 340);
+    const bw = 175, bh = Math.min(H * 0.52, 335);
     const cx = W / 2, cy = H * 0.48;
+    // 샌드백 실제 타격 바운딩 박스
+    const bagX1 = cx - bw * 0.5 - 20, bagX2 = cx + bw * 0.5 + 20;
+    const bagY1 = cy - bh * 0.5 - 20, bagY2 = cy + bh * 0.5 + 30;
 
-    // 1. 리듬 펀치 비트 큐 생성 (음악 박자에 맞춰 샌드백으로 조여드는 타겟 링)
+    // 1. 리듬 펀치 비트 큐 생성
     this.beatTimer += dt;
     if (this.beatTimer >= this.beatInterval) {
       this.beatTimer = 0;
@@ -2828,32 +2854,50 @@ games.box = {
       });
     }
 
-    // 2. 펀치 액션 판정 (타이밍 액션 + 자유 연타)
+    // 2. 물리 펀치 액션 판정: 손을 가만히 두면 타격 0%!
+    // 실제 손을 샌드백을 향해 빠르게 휘두르거나(돌진 진입), 샌드백 안에서 강한 가속도 임팩트가 발생할 때만 인정!
     let punchOccurred = false;
     let punchX = cx;
 
     if (useMouse) {
       this.mouseCool = Math.max(0, this.mouseCool - dt);
-      if (mouse.down && this.mouseCool <= 0) {
-        this.mouseCool = 0.08;
+      const mouseInBag = mouse.x >= bagX1 && mouse.x <= bagX2 && mouse.y >= bagY1 && mouse.y <= bagY2;
+      if (mouse.down && mouseInBag && this.mouseCool <= 0) {
+        this.mouseCool = 0.14;
         punchOccurred = true;
         punchX = mouse.x;
       }
     }
 
     pointers.forEach((p, i) => {
-      this.hitCool[i] = Math.max(0, (this.hitCool[i] || 0) - dt);
-      const isPunch = p.punch || p.fist || p.speed > 9.5;
-      if (isPunch && this.hitCool[i] <= 0) {
-        this.hitCool[i] = 0.09;
+      const st = this.handStates[i] ?? (this.handStates[i] = { inside: false, cool: 0 });
+      st.cool = Math.max(0, st.cool - dt);
+
+      // 손이 샌드백 영역 안에 있는지 여부
+      const isInside = p.x >= bagX1 && p.x <= bagX2 && p.y >= bagY1 && p.y <= bagY2;
+
+      // 🥊 엄격한 물리 펀치 판정 규칙:
+      // A) 반드시 샌드백 영역(Hitbox) 내부여야 함.
+      // B) 손을 가만히 대고 있는 정지 상태(p.speed < 7.5)는 절대 타격 불가!
+      // C) 바깥에서 샌드백으로 빠르게 돌진 진입(!st.inside && isInside && p.speed > 8.0)
+      // D) 또는 샌드백 안에서 순간적으로 강하게 내지르는 펀치 임펄스(isInside && p.speed > 13.0)
+      const isDynamicPunch = isInside && (
+        (!st.inside && p.speed > 8.0) ||
+        (st.inside && (p.speed > 13.0 || p.punch))
+      );
+
+      if (isDynamicPunch && st.cool <= 0) {
+        st.cool = 0.16; // 타격 후 160ms 쿨다운 (손을 거둬들이거나 리듬감 유지 필요)
         punchOccurred = true;
         punchX = p.x;
       }
+
+      st.inside = isInside;
     });
 
     if (punchOccurred) {
       this.punches++;
-      // 리듬 타겟 타이밍 일치 검사 (타겟 링이 샌드백 중심에 맞춰지는 완벽한 순간)
+      // 리듬 비트 타겟과 타이밍 일치 검사
       const currentTarget = this.targets.find((tg) => !tg.hit && tg.t >= 0.65 && tg.t <= 1.0);
       let perfect = false;
 
@@ -2880,15 +2924,15 @@ games.box = {
   },
   draw() {
     const cx = W / 2, cy = H * 0.48;
-    const bw = 160, bh = Math.min(H * 0.52, 340);
+    const bw = 175, bh = Math.min(H * 0.52, 335);
 
     ctx.save();
     if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
 
-    // 샌드백 본체 렌더링
+    // 1. 샌드백 본체 렌더링
     Art.drawPunchBag(cx, cy, bw, bh, this.tilt, this.flash);
 
-    // 음악 박자에 맞춰 조여드는 리듬 펀치 링 & 큐 (비트 타이밍 액션)
+    // 2. 리듬 펀치 링 & 비트 큐
     for (const tg of this.targets) {
       if (tg.hit) continue;
       const scale = Math.max(0.2, 1.8 - tg.t * 0.8);
@@ -2901,7 +2945,6 @@ games.box = {
       ctx.arc(cx, cy, 80 * scale, 0, Math.PI * 2);
       ctx.stroke();
 
-      // 타겟 텍스트
       ctx.font = "900 28px 'Rubik', sans-serif";
       ctx.fillStyle = tg.color; ctx.textAlign = "center";
       ctx.fillText(tg.text, cx, cy - 90 * scale);
@@ -2909,9 +2952,33 @@ games.box = {
     }
     ctx.restore();
 
+    // 3. 플레이어 복싱 글러브(Boxing Gloves) 실시간 렌더링
+    pointers.forEach((p, i) => {
+      const isLeft = i % 2 === 0;
+      const col = isLeft ? "#00d2ff" : "#ff4b72";
+      ctx.save();
+      ctx.font = "46px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 20;
+      ctx.fillText("🥊", p.x, p.y);
+      ctx.restore();
+    });
+
+    if (useMouse) {
+      ctx.save();
+      ctx.font = "46px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "#ff4b72"; ctx.shadowBlur = 20;
+      ctx.fillText("🥊", mouse.x, mouse.y);
+      ctx.restore();
+    }
+
     ctx.textAlign = "center"; ctx.font = "900 26px 'Rubik', sans-serif"; ctx.fillStyle = "#ffd166";
     ctx.fillText(`TOTAL PUNCHES: ${this.punches}`, cx, H * 0.88);
-    topHud("리듬에 맞춰 양주먹을 앞으로 쭉! 뻗어 펀치를 날리세요!");
+    topHud("양주먹으로 샌드백을 힘차게 쳐보세요! (가만히 대고 있으면 타격되지 않아요)");
   }
 };
 function elapsed() { return GAME_SECONDS - timeLeft; }
@@ -3151,7 +3218,7 @@ function toMenu() {
   if (mode) games[mode].exit?.();
   playing = false; mode = null; objs = [];
   isReadyTime = false; readyTimeLeft = 0;
-  pointers.length = 0; trails[0].length = 0; trails[1].length = 0; lastHands = []; body = null;
+  pointers.length = 0; trails.forEach((t) => (t.length = 0)); lastHands = []; body = null;
   isFeverTime = false; currentWave = 1;
   $("feverBorder")?.classList.add("hidden");
   $("waveBanner")?.classList.add("hidden");
@@ -3225,10 +3292,10 @@ async function ensureModel(kind) {
       });
     } else {
       handLandmarker = await makeLandmarker(HandLandmarker, MODEL, {
-        numHands: 2,
-        minHandDetectionConfidence: 0.25,
-        minHandPresenceConfidence: 0.25,
-        minTrackingConfidence: 0.25
+        numHands: 4, // 2인 플레이어 최대 4손(각 2손씩) 완벽 지원
+        minHandDetectionConfidence: 0.35,
+        minHandPresenceConfidence: 0.35,
+        minTrackingConfidence: 0.35
       });
     }
     $("status").textContent = "";
