@@ -2702,24 +2702,36 @@ games.magic = {
           const type = res.name;
           const tx = this.target.x, ty = this.target.y;
           sfx.spell(tx, type);
+
+          // NotebookLM 스펠 체이닝(Spell Chaining): 이전 주문과 연계 시 위력 2배 증폭!
+          const isChained = this.prevType && this.prevType !== type;
+          const chainMult = isChained ? 1.8 : 1.0;
+          this.prevType = type;
+
           if (type === "v" || type === "lightning") {
-            this.lastSpell = "⚡ LIGHTNING BOLT!";
-            this.target.hp -= 35;
-            burst(tx, ty, "#ffeb3b", 35);
-            award(tx, ty - 60, 5, "#ffeb3b");
+            this.lastSpell = isChained ? "⚡ CHAINED LIGHTNING STORM! x2" : "⚡ LIGHTNING BOLT!";
+            this.target.hp -= Math.round(35 * chainMult);
+            burst(tx, ty, "#ffeb3b", isChained ? 45 : 35);
+            award(tx, ty - 60, isChained ? 10 : 5, "#ffeb3b");
           } else if (type === "triangle") {
-            this.lastSpell = "🔥 FIREBALL EXPLOSION!";
-            this.target.hp -= 40;
-            burst(tx, ty, "#ff5500", 40);
-            award(tx, ty - 60, 6, "#ff5500");
+            this.lastSpell = isChained ? "🔥 GIGA FIREBALL CHAIN! x2" : "🔥 FIREBALL EXPLOSION!";
+            this.target.hp -= Math.round(40 * chainMult);
+            burst(tx, ty, "#ff5500", isChained ? 50 : 40);
+            award(tx, ty - 60, isChained ? 12 : 6, "#ff5500");
           } else {
-            this.lastSpell = "🛡️ ARCANE SHIELD!";
-            this.target.hp -= 25;
-            burst(tx, ty, "#00d2ff", 30);
-            award(tx, ty - 60, 4, "#00d2ff");
+            this.lastSpell = isChained ? "🛡️ DIVINE ARCANE BARRIER! x2" : "🛡️ ARCANE SHIELD!";
+            this.target.hp -= Math.round(25 * chainMult);
+            burst(tx, ty, "#00d2ff", isChained ? 40 : 30);
+            award(tx, ty - 60, isChained ? 8 : 4, "#00d2ff");
           }
+
+          if (isChained) {
+            popup(tx, ty - 130, "🔥 SPELL CHAIN x2 BONUS!!", "#ff0077");
+            addShake(0.2, 16);
+          }
+
           this.target.hitFlash = 1;
-          this.spellFx.push({ text: this.lastSpell, life: 1, x: tx, y: ty - 100 });
+          this.spellFx.push({ text: this.lastSpell, life: 1.2, x: tx, y: ty - 100 });
           if (this.target.hp <= 0) {
             popup(tx, ty, "MONSTER DEFEATED!", "#ffd700");
             sfx.levelUp();
