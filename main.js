@@ -2584,13 +2584,33 @@ games.beat = {
       if (!o.dead && !o.cut && o.z >= 0.78 && o.z <= 1.08) {
         const handIdx = o.isLeft ? 0 : 1;
         const saber = this.sabers[handIdx];
-        const isSaberTouch = saber && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 30);
+
+        // 1. [위치 일치] 광선검 검신 선분(saber blade) 또는 손목이 큐브 위치에 실제로 닿았는가?
+        const isSaberTouch = saber && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 36);
+        const curWrist = this.prevWrist[handIdx];
+        const wristDist = Math.hypot(curWrist.x - o.x, curWrist.y - o.y);
+        const isWristTouch = wristDist < (o.r + 42);
+
+        let isInPosition = Boolean(isSaberTouch || isWristTouch);
+
+        // 마우스 모드 호환 판정
+        if (useMouse) {
+          const mDist = Math.hypot(mouse.x - o.x, mouse.y - o.y);
+          const mSaberTouch = (this.sabers[0] && segHitsCircle(this.sabers[0].base.x, this.sabers[0].base.y, this.sabers[0].tip.x, this.sabers[0].tip.y, o.x, o.y, o.r + 36)) ||
+                              (this.sabers[1] && segHitsCircle(this.sabers[1].base.x, this.sabers[1].base.y, this.sabers[1].tip.x, this.sabers[1].tip.y, o.x, o.y, o.r + 36));
+          if (mDist < (o.r + 45) || mSaberTouch) isInPosition = true;
+        }
+
+        // 2. [스윙 액션] 가만히 대고 있는 것이 아닌, 실제로 칼을 휘두르는 가속도가 실렸는가?
         const wVel = this.wristVel[handIdx];
         const isSwinging = swing[handIdx] || wVel.spd > 6.0 || (useMouse && (swing[0] || swing[1]));
 
-        // [A] 네온 폭탄(Bomb) 판정: 손을 뱅글뱅글 돌려 건드리면 대폭발!
+        // 3. [모멘텀 쿨다운] 제자리 뱅글뱅글 비비기 방지
+        const isCooldownOk = (now - this.lastCutT[handIdx] > 110);
+
+        // [A] 네온 폭탄(Bomb) 판정: 광선검이나 손이 폭탄 위치에 실제로 닿았을 때만 대폭발!
         if (o.isBomb) {
-          if (isSaberTouch || isSwinging) {
+          if (isInPosition) {
             o.dead = true;
             this.energy = Math.max(0, this.energy - 12);
             this.screenShake = 0.35;
@@ -2600,9 +2620,8 @@ games.beat = {
             popup(o.x, o.y, "BOMB HIT! 💥 -12", "#ff0055");
           }
         } else {
-          // [B] 일반 비트 큐브: 방향 제한 없이 자유롭게 베기!
-          // 뱅글뱅글 꼼수 방지: 단순 비비기 무효 + 유효 스윙 스트로크 + 쿨다운(110ms)
-          if ((isSaberTouch || isSwinging) && isSwinging && (now - this.lastCutT[handIdx] > 110)) {
+          // [B] 일반 비트 큐브: 반드시 광선검이 그 위치에 닿았고(isInPosition) + 스윙 액션(isSwinging)이 실려야 베어짐!
+          if (isInPosition && isSwinging && isCooldownOk) {
             this.lastCutT[handIdx] = now;
             o.dead = true;
             o.cut = true;
