@@ -92,6 +92,14 @@ const sfx = {
     tone(523.25 * 2 ** (steps[Math.min(n - 3, steps.length - 1)] / 12), t, 0.14, "triangle", 0.1);
   },
   start() { const t = ac().currentTime; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.09, 0.2, "triangle", 0.14)); },
+  countdown(final) {
+    const t = ac().currentTime;
+    if (final) {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.08, 0.25, "triangle", 0.16));
+    } else {
+      tone(587.33, t, 0.14, "square", 0.16, 587.33); // 경쾌한 레디 비프음 (D5)
+    }
+  },
   end() { const t = ac().currentTime; [784, 659, 784, 1046.5].forEach((f, i) => tone(f, t + i * 0.14, 0.3, "triangle", 0.14)); },
   levelUp() { const t = ac().currentTime; [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.07, 0.25, "square", 0.08)); },
   saber(x, left) {
@@ -142,14 +150,22 @@ function speak(text, force = false) {
   } catch {}
 }
 const INTRO = {
-  balloon: "풍선을 터뜨려라! 시작!", ninja: "과일을 베어라! 폭탄은 조심!", mole: "두더지를 잡아라! 시작!",
-  space: "유성이 온다! 지구를 지켜라!", draw: "허공에 그림을 그려 보세요! 주먹을 쥐면 멈춰요!",
-  dodge: "온몸으로 돌을 피하고 동전을 모아요!",
-  brick: "공을 튕겨서 벽돌을 깨요!", leak: "물이 새요! 손으로 구멍을 막아요!", runner: "점프하고, 앉아서 장애물을 피해요!", kungfu: "다가오는 적을 주먹으로 쳐요!", pose: "화면의 자세를 따라 해 보세요!", versus: "대결 시작! 먼저 터뜨려라!",
-  beat: "비트에 맞춰 날아오는 네온 큐브를 양손으로 베어요! 시작!",
-  magic: "손끝으로 마법진을 그려요! 원은 쉴드, 브이는 번개, 세모는 파이어!",
-  keeper: "골대를 향해 날아오는 슛을 온몸과 손으로 막아내요! 시작!",
-  box: "양주먹으로 샌드백을 광속으로 연타해요! 펀치 시작!",
+  balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
+  ninja: "과일을 날카롭게 베어내세요! 폭탄은 조심하세요!",
+  mole: "구멍에서 튀어나오는 두더지를 빠르게 잡으세요!",
+  space: "지구를 향해 쏟아지는 유성을 막아내세요!",
+  draw: "허공에 멋진 그림을 그려 보세요!",
+  dodge: "온몸을 움직여 날아오는 돌을 피하고 동전을 모으세요!",
+  brick: "손으로 공을 튕겨 벽돌을 모두 깨뜨리세요!",
+  leak: "물이 새어 나오는 구멍을 손으로 꼭 막으세요!",
+  runner: "점프하고 숙이며 장애물을 피하는 달리기 게임입니다!",
+  kungfu: "다가오는 악당들을 주먹으로 빠르게 물리치세요!",
+  pose: "화면에 나오는 포즈를 온몸으로 똑같이 따라 하세요!",
+  versus: "2인 대결 게임! 풍선을 먼저 터뜨리는 사람이 승리합니다!",
+  beat: "음악에 맞춰 날아오는 네온 큐브를 온몸으로 시원하게 베어내세요!",
+  magic: "손끝으로 마법진을 그리세요! 원은 방어막, 브이는 번개, 세모는 파이어!",
+  keeper: "골대를 향해 날아오는 공을 온몸과 손으로 막아내세요!",
+  box: "샌드백을 향해 양주먹으로 신나게 펀치를 연타하세요!",
 };
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
@@ -2748,6 +2764,84 @@ function elapsed() { return GAME_SECONDS - timeLeft; }
 // ---------- 진행 ----------
 let warned10 = false;
 let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
+// 5초 레디타임(준비시간) 상태
+let isReadyTime = false;
+let readyTimeLeft = 5.0;
+let lastReadyCount = 5;
+
+// 5초 레디타임 카운트다운 렌더링 (원형 게이지 + 펄스 스케일 + 준비 안내 가이드)
+function drawReadyCountdown(t, isBodyGame) {
+  const cx = W / 2, cy = H * 0.44;
+  const currentSec = Math.max(1, Math.ceil(t));
+  const fraction = t - Math.floor(t);
+  const scale = 1.0 + Math.pow(fraction, 2) * 0.32; // 초마다 쿵! 하고 수축하는 펄스
+
+  ctx.save();
+
+  // 1. 중앙 어두운 비네팅 & 포커스 링
+  const bgGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, 260);
+  bgGrad.addColorStop(0, "rgba(8, 6, 20, 0.72)");
+  bgGrad.addColorStop(0.7, "rgba(10, 8, 26, 0.55)");
+  bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 260, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. 5초 원형 프로그레스 게이지
+  const progress = Math.max(0, Math.min(1, (5.0 - t) / 5.0));
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 115, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = currentSec <= 2 ? "#ff3366" : "#00d2ff";
+  ctx.lineWidth = 10;
+  ctx.lineCap = "round";
+  ctx.shadowColor = ctx.strokeStyle;
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 115, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+  ctx.stroke();
+
+  // 3. 상단 READY 라벨 뱃지
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = "#ffd166";
+  ctx.fillStyle = "#ffd166";
+  ctx.font = "900 24px 'Rubik', sans-serif";
+  ctx.fillText("READY TIME · 준비 시간", cx, cy - 150);
+
+  // 4. 거대한 펄스 카운트다운 숫자
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.shadowBlur = 35;
+  const numColor = currentSec <= 2 ? "#ff3366" : "#ffd166";
+  ctx.shadowColor = numColor;
+  ctx.fillStyle = numColor;
+  ctx.font = "900 115px 'Rubik', sans-serif";
+  ctx.fillText(currentSec, 0, 8);
+  ctx.restore();
+
+  // 5. 하단 동작 준비 안내 가이드
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+  ctx.font = "700 21px sans-serif";
+  ctx.fillStyle = "#ffffff";
+  const guideText = isBodyGame
+    ? "카메라 앞에서 1.5~2m 물러서서 준비 자세를 취하세요!"
+    : "카메라를 향해 손을 뻗어 준비 자세를 취하세요!";
+  ctx.fillText(guideText, cx, cy + 160);
+
+  ctx.font = "500 16px sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+  ctx.fillText("5초 후 본 게임이 시작됩니다", cx, cy + 192);
+
+  ctx.restore();
+}
 
 function drawBackground(color, camAlpha = 0.85) {
   if (!mode) { ctx.clearRect(0, 0, W, H); return; }   // 메뉴에서는 캔버스를 투명하게 → 아케이드 허브 배경이 보임
@@ -2768,37 +2862,66 @@ function frame(now) {
   const g = mode ? games[mode] : null;
   drawBackground(g?.bg ?? "#1b1b2f", g?.camAlpha);
   if (playing && g) {
-    // 3단계 웨이브 전이 검사 (Wave 1: 60~40초, Wave 2: 40~20초, Fever: 20~0초)
-    if (!g.noTimer) {
-      if (timeLeft <= 20 && currentWave < 3) {
-        currentWave = 3;
-        isFeverTime = true;
-        sfx.levelUp();
-        triggerWaveBanner("🔥 FEVER TIME!", "점수 2배! 마구 터뜨려요!", true);
-        speak("피버 타임! 점수 두 배!", true);
-      } else if (timeLeft <= 40 && timeLeft > 20 && currentWave < 2) {
-        currentWave = 2;
-        sfx.levelUp();
-        triggerWaveBanner("WAVE 2", "SPEED UP! 빨라집니다!", false);
-        speak("2단계 시작! 더 빨라져요!");
+    if (isReadyTime) {
+      // 5초 레디타임(준비시간) 카운트다운 처리
+      readyTimeLeft -= dt;
+      const curCount = Math.max(1, Math.ceil(readyTimeLeft));
+      if (curCount !== lastReadyCount) {
+        lastReadyCount = curCount;
+        sfx.countdown(false); // 1초마다 통통 튀는 카운트다운 비프음
       }
-    }
 
-    spawnTimer -= dt;
-    if (!g.manual && spawnTimer <= 0) {
-      // 단계별 스폰 가속: Wave 2는 1.3배, Fever Time은 약 1.8배 빠름
-      const waveMult = currentWave === 3 ? 0.55 : currentWave === 2 ? 0.75 : 1.0;
-      g.spawn();
-      spawnTimer = g.interval() * waveMult * (0.6 + Math.random() * 0.8);
-    }
-    g.update(dt); g.draw(); bgmTick();
-    comboTimer -= dt; if (comboTimer <= 0) combo = 0;
-    if (!g.noTimer) timeLeft -= dt;
-    if (playing) {                                   // update 안에서 게임이 끝났을 수 있음
-      if (!g.noTimer && timeLeft <= 10 && !warned10) { warned10 = true; speak("10초 남았어요!"); }
-      $("score").textContent = g.scoreText ? g.scoreText() : score + "점";
-      $("time").textContent = g.hud ? g.hud() : Math.max(0, Math.ceil(timeLeft));
-      if (timeLeft <= 0) endGame();
+      // 게임 필드 및 포즈/세이버 렌더링 (플레이어가 자신의 위치와 자세를 실시간 체크)
+      g.draw();
+
+      // 5초 카운트다운 오버레이 UI 렌더링
+      drawReadyCountdown(readyTimeLeft, Boolean(g.body));
+
+      $("score").textContent = "0점";
+      $("time").textContent = `READY ${curCount}s`;
+
+      // 5초 카운트다운 종료 시 본격적인 게임 시작
+      if (readyTimeLeft <= 0) {
+        isReadyTime = false;
+        sfx.countdown(true); // 팡파르 시작음
+        triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
+        speak("시작!", true);
+        bgmStart();
+        spawnTimer = 0.3;
+      }
+    } else {
+      // 3단계 웨이브 전이 검사 (Wave 1: 60~40초, Wave 2: 40~20초, Fever: 20~0초)
+      if (!g.noTimer) {
+        if (timeLeft <= 20 && currentWave < 3) {
+          currentWave = 3;
+          isFeverTime = true;
+          sfx.levelUp();
+          triggerWaveBanner("🔥 FEVER TIME!", "점수 2배! 마구 터뜨려요!", true);
+          speak("피버 타임! 점수 두 배!", true);
+        } else if (timeLeft <= 40 && timeLeft > 20 && currentWave < 2) {
+          currentWave = 2;
+          sfx.levelUp();
+          triggerWaveBanner("WAVE 2", "SPEED UP! 빨라집니다!", false);
+          speak("2단계 시작! 더 빨라져요!");
+        }
+      }
+
+      spawnTimer -= dt;
+      if (!g.manual && spawnTimer <= 0) {
+        // 단계별 스폰 가속: Wave 2는 1.3배, Fever Time은 약 1.8배 빠름
+        const waveMult = currentWave === 3 ? 0.55 : currentWave === 2 ? 0.75 : 1.0;
+        g.spawn();
+        spawnTimer = g.interval() * waveMult * (0.6 + Math.random() * 0.8);
+      }
+      g.update(dt); g.draw(); bgmTick();
+      comboTimer -= dt; if (comboTimer <= 0) combo = 0;
+      if (!g.noTimer) timeLeft -= dt;
+      if (playing) {                                   // update 안에서 게임이 끝났을 수 있음
+        if (!g.noTimer && timeLeft <= 10 && !warned10) { warned10 = true; speak("10초 남았어요!"); }
+        $("score").textContent = g.scoreText ? g.scoreText() : score + "점";
+        $("time").textContent = g.hud ? g.hud() : Math.max(0, Math.ceil(timeLeft));
+        if (timeLeft <= 0) endGame();
+      }
     }
   } else if (g) { g.draw(); }
   if (playing) {
@@ -2828,9 +2951,15 @@ function startGame(m) {
   $("feverBorder")?.classList.add("hidden");
   const stageWave = $("stageWave");
   if (stageWave) { stageWave.textContent = "WAVE 1"; stageWave.classList.remove("fever"); }
-  triggerWaveBanner("WAVE 1", "START! 준비하세요!", false);
   document.body.classList.add("playing");
-  sfx.start(); speak(INTRO[m], true); bgmStart(); warned10 = false;
+
+  // 5초 레디타임(준비시간) 가동
+  isReadyTime = true;
+  readyTimeLeft = 5.0;
+  lastReadyCount = 5;
+  sfx.countdown(false); // 첫 카운트다운 톤
+  speak(INTRO[m], true); // 게임 설명/안내 음성 발화
+  warned10 = false;
 }
 function endGame() {
   playing = false; $("hud").classList.add("hidden");
@@ -2866,6 +2995,7 @@ function toMenu() {
   try { speechSynthesis.cancel(); } catch {}
   if (mode) games[mode].exit?.();
   playing = false; mode = null; objs = [];
+  isReadyTime = false; readyTimeLeft = 0;
   pointers.length = 0; trails[0].length = 0; trails[1].length = 0; lastHands = []; body = null;
   isFeverTime = false; currentWave = 1;
   $("feverBorder")?.classList.add("hidden");
