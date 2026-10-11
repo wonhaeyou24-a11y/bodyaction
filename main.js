@@ -3506,25 +3506,95 @@ $("again").onclick = () => startGame(mode);
 $("toMenu").onclick = toMenu;
 $("quit").onclick = toMenu;
 
-// TV / 대화면 전체화면 토글 (iOS Safari & 데스크톱 크로스 브라우징)
-function toggleFullscreen() {
-  try {
-    const doc = document;
-    const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
-    if (!isFs) {
-      const el = doc.documentElement;
-      if (el.requestFullscreen) el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    } else {
-      if (doc.exitFullscreen) doc.exitFullscreen();
-      else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
-    }
-  } catch (err) {
-    console.warn("전체화면 전환 예외:", err);
+// TV / 대화면 전체화면 토글 (iOS Safari, iPad, 스마트TV, 데스크톱 크로스 브라우징)
+function isFullscreenActive() {
+  const doc = document;
+  return Boolean(
+    doc.fullscreenElement ||
+    doc.webkitFullscreenElement ||
+    doc.mozFullScreenElement ||
+    doc.msFullscreenElement ||
+    doc.body.classList.contains("tv-fullscreen-mode")
+  );
+}
+
+function updateFullscreenButtons() {
+  const isFs = isFullscreenActive();
+  const hubBtn = $("btnFsHub");
+  const hudBtn = $("btnFsHud");
+  if (hubBtn) {
+    hubBtn.innerHTML = isFs ? "🗗 전체화면 해제" : "⛶ TV 전체화면";
+    hubBtn.classList.toggle("fs-active", isFs);
+  }
+  if (hudBtn) {
+    hudBtn.innerHTML = isFs ? "🗗" : "⛶";
+    hudBtn.classList.toggle("fs-active", isFs);
+    hudBtn.title = isFs ? "전체화면 해제" : "TV/대화면 전체화면";
   }
 }
+
+async function toggleFullscreen() {
+  try { sfx.tick(); } catch {}
+  const doc = document;
+  const el = doc.documentElement;
+  const isFs = isFullscreenActive();
+
+  if (!isFs) {
+    let apiSuccess = false;
+    const reqFn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+
+    if (reqFn) {
+      try {
+        const p = reqFn.call(el);
+        if (p && p.then) {
+          await p.catch((err) => {
+            console.warn("표준 전체화면 API 거부 -> CSS TV 전체화면 모드 전환:", err);
+            doc.body.classList.add("tv-fullscreen-mode");
+          });
+        }
+        apiSuccess = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+      } catch (err) {
+        console.warn("전체화면 호출 예외 -> CSS TV 모드로 전환:", err);
+      }
+    }
+
+    // iPadOS / Safari 등 API 미지원 및 거부 환경에서는 CSS 가상 풀스크린 즉시 활성화
+    if (!apiSuccess) {
+      doc.body.classList.add("tv-fullscreen-mode");
+      try { window.scrollTo(0, 1); } catch {}
+    }
+    popup(W / 2, H * 0.45, "📺 TV 전체화면 켜짐!", "#00d2ff");
+  } else {
+    // 전체화면 해제
+    const exitFn = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+    if (exitFn && (doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement)) {
+      try {
+        const p = exitFn.call(doc);
+        if (p && p.catch) await p.catch(() => {});
+      } catch {}
+    }
+    doc.body.classList.remove("tv-fullscreen-mode");
+    popup(W / 2, H * 0.45, "전체화면 해제됨", "#ffd166");
+  }
+
+  updateFullscreenButtons();
+  setTimeout(() => { try { onResize(); } catch {} }, 100);
+}
+
+updateFullscreenButtons();
 $("btnFsHub")?.addEventListener("click", toggleFullscreen);
 $("btnFsHud")?.addEventListener("click", toggleFullscreen);
+
+// ESC 키나 브라우저 제스처로 전체화면이 변경되었을 때 버튼 상태 자동 동기화
+["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"].forEach((evt) => {
+  document.addEventListener(evt, () => {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      document.body.classList.remove("tv-fullscreen-mode");
+    }
+    updateFullscreenButtons();
+    try { onResize(); } catch {}
+  });
+});
 
 // iOS Safari 오디오 자동 잠금 해제 가드
 const unlockAudio = () => {
