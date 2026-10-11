@@ -20,6 +20,7 @@ python -m http.server 8080        # 또는 시작.bat (Windows)
 
 ## 주요 기능
 
+- **비동기 AI 엔진**: 손/몸 인식을 작업자(Web Worker)에서 돌려 인식 중에도 화면이 멈추지 않음 (`vision-worker.js`, `vision-client.js`). 게임 중 HUD에 실제 fps·초당 AI 횟수·인식 시간 표시. `?noworker`로 예전 방식
 - 게임별 **등급 기준**(`main.js`의 `RANK_THRESHOLDS`) · 게임별 **TOP 10 순위표**(내 기록 / 가족 전체)
 - **가족 프로필**: 사람마다 닉네임·아바타·기록을 따로 저장 (`profiles.js`)
 - **첫 실행 안내**: 카메라 위치·밝기·손/몸 인식 확인 (`guide.js`)

@@ -5,6 +5,7 @@ import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js";
 import { initSetupGuide } from "./guide.js";
+import { createVisionClient } from "./vision-client.js";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -23,6 +24,10 @@ const GAME_SECONDS = Math.min(60, Math.max(5, Number(new URLSearchParams(locatio
 
 const $ = (id) => document.getElementById(id);
 const video = $("video"), canvas = $("stage"), ctx = canvas.getContext("2d");
+// ⚡ 비동기 AI 엔진: 손/몸 인식을 작업자(Web Worker)에서 돌려 게임 화면이 인식 때문에 멈추지 않게 해요.
+// 주소에 ?noworker 를 붙이면 예전 방식(화면과 같은 곳에서 인식)으로 돌아가요. 작업자가 안 되면 자동으로 예전 방식.
+const USE_WORKER = !location.search.includes("noworker");
+const visionAI = createVisionClient({ video });
 let W = 0, H = 0;
 function resize() {
   const d = 1.0;   // 60 FPS 무지연 렌더링을 위해 캔버스 스케일 1.0 고정 (GPU 렌더링 부하 55% 절감)
@@ -675,7 +680,7 @@ let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 let bodyVelocities = []; // 관절별 60 FPS 외삽용 속도 벡터
 let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 되었는지 여부
-let lastPointerUpdateTime = 0;
+let lastPointerUpdateTime = 0, lastHandT0 = 0, lastPoseT0 = 0;   // 결과 간격(속도 단위 보정용)
 
 function updatePointers() {
   if (!playing || !mode) {
@@ -698,17 +703,25 @@ function updatePointers() {
   if (useMouse) {
     pts = [{ x: mouse.x, y: mouse.y }];
   } else if (games[mode]?.body) {                      // 몸 게임: 전신 포즈 인식
-    if (poseLandmarker && video.readyState >= 2 && !isDetectingBody) {
-      // 추론 종료 후 최소 38ms 동안은 메인 스레드가 60 FPS 렌더링에만 전념하도록 절대적 휴식 시간 보장!
-      const shouldInfer = (now - lastPoseInferEndTime >= 38);
+    const poseWorker = visionAI.ready("pose");
+    if ((poseLandmarker || poseWorker) && video.readyState >= 2 && !isDetectingBody) {
+      // 작업자 방식: 새 인식 결과가 도착했을 때만 처리 (화면은 멈추지 않음)
+      // 예전 방식: 추론 종료 후 최소 38ms 동안은 메인 스레드가 렌더링에만 전념하도록 휴식 시간 보장
+      const wr = poseWorker ? visionAI.take("pose") : null;
+      const shouldInfer = poseWorker ? !!wr : (now - lastPoseInferEndTime >= 38);
       if (shouldInfer) {
         isDetectingBody = true;
         const inferStart = performance.now();
         try {
-          const t0 = Math.max(now, lastDetectTimestamp + 1);
+          const t0 = wr ? Math.max(wr.ts, lastDetectTimestamp + 1) : Math.max(now, lastDetectTimestamp + 1);   // 작업자: 카메라 프레임을 찍은 시각
           lastDetectTimestamp = t0;
-          const r = poseLandmarker.detectForVideo(video, t0);
-          detectMs = detectMs * 0.85 + (performance.now() - inferStart) * 0.15;
+          const r = wr ? wr.result : poseLandmarker.detectForVideo(video, t0);
+          if (!wr) mainInfers++;
+          detectMs = detectMs * 0.85 + (wr ? wr.inferMs : performance.now() - inferStart) * 0.15;
+          // 결과 간격이 들쭉날쭉해도 속도가 항상 "33ms당 이동량"이 되도록 맞추고, 인식 지연(찍은 뒤 지난 시간)만큼 앞으로 당겨요
+          const kP = 33 / Math.max(16, Math.min(150, t0 - (lastPoseT0 || t0 - 33)));
+          lastPoseT0 = t0;
+          const leadP = Math.min(2.5, Math.max(0, (performance.now() - t0) / 33)) * 0.8;
           if (r.landmarks && r.landmarks.length) {
             bodySeen = t0;
             const newBody = r.landmarks[0].map((l, i) => {
@@ -716,13 +729,13 @@ function updatePointers() {
               if (!o) return { ...p, v };
               // 관절별 속도 벡터 산출 (추론 스킵 프레임 외삽용)
               bodyVelocities[i] = {
-                vx: (bodyVelocities[i]?.vx || 0) * 0.3 + (p.x - o.x) * 0.7,
-                vy: (bodyVelocities[i]?.vy || 0) * 0.3 + (p.y - o.y) * 0.7
+                vx: (bodyVelocities[i]?.vx || 0) * 0.3 + (p.x - o.x) * kP * 0.7,
+                vy: (bodyVelocities[i]?.vy || 0) * 0.3 + (p.y - o.y) * kP * 0.7
               };
               // 속도 적응형 무지연 보간
               const dSpd = Math.hypot(p.x - o.x, p.y - o.y);
               const blend = Math.min(0.95, 0.78 + dSpd * 0.012);
-              return { x: o.x + (p.x - o.x) * blend, y: o.y + (p.y - o.y) * blend, v };
+              return { x: o.x + (p.x - o.x) * blend + bodyVelocities[i].vx * leadP, y: o.y + (p.y - o.y) * blend + bodyVelocities[i].vy * leadP, v };
             });
             body = newBody;
           } else if (t0 - bodySeen > 400) {
@@ -748,7 +761,7 @@ function updatePointers() {
     }
     camOk = !!body;
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
-  } else if (handLandmarker && video.readyState >= 2) {
+  } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
     camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
@@ -798,19 +811,22 @@ function updatePointers() {
 
 // 3D 기하 제스처 판정 및 렌더링 전용 숨통 시간 확보 손 인식 엔진
 function detectHandsNow() {
-  if (!playing || !mode || isDetectingHands || !handLandmarker || video.readyState < 2) return;
+  const handWorker = visionAI.ready("hand");
+  if (!playing || !mode || isDetectingHands || (!handLandmarker && !handWorker) || video.readyState < 2) return;
   const now = performance.now();
-  // 추론 종료 후 최소 35ms 동안은 브라우저 60 FPS 렌더링에만 전념하도록 절대적 휴식 시간 보장!
-  if (now - lastHandInferEndTime < 35) return;
-  
+  const wr = handWorker ? visionAI.take("hand") : null;
+  if (handWorker) { if (!wr) return; }                  // 작업자 방식: 새 인식 결과가 도착했을 때만 처리 (그 사이엔 외삽)
+  else if (now - lastHandInferEndTime < 35) return;     // 예전 방식: 추론 종료 후 35ms 휴식 보장
+
   isDetectingHands = true;
   const inferStart = performance.now();
   try {
-    const t0 = Math.max(now, lastDetectTimestamp + 1);
+    const t0 = wr ? Math.max(wr.ts, lastDetectTimestamp + 1) : Math.max(now, lastDetectTimestamp + 1);   // 작업자: 카메라 프레임을 찍은 시각
     lastDetectTimestamp = t0;
 
-    const r = handLandmarker.detectForVideo(video, t0);
-    detectMs = detectMs * 0.85 + (performance.now() - inferStart) * 0.15;
+    const r = wr ? wr.result : handLandmarker.detectForVideo(video, t0);
+    if (!wr) mainInfers++;
+    detectMs = detectMs * 0.85 + (wr ? wr.inferMs : performance.now() - inferStart) * 0.15;
 
     const palm = ($("trackMode").value === "palm" || mode === "box") && mode !== "draw";
     const reachBonus = (playerSettings?.reach ? playerSettings.reach - 35 : 0);
@@ -874,21 +890,25 @@ function detectHandsNow() {
       }
 
       // 속도 벡터 산출 및 연속 물리 반영
+      // 결과 간격이 들쭉날쭉해도 속도가 항상 "33ms당 이동량"이 되도록 맞추고(kH), 인식 지연만큼 앞으로 당겨요(leadH)
+      const kH = 33 / Math.max(16, Math.min(150, t0 - (lastHandT0 || t0 - 33)));
+      lastHandT0 = t0;
+      const leadH = Math.min(2.5, Math.max(0, (performance.now() - t0) / 33)) * 0.8;
       lastHands = sortedRaw.map((p, i) => {
         const o = rawPrev[i];
         let vx = 0, vy = 0;
         if (o) {
-          vx = p.x - o.x; vy = p.y - o.y;
+          vx = (p.x - o.x) * kH; vy = (p.y - o.y) * kH;
         }
         const prevVel = handVelocities[i] || { vx: 0, vy: 0 };
         handVelocities[i] = {
           vx: prevVel.vx * 0.25 + vx * 0.75,
           vy: prevVel.vy * 0.25 + vy * 0.75
         };
-        // 속도 선행 보정 (0.10으로 미세 적용하여 카메라 셔터 지연 상쇄)
+        // 속도 선행 보정: 카메라 셔터 지연(0.10) + 실제 인식 지연(leadH)만큼 앞으로
         return {
-          x: p.x + handVelocities[i].vx * 0.10,
-          y: p.y + handVelocities[i].vy * 0.10
+          x: p.x + handVelocities[i].vx * (0.10 + leadH),
+          y: p.y + handVelocities[i].vy * (0.10 + leadH)
         };
       });
       rawPrev = sortedRaw;
@@ -4380,6 +4400,7 @@ function elapsed() { return GAME_SECONDS - timeLeft; }
 
 // ---------- 진행 ----------
 let warned10 = false, lastScoreEmit = 0;
+let perfFrames = 0, perfT0 = 0, perfAi = 0, mainInfers = 0;   // HUD에 보여 줄 실제 성능 측정값
 let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
 // 5초 레디타임(준비시간) 상태
 let isReadyTime = false;
@@ -4536,7 +4557,15 @@ function drawBackground(color, camAlpha = 0.20) {
 
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min((now - last) / 1000, 0.1); last = now; // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
+  const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  // 📊 실제 성능을 1초마다 HUD에 표시: 화면 fps · 초당 AI 인식 횟수 · 인식 1회 시간 (예전엔 "60 FPS LOCKED" 고정 문구였어요)
+  perfFrames++;
+  if (now - perfT0 >= 1000) {
+    const secs = (now - perfT0) / 1000, st = visionAI.stats, el = $("hudFpsText");
+    const aiTotal = st.results + mainInfers;
+    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate : "메인"}`;
+    perfFrames = 0; perfT0 = now; perfAi = aiTotal;
+  } // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 
   ctx.save();
   // 글로벌 타격 화면 흔들림(Screen Shake)
@@ -4638,6 +4667,7 @@ function frame(now) {
 
 function startGame(m, opts = {}) {
   seedGame(opts.seed);                                                            // 온라인 대결이면 같은 시드 = 같은 판
+  visionAI.setActive(useMouse ? null : (games[m].body ? "pose" : "hand"));          // ⚡ 이번 게임에 필요한 인식만 작업자에서 돌림
   if (m === "beat" && opts.trackId) games.beat.chosenTrackId = opts.trackId;      // 온라인: 방장이 고른 곡
   ac(); // 오디오 컨텍스트 즉시 활성화 (브라우저 유저 제스처 정책 준수)
   mode = m; score = 0; timeLeft = GAME_SECONDS; spawnTimer = 0.3;
@@ -4776,6 +4806,7 @@ async function showTop10Tab(which) {
 function endGame() {
   playing = false;
   bus.emit("game:end", { mode, score, maxCombo });
+  visionAI.setActive(null);                            // 결과 화면에서는 인식을 쉬어요
   stopRealTrackAudio();
   $("hud").classList.add("hidden");
   $("feverBorder")?.classList.add("hidden");
@@ -4864,7 +4895,8 @@ function toMenu() {
   stopTrackPreview?.();
   closeBeatTrackSelector?.();
   if (mode) games[mode].exit?.();
-  stopCamera();
+  visionAI.setActive(null);
+  scheduleCameraStop();
   playing = false; mode = null; objs = [];
   isReadyTime = false; readyTimeLeft = 0; readyStartTime = 0;
   pointers.length = 0; trails.forEach((t) => (t.length = 0)); lastHands = []; body = null;
@@ -4893,12 +4925,22 @@ async function showBest() {
 }
 
 let vision = null;
-// 메뉴로 나가면 카메라를 완전히 끔 (웹캠 불이 계속 켜져 있지 않게). 다음 게임을 고르면 다시 켬
+// 카메라 끄기 (웹캠 불이 계속 켜져 있지 않게). 다음 게임을 고르면 다시 켬
+let camStopTimer = null;
 function stopCamera() {
+  clearTimeout(camStopTimer); camStopTimer = null;
+  visionAI.setActive(null);
   try { video.srcObject?.getTracks().forEach((t) => t.stop()); } catch {}
   video.srcObject = null; lastBodyTime = -1;
 }
+// 메뉴로 나오면 바로 끄지 않고 1분 뒤에 꺼요: 바로 다음 판을 하면 카메라를 다시 켜고 밝기에 적응하는 지연이 없어요
+function scheduleCameraStop(ms = 60000) {
+  clearTimeout(camStopTimer);
+  camStopTimer = setTimeout(() => { if (!playing) stopCamera(); }, ms);
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden && !playing) stopCamera(); });   // 다른 탭/앱으로 가면 바로 끔
 async function ensureVideo() {
+  clearTimeout(camStopTimer); camStopTimer = null;
   if (video.srcObject) return true;
   $("status").textContent = "카메라를 켜는 중… (처음엔 조금 걸려요)";
   try {
@@ -4920,26 +4962,22 @@ async function makeLandmarker(Cls, modelAssetPath, extra) {
   try { return await Cls.createFromOptions(vision, opts(location.search.includes("cpu") ? "CPU" : "GPU")); }
   catch { return await Cls.createFromOptions(vision, opts("CPU")); }
 }
+// 오인식(노이즈) 방지 및 빠른 스윙 추적력 극대화를 위한 고정밀 신뢰도 세팅
+const POSE_OPTIONS = { numPoses: 1, minPoseDetectionConfidence: 0.38, minPosePresenceConfidence: 0.38, minTrackingConfidence: 0.40 };
+const HAND_OPTIONS = { numHands: 2, minHandDetectionConfidence: 0.35, minHandPresenceConfidence: 0.35, minTrackingConfidence: 0.40 };   // 1인 2손 집중 추적
 async function ensureModel(kind) {
   if (kind === "pose" ? poseLandmarker : handLandmarker) return true;
+  if (visionAI.ready(kind)) return true;
   $("status").textContent = kind === "pose" ? "몸 인식 준비 중… (처음엔 조금 걸려요)" : "손 인식 준비 중…";
   try {
-    // 오인식(노이즈) 방지 및 빠른 스윙 추적력 극대화를 위한 고정밀 신뢰도 세팅
-    if (kind === "pose") {
-      poseLandmarker = await makeLandmarker(PoseLandmarker, POSE_MODEL, {
-        numPoses: 1,
-        minPoseDetectionConfidence: 0.38,
-        minPosePresenceConfidence: 0.38,
-        minTrackingConfidence: 0.40
-      });
-    } else {
-      handLandmarker = await makeLandmarker(HandLandmarker, MODEL, {
-        numHands: 2, // 1인 플레이어 2손 집중 추적으로 GPU/WASM 연산량 50% 절감 & 60 FPS 즉각 반응
-        minHandDetectionConfidence: 0.35,
-        minHandPresenceConfidence: 0.35,
-        minTrackingConfidence: 0.40
-      });
+    // ⚡ 1순위: 작업자(Web Worker)에서 인식 → 화면이 멈추지 않음
+    if (USE_WORKER && await visionAI.ensure(kind, { model: kind === "pose" ? POSE_MODEL : MODEL, options: kind === "pose" ? POSE_OPTIONS : HAND_OPTIONS, cpu: location.search.includes("cpu") })) {
+      $("status").textContent = "";
+      return true;
     }
+    // 2순위(예전 방식): 화면과 같은 곳에서 인식
+    if (kind === "pose") poseLandmarker = await makeLandmarker(PoseLandmarker, POSE_MODEL, POSE_OPTIONS);
+    else handLandmarker = await makeLandmarker(HandLandmarker, MODEL, HAND_OPTIONS);
     $("status").textContent = "";
     return true;
   } catch (e) {
@@ -5159,8 +5197,8 @@ function closeBeatTrackSelector() {
 
 // 모달 이벤트 바인딩
 // 곡 선택을 취소하면 켜 둔 카메라도 끔 (시작할 때는 closeBeatTrackSelector만 호출하므로 카메라 유지)
-$("beatModalClose")?.addEventListener("click", () => { closeBeatTrackSelector(); stopCamera(); });
-$("beatModalCancel")?.addEventListener("click", () => { closeBeatTrackSelector(); stopCamera(); });
+$("beatModalClose")?.addEventListener("click", () => { closeBeatTrackSelector(); scheduleCameraStop(); });
+$("beatModalCancel")?.addEventListener("click", () => { closeBeatTrackSelector(); scheduleCameraStop(); });
 $("beatModalStart")?.addEventListener("click", () => {
   closeBeatTrackSelector();
   games.beat.chosenTrackId = selectedBeatTrackId;
@@ -5650,6 +5688,12 @@ const setupGuide = initSetupGuide({
   detect: (kind) => {
     try {
       if (video.readyState < 2) return null;
+      const k = kind === "body" ? "pose" : "hand";
+      if (visionAI.ready(k)) {                                    // ⚡ 작업자 결과 보기 (화면 안 멈춤)
+        visionAI.setActive(k);
+        const r = visionAI.peek(k)?.result;
+        return k === "pose" ? (r?.landmarks?.[0] ?? null) : (r?.landmarks ?? []);
+      }
       if (kind === "body") return poseLandmarker?.detectForVideo(video, performance.now()).landmarks?.[0] ?? null;
       return handLandmarker?.detectForVideo(video, performance.now()).landmarks ?? [];
     } catch { return null; }
