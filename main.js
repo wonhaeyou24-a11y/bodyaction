@@ -1851,73 +1851,241 @@ const Art = {
     } catch {}
   },
 
-  // 6. 점핑 러너 캐릭터 (생동감 넘치는 캥거루/토끼 마스코트)
-  drawRunnerMascot(cx, gy, jy, hs, duck, dist, inv) {
+  // 6. 점핑 러너 캐릭터 (Stitch 아케이드: 고품질 아스트로 사이버 러너 마스코트)
+  drawRunnerMascot(cx, gy, jy, hs, duck, dist, inv, isFever = false, isBoosting = false) {
     try {
       const fy = gy - jy;
-      const ch = duck ? hs * 0.58 : hs;
+      const ch = duck ? hs * 0.52 : hs;
       const top = fy - ch;
-      const ph = dist * 0.04;
+      const ph = dist * 0.045;
       const air = jy > 0;
 
       ctx.save();
-      ctx.globalAlpha = inv > 0 && ((inv * 10) | 0) % 2 ? 0.4 : 1;
+      // 피격 무적 깜빡임
+      ctx.globalAlpha = inv > 0 && ((inv * 10) | 0) % 2 ? 0.35 : 1;
 
-      // 발밑 달리기 먼지 구름 파티클
-      if (!air && Math.sin(ph * 2) > 0.4) {
-        ctx.fillStyle = "rgba(255,255,255,0.35)";
-        ctx.beginPath(); ctx.arc(cx - hs * 0.4, gy - 6, 6 + Math.random() * 4, 0, Math.PI * 2); ctx.fill();
+      // 1. 발밑 네온 질주 그림자 & 잔상 트레일
+      ctx.save();
+      const shadowW = (duck ? hs * 0.65 : hs * 0.45) * Math.max(0.3, 1 - jy / (hs * 1.5));
+      const shadowH = hs * 0.12 * Math.max(0.3, 1 - jy / (hs * 1.5));
+      ctx.fillStyle = isFever ? "rgba(255, 46, 147, 0.45)" : "rgba(0, 210, 255, 0.35)";
+      ctx.beginPath();
+      ctx.ellipse(cx, gy - 2, shadowW, shadowH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 2. 바닥 질주 마찰 스파크 / 먼지 구름 파티클
+      if (!air) {
+        if (duck) {
+          // 슬라이딩 마찰 불꽃 스파크
+          ctx.fillStyle = "#ffcc00";
+          for (let i = 0; i < 3; i++) {
+            ctx.fillRect(cx - hs * 0.3 - Math.random() * 20, gy - 4 - Math.random() * 8, 3, 3);
+          }
+        } else if (Math.sin(ph * 2) > 0.3) {
+          // 질주 펄스 먼지
+          ctx.fillStyle = "rgba(0, 210, 255, 0.3)";
+          ctx.beginPath();
+          ctx.arc(cx - hs * 0.35, gy - 5, 5 + Math.random() * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
-      // 머리 위치
-      const headX = cx + (duck ? hs * 0.15 : 0);
-      const headY = top + hs * 0.16;
-      const headR = hs * 0.18;
+      // 3. 등 뒤 사이버 제트팩 & 플라즈마 부스터 불꽃
+      const packX = cx - (duck ? hs * 0.25 : hs * 0.18);
+      const packY = fy - (duck ? hs * 0.28 : hs * 0.55);
+      const packW = hs * 0.14, packH = hs * 0.28;
 
-      // 쫑긋한 귀 (달릴 때 뒤로 살랑거림)
-      const earSwing = air ? 0.3 : Math.sin(ph) * 0.2;
-      ctx.fillStyle = "#ffb0c9"; ctx.strokeStyle = "#e1037d"; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.ellipse(headX - headR * 0.6, headY - headR * 1.3, headR * 0.35, headR * 0.85, -0.3 + earSwing, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(headX + headR * 0.4, headY - headR * 1.3, headR * 0.35, headR * 0.85, 0.2 + earSwing, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.save();
+      // 제트팩 본체 (메탈릭 다크 쉘)
+      ctx.fillStyle = "#1e1035";
+      ctx.strokeStyle = isFever ? "#ff2e93" : "#00d2ff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(packX - packW / 2, packY - packH / 2, packW, packH, 5);
+      ctx.fill(); ctx.stroke();
 
-      // 머리 구체 (귀여운 마스코트)
-      ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#c68a00"; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(headX, headY, headR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // 부스터 화염 (점프 중이거나 피버/부스트 상태일 때 맹렬히 분사)
+      if (air || isFever || isBoosting) {
+        const flameLen = air ? hs * (0.35 + Math.random() * 0.2) : hs * (0.2 + Math.random() * 0.1);
+        const fg = ctx.createLinearGradient(packX, packY + packH / 2, packX - flameLen * 0.5, packY + packH / 2 + flameLen);
+        fg.addColorStop(0, "#ffffff");
+        fg.addColorStop(0.3, isFever ? "#ff0077" : "#00f0ff");
+        fg.addColorStop(1, "rgba(255, 184, 0, 0)");
 
-      // 바이저 / 헤어밴드
-      ctx.fillStyle = "#00d2ff";
-      ctx.beginPath(); ctx.roundRect(headX - headR * 0.95, headY - headR * 0.4, headR * 1.9, headR * 0.4, 4); ctx.fill();
-
-      // 반짝이는 눈
-      ctx.fillStyle = "#221439";
-      ctx.beginPath(); ctx.arc(headX + headR * 0.3, headY - headR * 0.15, headR * 0.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fff";
-      ctx.beginPath(); ctx.arc(headX + headR * 0.35, headY - headR * 0.22, headR * 0.08, 0, Math.PI * 2); ctx.fill();
-
-      // 볼터치
-      ctx.fillStyle = "rgba(255, 93, 143, 0.65)";
-      ctx.beginPath(); ctx.arc(headX + headR * 0.4, headY + headR * 0.25, headR * 0.2, 0, Math.PI * 2); ctx.fill();
-
-      // 몸통 & 팔다리 애니메이션
-      const hip = fy - (duck ? hs * 0.22 : hs * 0.45);
-      const sw = air ? 0.35 : Math.sin(ph) * 0.8;
-
-      // 몸통
-      ctx.strokeStyle = "#ffd166"; ctx.lineWidth = hs * 0.1; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(headX, headY + headR * 0.6); ctx.lineTo(cx, hip); ctx.stroke();
-
-      // 팔
-      ctx.strokeStyle = "#fbb500"; ctx.lineWidth = hs * 0.08;
-      ctx.beginPath(); ctx.moveTo(headX, headY + headR * 0.8); ctx.lineTo(headX + sw * hs * 0.35, headY + hs * 0.3); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(headX, headY + headR * 0.8); ctx.lineTo(headX - sw * hs * 0.35, headY + hs * 0.3); ctx.stroke();
-
-      // 다리
-      ctx.strokeStyle = "#00d2ff"; ctx.lineWidth = hs * 0.09;
-      ctx.beginPath(); ctx.moveTo(cx, hip); ctx.lineTo(cx + sw * hs * 0.35, fy); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx, hip); ctx.lineTo(cx - sw * hs * 0.35, fy - (air ? hs * 0.15 : 0)); ctx.stroke();
-
+        ctx.fillStyle = fg;
+        ctx.beginPath();
+        ctx.moveTo(packX - packW * 0.4, packY + packH * 0.4);
+        ctx.lineTo(packX + packW * 0.4, packY + packH * 0.4);
+        ctx.lineTo(packX - hs * 0.05, packY + packH * 0.4 + flameLen);
+        ctx.closePath();
+        ctx.fill();
+      }
       ctx.restore();
-    } catch {}
+
+      // 4. 캐릭터 중심 좌표 계산
+      const charTilt = duck ? 0.35 : (air ? -0.15 : Math.sin(ph) * 0.08);
+      const bodyCenterX = cx + (duck ? hs * 0.08 : 0);
+      const bodyCenterY = fy - (duck ? hs * 0.26 : hs * 0.50);
+
+      ctx.save();
+      ctx.translate(bodyCenterX, bodyCenterY);
+      ctx.rotate(charTilt);
+
+      // 5. 우주 수트 몸통 (Chunky Rounded Space Suit)
+      const suitW = hs * 0.28, suitH = hs * 0.34;
+      const suitGrad = ctx.createLinearGradient(0, -suitH / 2, 0, suitH / 2);
+      suitGrad.addColorStop(0, isFever ? "#ff69b4" : "#ffffff");
+      suitGrad.addColorStop(1, isFever ? "#d81b60" : "#dbe4ff");
+
+      ctx.fillStyle = suitGrad;
+      ctx.strokeStyle = "#190b30";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.roundRect(-suitW / 2, -suitH / 2, suitW, suitH, suitW * 0.45);
+      ctx.fill(); ctx.stroke();
+
+      // 가슴의 네온 에너지 아크 코어
+      ctx.fillStyle = isFever ? "#ffea00" : "#00d2ff";
+      ctx.shadowColor = isFever ? "#ffea00" : "#00d2ff";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(suitW * 0.1, 0, suitW * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 6. 다리 & 사이버 하이탑 스니커즈 (역동적인 러닝 애니메이션)
+      const legCycle = air ? 0 : Math.sin(ph);
+      const legCycleCos = air ? 0 : Math.cos(ph);
+
+      const drawLeg = (isFront) => {
+        ctx.save();
+        const legOffX = isFront ? suitW * 0.15 : -suitW * 0.15;
+        const legAngle = duck ? (isFront ? 1.1 : 0.8) : (air ? (isFront ? -0.4 : 0.4) : (isFront ? legCycle * 0.8 : -legCycle * 0.8));
+        
+        ctx.translate(legOffX, suitH * 0.35);
+        ctx.rotate(legAngle);
+
+        // 허벅지/종아리 수트
+        ctx.fillStyle = isFront ? "#a5e7ff" : "#6fb5ff";
+        ctx.strokeStyle = "#190b30";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(-hs * 0.05, 0, hs * 0.10, hs * 0.22, 6);
+        ctx.fill(); ctx.stroke();
+
+        // 네온 러닝 부츠
+        ctx.fillStyle = isFront ? "#ff2e93" : "#e1037d";
+        ctx.beginPath();
+        ctx.roundRect(-hs * 0.06, hs * 0.16, hs * 0.15, hs * 0.10, 5);
+        ctx.fill(); ctx.stroke();
+        // 밑창 LED
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-hs * 0.05, hs * 0.24, hs * 0.13, 2.5);
+
+        ctx.restore();
+      };
+
+      drawLeg(false); // 뒷다리
+      drawLeg(true);  // 앞다리
+
+      // 7. 팔 & 사이버 건틀릿
+      const armAngle = duck ? 0.9 : (air ? -1.0 : -legCycle * 0.9);
+      ctx.save();
+      ctx.translate(suitW * 0.1, -suitH * 0.1);
+      ctx.rotate(armAngle);
+      ctx.fillStyle = "#ffd894";
+      ctx.strokeStyle = "#190b30";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(-hs * 0.04, 0, hs * 0.08, hs * 0.22, 5);
+      ctx.fill(); ctx.stroke();
+      // 글러브
+      ctx.fillStyle = "#00d2ff";
+      ctx.beginPath();
+      ctx.arc(0, hs * 0.22, hs * 0.055, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+
+      // 8. 머리 & 아스트로 바이저 헬멧
+      const headRadius = hs * 0.22;
+      const headCenterY = -suitH * 0.55;
+
+      // 쫑긋한 토끼 귀 안테나 (바람과 질주 속도에 따라 뒤로 펄럭임)
+      const earWiggle = air ? 0.35 : Math.sin(ph) * 0.15;
+      [-headRadius * 0.45, headRadius * 0.25].forEach((ex, i) => {
+        ctx.save();
+        ctx.translate(ex, headCenterY - headRadius * 0.7);
+        ctx.rotate((i === 0 ? -0.25 : 0.2) + earWiggle);
+        // 귀 외곽
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#190b30";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, -headRadius * 0.75, headRadius * 0.26, headRadius * 0.75, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        // 귀 내부 네온 핑크
+        ctx.fillStyle = isFever ? "#ffea00" : "#ff2e93";
+        ctx.beginPath();
+        ctx.ellipse(0, -headRadius * 0.75, headRadius * 0.14, headRadius * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 헬멧 구체
+      const helmetGrad = ctx.createRadialGradient(-headRadius * 0.3, headCenterY - headRadius * 0.3, headRadius * 0.1, 0, headCenterY, headRadius);
+      helmetGrad.addColorStop(0, "#ffffff");
+      helmetGrad.addColorStop(0.7, "#e0e7ff");
+      helmetGrad.addColorStop(1, "#a5b4fc");
+
+      ctx.fillStyle = helmetGrad;
+      ctx.strokeStyle = "#190b30";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(0, headCenterY, headRadius, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      // 9. 미래형 라운드 네온 바이저 (눈앞을 감싸는 유선형 글래스)
+      const visorW = headRadius * 1.5, visorH = headRadius * 0.95;
+      const visorGrad = ctx.createLinearGradient(0, headCenterY - visorH * 0.5, 0, headCenterY + visorH * 0.5);
+      visorGrad.addColorStop(0, isFever ? "#ff0077" : "#00f0ff");
+      visorGrad.addColorStop(1, isFever ? "#ffea00" : "#00566a");
+
+      ctx.fillStyle = visorGrad;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-visorW * 0.3, headCenterY - visorH * 0.45, visorW, visorH, visorH * 0.45);
+      ctx.fill(); ctx.stroke();
+
+      // 바이저 내부 표정 디스플레이 (상황에 따라 역동적으로 변화!)
+      ctx.fillStyle = "#ffffff";
+      if (air) {
+        // 점프 중: 기쁨의 눈 웃음 (^ ^)
+        ctx.lineWidth = 3; ctx.strokeStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(visorW * 0.2, headCenterY - 2, 5, Math.PI, 0); ctx.stroke();
+        ctx.beginPath(); ctx.arc(visorW * 0.5, headCenterY - 2, 5, Math.PI, 0); ctx.stroke();
+      } else if (duck) {
+        // 슬라이딩 중: 질주 눈빛 (> <)
+        ctx.lineWidth = 3; ctx.strokeStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.moveTo(visorW * 0.15, headCenterY - 4); ctx.lineTo(visorW * 0.25, headCenterY); ctx.lineTo(visorW * 0.15, headCenterY + 4);
+        ctx.moveTo(visorW * 0.45, headCenterY - 4); ctx.lineTo(visorW * 0.55, headCenterY); ctx.lineTo(visorW * 0.45, headCenterY + 4);
+        ctx.stroke();
+      } else {
+        // 평소 달릴 때: 초롱초롱한 사이버 눈동자
+        ctx.beginPath(); ctx.arc(visorW * 0.22, headCenterY - 2, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(visorW * 0.48, headCenterY - 2, 4.5, 0, Math.PI * 2); ctx.fill();
+        // 하이라이트 광택
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        ctx.fillRect(-visorW * 0.1, headCenterY - visorH * 0.35, visorW * 0.7, 3);
+      }
+
+      ctx.restore(); // charTilt restore
+      ctx.restore(); // globalAlpha restore
+    } catch (err) {
+      console.warn("러너 마스코트 렌더 실패:", err);
+    }
   },
 
   // 7. 네온 아케이드 벽돌 & 패들 & 에너지 볼
@@ -2876,15 +3044,50 @@ addEventListener("keydown", (e) => { if (e.key === " " || e.key === "ArrowUp") r
 addEventListener("keyup", (e) => { if (e.key === "ArrowDown" || e.key === "s") rkDuck = false; });
 addEventListener("pointerdown", () => { if (mode === "runner") rkJump = true; });
 games.runner = {
-  bg: "#1a1a2e", camAlpha: 0.45, body: true, noCursor: true, manual: true,
+  bg: "#100624", camAlpha: 0.40, body: true, noCursor: true, manual: true,
   hs() { return Math.min(W, H) * 0.16; },
-  gy() { return H * 0.78; },
+  gy() { return H * 0.76; },
   cx() { return W * 0.22; },
+
   init() {
-    this.t = 0; this.phase = useMouse ? "run" : "calib"; this.cal = 0; this.base = null; this.prevJump = false;
-    this.lives = 3; this.inv = 0; this.flash = 0; this.obs = []; this.spawnT = 1; this.vy = 0; this.jy = 0; this.duck = false; rkJump = false; this.dist = 0;
-    this.prevY = null; this.prevVUp = 0; this.lastJumpTime = 0; this.lastDuckTime = 0;
+    this.t = 0;
+    this.phase = useMouse ? "run" : "calib";
+    this.cal = 0;
+    this.base = null;
+    this.prevJump = false;
+    this.lives = 3;
+    this.inv = 0;
+    this.flash = 0;
+    this.obs = [];
+    this.spawnT = 1.0;
+    this.vy = 0;
+    this.jy = 0;
+    this.duck = false;
+    rkJump = false;
+    this.dist = 0;
+    this.prevY = null;
+    this.prevVUp = 0;
+    this.lastJumpTime = 0;
+    this.lastDuckTime = 0;
+
+    // 🚀 아스트로 점프 러너 전용 파워업 & 통계 시스템
+    this.boostTimer = 0; // 하이퍼 대시 무적 부스터 시간
+    this.jumpCount = 0;
+    this.duckCount = 0;
+    this.coinsCollected = 0;
+
+    // 광속 스피드 라인 파티클 풀
+    this.speedLines = [];
+    for (let i = 0; i < 28; i++) {
+      this.speedLines.push({
+        x: Math.random() * W,
+        y: H * (0.2 + Math.random() * 0.55),
+        len: 60 + Math.random() * 120,
+        spd: 900 + Math.random() * 700
+      });
+    }
   },
+
   sense(dt) { // NotebookLM 최적화: 가속도 피크 선제 점프 + 앉았다 일어설 때 점프 오인식 원천 차단 가드
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = getBody();
@@ -2897,17 +3100,14 @@ games.runner = {
       const hasHip = bv(b, 23, 0.25) && bv(b, 24, 0.25);
 
       if (hasSh && hasHip) {
-        // 1순위: 어깨 + 골반 중심 (가장 정확한 몸통 중심)
         const shY = (b[11].y + b[12].y) / 2;
         const hipY = (b[23].y + b[24].y) / 2;
         y = (shY + hipY) / 2;
         tl = Math.max(40, hipY - shY);
       } else if (hasSh) {
-        // 2순위: 골반이 하단에 가려진 경우 어깨 중심 활용
         y = (b[11].y + b[12].y) / 2;
         tl = 100;
       } else if (b[0] && bv(b, 0, 0.3)) {
-        // 3순위: 상체 위주 화면에서는 머리/코 좌표 활용
         y = b[0].y;
         tl = 80;
       }
@@ -2917,34 +3117,29 @@ games.runner = {
         if (this.prevY == null) this.prevY = y;
 
         const dy = y - this.base;
-        // 서 있는 기준선 적응: 뛰어오르는 중(dy < 0)이나 앉은 상태(dy > tl * 0.1)에는 왜곡 방지를 위해 기준선 동결
         if (dy >= -tl * 0.05 && dy <= tl * 0.10) {
           this.base += dy * Math.min(1, dt * 1.5);
         }
 
-        // 2. 앉기(Duck) 모션 판단: 기준선보다 15% 이상 숙였을 때 즉시 발동
+        // 2. 앉기(Duck / Slide) 모션: 기준선보다 15% 이상 숙였을 때 즉시 발동
         const isCurrentlyDucking = dy > tl * 0.15;
         if (isCurrentlyDucking) {
           duck = true;
-          this.lastDuckTime = now; // 앉아있는 시간 갱신 (일어설 때 점프 오인식 방지용)
+          this.lastDuckTime = now;
         }
 
         // 3. 수직 상승 속도 및 가속도 계산 (NotebookLM 도약 피크 엔진)
         const safeDt = Math.max(dt, 0.008);
-        const vUp = (this.prevY - y) / safeDt; // 위로 솟구치는 수직 속도 (px/sec)
-        const aUp = (vUp - (this.prevVUp || 0)) / safeDt; // 순간 가속도 (px/sec^2)
+        const vUp = (this.prevY - y) / safeDt;
+        const aUp = (vUp - (this.prevVUp || 0)) / safeDt;
         this.prevY = y;
         this.prevVUp = vUp;
 
-        // [중요 오인식 방어선]: 앉았다가 일어서는 모션(Stand-up)은 절대 점프로 튀지 않도록 차단
-        // ① 앉아있다가 일어난 직후 0.28초 이내이거나, 몸이 기준선 아래(dy >= -tl * 0.03)에 있으면 기립 복귀 동작으로 판정하여 점프 억제
+        // 앉았다가 일어서는 모션(Stand-up)은 점프로 튀지 않도록 차단
         const isRecoveringFromDuck = (now - this.lastDuckTime < 280) || (dy >= -tl * 0.03);
 
-        // A. 도약 가속도 피크: 평소 서 있는 자세에서 발을 구르는 0.02초 상향 폭발 가속도 포착
         const isThrustPeak = !isRecoveringFromDuck && (aUp > 750 && vUp > 35);
-        // B. 고속 상승 속도 피크: 기준선 이상으로 힘차게 솟구치는 순간
         const isVelocityPeak = !isRecoveringFromDuck && (vUp > (tl * 0.85) || vUp > 110);
-        // C. 위치 변위 보조 트리거: 몸이 기준선보다 9% 이상 완전히 솟구쳤을 때
         const isPositionLift = dy < -tl * 0.09 && (now - this.lastDuckTime > 200);
 
         const up = isThrustPeak || isVelocityPeak || isPositionLift;
@@ -2962,76 +3157,367 @@ games.runner = {
     }
     return { jump, duck };
   },
+
   update(dt) {
     this.t += dt;
     const { jump, duck } = this.sense(dt), e = elapsed(), hs = this.hs();
+
     if (this.phase === "calib") {
       this.cal = this.seen ? this.cal + dt : 0;
-      // 캘리브레이션 대기 시간을 1.2초로 단축하여 즉시 출발!
-      if (this.cal >= 1.2) { this.phase = "run"; speak("출발!", true); sfx.start(); }
+      if (this.cal >= 1.2) {
+        this.phase = "run";
+        speak("출발! 신나게 달려봐요!", true);
+        sfx.start();
+      }
       return;
     }
+
+    // 부스터 타이머 갱신
+    this.boostTimer = Math.max(0, this.boostTimer - dt);
+    const isBoosting = this.boostTimer > 0;
+
+    // 점프 물리
     const g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
     if (jump && this.jy <= 0) {
       this.vy = v0;
-      tone(440, ac().currentTime, 0.16, "triangle", 0.16, 900);
-      burst(this.cx(), this.gy() - 8, "#00d2ff", 14);
-      popup(this.cx(), this.gy() - hs * 0.8, "JUMP! 🦘", "#ffd166");
+      this.jumpCount++;
+      tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
+      burst(this.cx(), this.gy() - 8, "#00d2ff", 16);
+      popup(this.cx(), this.gy() - hs * 0.8, "JUMP! 🦘", "#00d2ff");
     }
-    this.jy += this.vy * dt; this.vy -= g * dt; if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
+    this.jy += this.vy * dt;
+    this.vy -= g * dt;
+    if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
+
+    // 슬라이딩 앉기
+    const wasDuck = this.duck;
     this.duck = duck && this.jy === 0;
-    const v = W * 0.5 * (1 + e * 0.012); this.dist += v * dt;
-    this.spawnT -= dt; this.inv = Math.max(0, this.inv - dt); this.flash = Math.max(0, this.flash - dt * 2);
-    if (this.spawnT <= 0) {
-      this.spawnT = Math.max(0.9, 1.7 - e * 0.012) * (0.8 + Math.random() * 0.5);
-      const r = Math.random(), x = W + 60;
-      if (r < 0.4) this.obs.push({ type: "rock", x, w: hs * 0.5, h: hs * 0.45, y0: 0 });
-      else if (r < 0.7) this.obs.push({ type: "bar", x, w: hs * 0.7, h: hs * 0.5, y0: hs * 0.65 });
-      else { const hi = Math.random() < 0.4; for (let k = 0; k < 3; k++) this.obs.push({ type: "coin", x: x + k * hs * 0.55, w: hs * 0.3, h: hs * 0.3, y0: hi ? hs * 1.3 : hs * 0.2 }); }
+    if (!wasDuck && this.duck) {
+      this.duckCount++;
+      tone(220, ac().currentTime, 0.12, "sine", 0.15, 140);
+      popup(this.cx(), this.gy() - hs * 0.35, "SLIDE! ⚡", "#ffea00");
     }
-    const cx = this.cx(), cw = hs * 0.35, ch = this.duck ? hs * 0.55 : hs;
+
+    // 🚀 3단계 웨이브 & 부스터 연동 속도 계산
+    const waveMult = currentWave === 3 ? 1.55 : (currentWave === 2 ? 1.25 : 1.0);
+    const boostMult = isBoosting ? 1.50 : 1.0;
+    const v = W * 0.46 * waveMult * boostMult * (1 + e * 0.008);
+    this.dist += v * dt;
+
+    this.spawnT -= dt;
+    this.inv = Math.max(0, this.inv - dt);
+    this.flash = Math.max(0, this.flash - dt * 2);
+
+    // 🚀 스피드 라인 파티클 시뮬레이션
+    for (const line of this.speedLines) {
+      line.x -= line.spd * (isBoosting || currentWave === 3 ? 1.8 : 1.0) * dt;
+      if (line.x < -line.len) {
+        line.x = W + Math.random() * 80;
+        line.y = H * (0.2 + Math.random() * 0.55);
+      }
+    }
+
+    // 장애물 & 파워업 동적 스케줄링
+    if (this.spawnT <= 0) {
+      // 웨이브 단계가 높을수록 장애물 스폰 간격이 빨라짐
+      const baseInterval = currentWave === 3 ? 1.0 : (currentWave === 2 ? 1.25 : 1.5);
+      this.spawnT = Math.max(0.75, baseInterval - e * 0.01) * (0.85 + Math.random() * 0.4);
+      const r = Math.random(), x = W + 70;
+
+      if (r < 0.15 && !isBoosting) {
+        // 🚀 [신규] 하이퍼 부스터 링 (점프로 통과 시 무적 질주 가속!)
+        this.obs.push({ type: "ring", x, w: hs * 0.75, h: hs * 0.75, y0: hs * 0.45 });
+      } else if (r < 0.45) {
+        // [점프 허들] 네온 사이버 레이저 바리케이드
+        this.obs.push({ type: "rock", x, w: hs * 0.52, h: hs * 0.44, y0: 0 });
+      } else if (r < 0.75) {
+        // [슬라이딩 장애물] 고공 사이버 드론 & 하향 레이저 빔
+        this.obs.push({ type: "bar", x, w: hs * 0.72, h: hs * 0.52, y0: hs * 0.60 });
+      } else {
+        // [보너스] 3D 골든 스타 코인 3연속 트레일
+        const hi = Math.random() < 0.45;
+        for (let k = 0; k < 3; k++) {
+          this.obs.push({
+            type: "coin",
+            x: x + k * hs * 0.55,
+            w: hs * 0.32,
+            h: hs * 0.32,
+            y0: hi ? hs * 1.25 : hs * 0.22,
+            coinRot: k * 0.4
+          });
+        }
+      }
+    }
+
+    const cx = this.cx(), cw = hs * 0.35, ch = this.duck ? hs * 0.52 : hs;
     for (const o of this.obs) {
       o.x -= v * dt;
-      const overlapX = o.x < cx + cw * 0.4 && o.x + o.w > cx - cw * 0.4;
+      if (o.type === "coin") o.coinRot = (o.coinRot || 0) + dt * 4;
+
+      const overlapX = o.x < cx + cw * 0.42 && o.x + o.w > cx - cw * 0.42;
       const overlapY = o.y0 < this.jy + ch * 0.95 && o.y0 + o.h > this.jy + ch * 0.05;
+
       if (!o.dead && overlapX && overlapY) {
-        if (o.type === "coin") { o.dead = true; award(o.x, this.gy() - o.y0 - o.h, 1, "#ffd166"); sfx.pop(o.x, true); }
-        else if (this.inv <= 0) {
-          o.dead = true; this.lives--; this.inv = 1.5; this.flash = 1; combo = 0; burst(cx, this.gy() - hs / 2, "#ff6b4a", 22); sfx.crash();
-          if (this.lives === 1) speak("한 번 더 부딪히면 끝이에요!"); else if (this.lives > 1) speak("앗!");
+        if (o.type === "coin") {
+          // 🪙 골든 스타 코인 획득
+          o.dead = true;
+          this.coinsCollected++;
+          combo++;
+          comboTimer = 2.0;
+          if (combo > maxCombo) maxCombo = combo;
+          const coinScore = 2 * (isFeverTime ? 2 : 1);
+          score += coinScore;
+          award(o.x, this.gy() - o.y0 - o.h, coinScore, "#ffd166");
+          burst(o.x, this.gy() - o.y0 - o.h, "#ffd166", 12);
+          sfx.pop(o.x, true);
+        } else if (o.type === "ring") {
+          // 🚀 하이퍼 부스터 링 통과! (3.2초 무적 질주 모드 돌입)
+          o.dead = true;
+          this.boostTimer = 3.2;
+          score += 15;
+          sfx.levelUp();
+          burst(cx, this.gy() - hs * 0.6, "#00f0ff", 35);
+          popup(cx, this.gy() - hs * 1.1, "HYPER DASH!! 🚀 무적 질주!", "#00f0ff");
+          speak("하이퍼 부스터 질주!", true);
+        } else if (isBoosting) {
+          // 💥 무적 부스터 상태로 장애물 돌파 박살!
+          o.dead = true;
+          score += 8;
+          combo++;
+          burst(o.x, this.gy() - o.y0 - o.h * 0.5, "#ff0077", 26);
+          sfx.saber(o.x, true);
+          popup(o.x, this.gy() - o.y0 - o.h, "SMASH! +8 💥", "#ffea00");
+        } else if (this.inv <= 0) {
+          // 앗! 장애물 충돌 피격
+          o.dead = true;
+          this.lives--;
+          this.inv = 1.6;
+          this.flash = 1;
+          combo = 0;
+          burst(cx, this.gy() - hs / 2, "#ff2a4b", 25);
+          sfx.crash();
+          if (this.lives === 1) speak("한 번 더 부딪히면 끝이에요! 조심해요!");
+          else if (this.lives > 1) speak("앗, 조심해요!");
           if (this.lives <= 0) { endGame(); return; }
         }
       }
-      if (!o.dead && !o.counted && o.type !== "coin" && o.x + o.w < cx - cw * 0.4) { o.counted = true; award(cx, this.gy() - hs * 1.3, 1, "#9fe8ff"); }
+
+      // 점프/슬라이딩으로 장애물 회피 성공 채점
+      if (!o.dead && !o.counted && o.type !== "coin" && o.type !== "ring" && o.x + o.w < cx - cw * 0.4) {
+        o.counted = true;
+        combo++;
+        comboTimer = 2.0;
+        if (combo > maxCombo) maxCombo = combo;
+        const passScore = 3 * (isFeverTime ? 2 : 1);
+        score += passScore;
+        const passLabel = o.type === "rock" ? `JUMP CLEAR! +${passScore}` : `SLIDE CLEAR! +${passScore}`;
+        award(cx, this.gy() - hs * 1.3, passScore, "#a5e7ff");
+        popup(cx, this.gy() - hs * 0.9, passLabel, "#00d2ff");
+      }
     }
+
     this.obs = this.obs.filter((o) => !o.dead && o.x > -o.w - 80);
   },
+
   draw() {
     if (!this.obs) return;
     const hs = this.hs(), gy = this.gy(), cx = this.cx();
-    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(0, gy, W, H - gy);
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
-    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.4)";
-    for (let x = -(this.dist % 80); x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, gy + 24); ctx.lineTo(x + 40, gy + 24); ctx.stroke(); }
+    const isBoosting = this.boostTimer > 0;
+
+    // 1. 네온 사이버 하이웨이 트랙 바닥 (Stitch 아케이드 3D 펄스 트랙)
+    ctx.save();
+    // 바닥 심도 그라데이션
+    const trackGrad = ctx.createLinearGradient(0, gy, 0, H);
+    trackGrad.addColorStop(0, isFeverTime ? "rgba(225, 3, 125, 0.45)" : "rgba(0, 210, 255, 0.35)");
+    trackGrad.addColorStop(0.3, "#190b30");
+    trackGrad.addColorStop(1, "#0c0618");
+    ctx.fillStyle = trackGrad;
+    ctx.fillRect(0, gy, W, H - gy);
+
+    // 트랙 최상단 발광 LED 레일
+    ctx.strokeStyle = isFeverTime ? "#ff2e93" : (isBoosting ? "#00f0ff" : "#a5e7ff");
+    ctx.lineWidth = 4;
+    ctx.shadowColor = isFeverTime ? "#ff2e93" : "#00d2ff";
+    ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // 고속 이동 네온 타일 격자 (질주감 부여)
+    ctx.strokeStyle = isFeverTime ? "rgba(255, 46, 147, 0.35)" : "rgba(0, 210, 255, 0.25)";
+    ctx.lineWidth = 2.5;
+    const tileSpacing = 75;
+    const tileOffset = -((this.dist * 1.6) % tileSpacing);
+    for (let x = tileOffset; x < W + tileSpacing; x += tileSpacing) {
+      ctx.beginPath();
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x - 30, gy + 32);
+      ctx.stroke();
+    }
+    // 하단 보조 LED 라인
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.beginPath(); ctx.moveTo(0, gy + 32); ctx.lineTo(W, gy + 32); ctx.stroke();
+    ctx.restore();
+
+    // 2. 피버 타임 & 부스터 광속 스피드 라인 (Speed Lines)
+    if (isBoosting || currentWave === 3) {
+      ctx.save();
+      ctx.strokeStyle = isBoosting ? "rgba(0, 240, 255, 0.45)" : "rgba(255, 46, 147, 0.4)";
+      ctx.lineWidth = 2;
+      for (const line of this.speedLines) {
+        ctx.beginPath();
+        ctx.moveTo(line.x, line.y);
+        ctx.lineTo(line.x + line.len, line.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 3. 고품질 장애물 & 파워업 그래픽 렌더링
     for (const o of this.obs) {
       const y = gy - o.y0 - o.h;
+
       if (o.type === "coin") {
-        ctx.font = `${o.w * 1.5}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🪙", o.x + o.w / 2, y + o.h / 2);
-      } else {
-        ctx.fillStyle = o.type === "rock" ? "#8d6e63" : "#c0392b"; ctx.beginPath(); ctx.roundRect(o.x, y, o.w, o.h, o.type === "rock" ? 14 : 8); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+        // 🪙 3D 회전하는 홀로그램 골든 스타
+        ctx.save();
+        const coinCenterX = o.x + o.w / 2;
+        const coinCenterY = y + o.h / 2;
+        const rot = o.coinRot || 0;
+        ctx.translate(coinCenterX, coinCenterY);
+        // 회전 스케일
+        ctx.scale(Math.cos(rot), 1);
+
+        // 후광
+        ctx.fillStyle = "rgba(255, 215, 0, 0.35)";
+        ctx.beginPath(); ctx.arc(0, 0, o.w * 0.8, 0, Math.PI * 2); ctx.fill();
+
+        // 5각 골든 스타
+        ctx.fillStyle = "#ffd166";
+        ctx.strokeStyle = "#e59b00";
+        ctx.lineWidth = 2.5;
+        const rOuter = o.w * 0.55, rInner = o.w * 0.26;
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const angle = (i * Math.PI) / 5 - Math.PI / 2;
+          const r = i % 2 === 0 ? rOuter : rInner;
+          const px = Math.cos(angle) * r, py = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      } else if (o.type === "ring") {
+        // 🚀 하이퍼 부스터 링 (Torus Neon Energy Ring)
+        ctx.save();
+        const rx = o.x + o.w / 2, ry = y + o.h / 2;
+        ctx.shadowColor = "#00f0ff";
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = "#00f0ff";
+        ctx.lineWidth = 7;
+        ctx.beginPath(); ctx.ellipse(rx, ry, o.w * 0.45, o.h * 0.52, 0, 0, Math.PI * 2); ctx.stroke();
+        // 내부 코어 링
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(rx, ry, o.w * 0.32, o.h * 0.38, 0, 0, Math.PI * 2); ctx.stroke();
+        // 부스터 라벨
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#00f0ff"; ctx.font = "900 13px 'Rubik', sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("BOOST!", rx, ry - o.h * 0.55);
+        ctx.restore();
+      } else if (o.type === "rock") {
+        // ⚡ [네온 사이버 허들] 점프로 뛰어넘는 장애물
+        ctx.save();
+        // 좌우 기둥
+        ctx.fillStyle = "#2d184c";
+        ctx.strokeStyle = "#ff9900";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.roundRect(o.x, y + 4, o.w * 0.22, o.h - 4, 4); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(o.x + o.w * 0.78, y + 4, o.w * 0.22, o.h - 4, 4); ctx.fill(); ctx.stroke();
+
+        // 지글거리는 레이저 빔 허들
+        ctx.shadowColor = "#ffaa00"; ctx.shadowBlur = 14;
+        ctx.strokeStyle = "#ffcc00"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.15, y + o.h * 0.35); ctx.lineTo(o.x + o.w * 0.85, y + o.h * 0.35); ctx.stroke();
+        ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.15, y + o.h * 0.7); ctx.lineTo(o.x + o.w * 0.85, y + o.h * 0.7); ctx.stroke();
+
+        // 중앙 점프 경고 뱃지
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffaa00"; ctx.font = "900 12px 'Rubik', sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("▲ JUMP", o.x + o.w / 2, y - 6);
+        ctx.restore();
+      } else if (o.type === "bar") {
+        // 🛸 [고공 사이버 드론 & 하향 레이저] 앉아서 지나가는 장애물
+        ctx.save();
+        // 허공에 떠 있는 드론 본체
+        const droneH = o.h * 0.38;
+        ctx.fillStyle = "#1e1035";
+        ctx.strokeStyle = "#ff2e93";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.roundRect(o.x, y, o.w, droneH, 8); ctx.fill(); ctx.stroke();
+        // 드론 센서 경고 눈빛
+        ctx.fillStyle = "#ff0055"; ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(o.x + o.w / 2, y + droneH / 2, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 아래로 내리꽂히는 플라즈마 레이저 커튼
+        ctx.strokeStyle = "rgba(255, 46, 147, 0.75)"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.2, y + droneH); ctx.lineTo(o.x + o.w * 0.2, y + o.h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.8, y + droneH); ctx.lineTo(o.x + o.w * 0.8, y + o.h); ctx.stroke();
+
+        // 슬라이딩 유도 화살표
+        ctx.fillStyle = "#ff2e93"; ctx.font = "900 12px 'Rubik', sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("▼ DUCK", o.x + o.w / 2, y + o.h + 16);
+        ctx.restore();
       }
     }
-    // 생동감 넘치는 캥거루/토끼 러너 마스코트 아바타
-    Art.drawRunnerMascot(cx, gy, this.jy, hs, this.duck, this.dist, this.inv);
 
-    if (!useMouse) drawSkeleton(getBody(), "rgba(125,249,255,.8)", 0.5);
-    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif"; ctx.fillStyle = "#fff"; ctx.fillText(heartsText(this.lives), W / 2, 104);
-    if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+    // 4. 고품질 아스트로 사이버 러너 마스코트 아바타 렌더링
+    Art.drawRunnerMascot(cx, gy, this.jy, hs, this.duck, this.dist, this.inv, isFeverTime, isBoosting);
+
+    // 5. 전신 포즈 인식 뼈대 렌더링
+    if (!useMouse) drawSkeleton(getBody(), "rgba(0, 210, 255, 0.75)", 0.5);
+
+    // 6. 상단 라이프 & 주행 거리 & 부스터 상태 표시
+    ctx.save();
+    // 하트 라이프
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "32px serif";
+    ctx.fillText(heartsText(this.lives), W / 2, 98);
+
+    // 주행 거리 네온 배지
+    const distMeter = Math.floor(this.dist / 12);
+    ctx.fillStyle = "rgba(25, 11, 48, 0.85)";
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(W * 0.05, 78, 140, 36, 18); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#a5e7ff"; ctx.font = "900 13px 'Rubik', sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(`🚀 ${distMeter} m`, W * 0.05 + 70, 96);
+
+    // 부스터 가동 시 상단 네온 게이지 바
+    if (isBoosting) {
+      const bRatio = this.boostTimer / 3.2;
+      ctx.fillStyle = "rgba(0, 240, 255, 0.2)";
+      ctx.fillRect(W * 0.35, 120, W * 0.30, 8);
+      ctx.fillStyle = "#00f0ff"; ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 10;
+      ctx.fillRect(W * 0.35, 120, W * 0.30 * bRatio, 8);
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+
+    // 피격 플래시
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(255, 50, 50, ${this.flash * 0.38})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 7. 모션 인식 캘리브레이션 오버레이
     if (this.phase === "calib") {
-      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `900 ${Math.max(20, Math.min(W * 0.06, H * 0.07))}px 'Rubik', sans-serif`; ctx.lineWidth = 8; ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.fillStyle = "#ffd166";
-      const t = this.seen ? `똑바로 서서 준비! ${Math.max(0, Math.ceil(2 - this.cal))}` : "전신이 보이게 서 주세요";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = `900 ${Math.max(20, Math.min(W * 0.055, H * 0.065))}px 'Rubik', sans-serif`;
+      ctx.lineWidth = 8; ctx.strokeStyle = "rgba(0,0,0,.75)"; ctx.fillStyle = "#ffd166";
+      const t = this.seen ? `똑바로 서서 준비! ${Math.max(0, Math.ceil(2 - this.cal))}` : "전신이 보이게 카메라 앞에 서 주세요";
       ctx.strokeText(t, W / 2, H * 0.4); ctx.fillText(t, W / 2, H * 0.4);
-    } else if (this.t < 10) topHud(useMouse ? "스페이스/클릭 = 점프, ↓ 키 = 앉기" : "점프하면 넘고, 앉으면 밑으로 지나가요!");
+    } else if (this.t < 8) {
+      topHud(useMouse ? "스페이스/클릭 = 점프, ↓ 키 = 앉기 슬라이드!" : "몸을 위로 점프하면 넘고, 숙여 앉으면 지나가요!");
+    }
     bodyHint();
   },
 };
@@ -4297,6 +4783,25 @@ function drawBackground(color, camAlpha = 0.20) {
   // 1. 깊이감 있는 딥 다크 사이버 아케이드 베이스 (#0c0618)
   ctx.fillStyle = "#0c0618";
   ctx.fillRect(-24, -24, W + 48, H + 48);
+
+  // 🎨 Stitch 프로젝트 고화질 3D 스테이지 배경 렌더링 (점핑러너는 역동적인 패럴랙스 질주 스크롤!)
+  const stgImg = STAGE_IMAGES[mode];
+  if (stgImg && stgImg.complete && stgImg.naturalWidth > 0) {
+    ctx.save();
+    if (mode === "runner") {
+      // 🚀 점핑 러너 전용 듀얼 패럴랙스 스크롤 (원경 네온 사이버 하이웨이 배경이 속도에 맞춰 끊김 없이 질주)
+      const scrollX = -((games.runner?.dist || 0) * 0.22) % W;
+      ctx.globalAlpha = 0.58;
+      ctx.drawImage(stgImg, scrollX, 0, W, H);
+      if (scrollX < 0) {
+        ctx.drawImage(stgImg, scrollX + W, 0, W, H);
+      }
+    } else {
+      ctx.globalAlpha = 0.50;
+      ctx.drawImage(stgImg, 0, 0, W, H);
+    }
+    ctx.restore();
+  }
 
   // 2. 게임별 전용 아케이드 무대 그래픽 렌더링 (방 안 풍경 대신 게임 스테이지가 전면에 오도록 연출)
   ctx.save();
