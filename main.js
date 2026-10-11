@@ -5352,9 +5352,9 @@ function setupPlayerSettingsModalUI() {
     loadPlayerSettings(); // 저장된 최신 상태 동기화
 
     // 프로필 탭 동기화
-    const nickInp = $("cfgNickname");
+    const nickInp = $("settingNickname");
     if (nickInp) nickInp.value = playerSettings.nickname || "P1 Leo";
-    const titleSel = $("cfgTitle");
+    const titleSel = $("settingTitle");
     if (titleSel) titleSel.value = playerSettings.title || "PARTY LEADER";
 
     // 아바타 카드 활성화 상태 동기화
@@ -5365,40 +5365,40 @@ function setupPlayerSettingsModalUI() {
 
     // 신장/체격 라디오 동기화
     const isChild = playerSettings.heightMode === "child";
-    const rAdult = document.querySelector('input[name="cfgHeightMode"][value="adult"]');
-    const rChild = document.querySelector('input[name="cfgHeightMode"][value="child"]');
+    const rAdult = document.querySelector('input[name="settingHeightMode"][value="adult"]');
+    const rChild = document.querySelector('input[name="settingHeightMode"][value="child"]');
     if (rAdult) rAdult.checked = !isChild;
     if (rChild) rChild.checked = isChild;
     $("cardHeightAdult")?.classList.toggle("active", !isChild);
     $("cardHeightChild")?.classList.toggle("active", isChild);
 
     // 모션 슬라이더 & 체크박스 동기화
-    const reachInp = $("cfgReach");
+    const reachInp = $("settingReachSlider");
     if (reachInp) {
       reachInp.value = playerSettings.reach;
-      if ($("cfgReachVal")) $("cfgReachVal").textContent = `${playerSettings.reach}px`;
+      if ($("settingReachVal")) $("settingReachVal").textContent = `${playerSettings.reach}px`;
     }
-    const chkMirror = $("cfgMirror");
+    const chkMirror = $("settingMirror");
     if (chkMirror) chkMirror.checked = playerSettings.mirror !== false;
-    const chkSkel = $("cfgSkeleton");
+    const chkSkel = $("settingSkeleton");
     if (chkSkel) chkSkel.checked = playerSettings.skeleton !== false;
-    const chkMouse = $("cfgMouse");
+    const chkMouse = $("settingMouseMode");
     if (chkMouse) chkMouse.checked = !!playerSettings.mouseMode;
 
     // 사운드 슬라이더 & 스위치 동기화
-    const bgmInp = $("cfgBgmVol");
+    const bgmInp = $("settingBgmSlider");
     if (bgmInp) {
       bgmInp.value = playerSettings.bgmVol;
-      if ($("cfgBgmVolVal")) $("cfgBgmVolVal").textContent = `${playerSettings.bgmVol}%`;
+      if ($("settingBgmVal")) $("settingBgmVal").textContent = `${playerSettings.bgmVol}%`;
     }
-    const sfxInp = $("cfgSfxVol");
+    const sfxInp = $("settingSfxSlider");
     if (sfxInp) {
       sfxInp.value = playerSettings.sfxVol;
-      if ($("cfgSfxVolVal")) $("cfgSfxVolVal").textContent = `${playerSettings.sfxVol}%`;
+      if ($("settingSfxVal")) $("settingSfxVal").textContent = `${playerSettings.sfxVol}%`;
     }
-    const chkMaster = $("cfgMasterSound");
+    const chkMaster = $("settingSoundOn");
     if (chkMaster) chkMaster.checked = playerSettings.soundOn !== false;
-    const chkVoice = $("cfgVoiceGuide");
+    const chkVoice = $("settingVoiceGuide");
     if (chkVoice) chkVoice.checked = playerSettings.voiceGuide !== false;
 
     // 기본 첫 탭(프로필) 활성화
@@ -5445,7 +5445,7 @@ function setupPlayerSettingsModalUI() {
   });
 
   // 4. 신장 라디오 카드 선택 인터랙션
-  document.querySelectorAll('input[name="cfgHeightMode"]').forEach((radio) => {
+  document.querySelectorAll('input[name="settingHeightMode"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
       const isAdult = e.target.value === "adult";
       $("cardHeightAdult")?.classList.toggle("active", isAdult);
@@ -5454,19 +5454,19 @@ function setupPlayerSettingsModalUI() {
   });
 
   // 5. 실시간 슬라이더 값 라벨 동기화
-  $("cfgReach")?.addEventListener("input", (e) => {
-    if ($("cfgReachVal")) $("cfgReachVal").textContent = `${e.target.value}px`;
+  $("settingReachSlider")?.addEventListener("input", (e) => {
+    if ($("settingReachVal")) $("settingReachVal").textContent = `${e.target.value}px`;
   });
-  $("cfgBgmVol")?.addEventListener("input", (e) => {
-    if ($("cfgBgmVolVal")) $("cfgBgmVolVal").textContent = `${e.target.value}%`;
+  $("settingBgmSlider")?.addEventListener("input", (e) => {
+    if ($("settingBgmVal")) $("settingBgmVal").textContent = `${e.target.value}%`;
   });
-  $("cfgSfxVol")?.addEventListener("input", (e) => {
-    if ($("cfgSfxVolVal")) $("cfgSfxVolVal").textContent = `${e.target.value}%`;
+  $("settingSfxSlider")?.addEventListener("input", (e) => {
+    if ($("settingSfxVal")) $("settingSfxVal").textContent = `${e.target.value}%`;
   });
 
   // 6. 주사위 🎲 랜덤 닉네임 생성 버튼
   btnRandom?.addEventListener("click", () => {
-    const nickInp = $("cfgNickname");
+    const nickInp = $("settingNickname");
     if (nickInp) {
       const rand = RANDOM_ARCADE_NICKS[Math.floor(Math.random() * RANDOM_ARCADE_NICKS.length)];
       nickInp.value = rand;
@@ -5477,9 +5477,9 @@ function setupPlayerSettingsModalUI() {
   // 7. 설정 저장 및 실시간 적용
   btnSave?.addEventListener("click", () => {
     // 🔒 Zero-Trust Sanitization: 닉네임 XSS 방지
-    const rawNick = $("cfgNickname")?.value || DEFAULT_PLAYER_SETTINGS.nickname;
+    const rawNick = $("settingNickname")?.value || DEFAULT_PLAYER_SETTINGS.nickname;
     playerSettings.nickname = rawNick.replace(/[<>&"']/g, "").trim().slice(0, 14) || DEFAULT_PLAYER_SETTINGS.nickname;
-    playerSettings.title = $("cfgTitle")?.value || DEFAULT_PLAYER_SETTINGS.title;
+    playerSettings.title = $("settingTitle")?.value || DEFAULT_PLAYER_SETTINGS.title;
 
     // 선택된 아바타 추출
     const activeAvatarCard = document.querySelector(".avatar-option-card.active");
@@ -5489,20 +5489,20 @@ function setupPlayerSettingsModalUI() {
     }
 
     // 신장/체격 모드 추출
-    const selHeightRadio = document.querySelector('input[name="cfgHeightMode"]:checked');
+    const selHeightRadio = document.querySelector('input[name="settingHeightMode"]:checked');
     playerSettings.heightMode = selHeightRadio?.value === "child" ? "child" : "adult";
 
     // 도달 범위 및 모션 설정 추출
-    playerSettings.reach = Math.max(20, Math.min(65, parseInt($("cfgReach")?.value || 35, 10)));
-    playerSettings.mirror = $("cfgMirror")?.checked !== false;
-    playerSettings.skeleton = $("cfgSkeleton")?.checked !== false;
-    playerSettings.mouseMode = !!$("cfgMouse")?.checked;
+    playerSettings.reach = Math.max(20, Math.min(65, parseInt($("settingReachSlider")?.value || 35, 10)));
+    playerSettings.mirror = $("settingMirror")?.checked !== false;
+    playerSettings.skeleton = $("settingSkeleton")?.checked !== false;
+    playerSettings.mouseMode = !!$("settingMouseMode")?.checked;
 
     // 사운드 설정 추출
-    playerSettings.bgmVol = Math.max(0, Math.min(100, parseInt($("cfgBgmVol")?.value || 80, 10)));
-    playerSettings.sfxVol = Math.max(0, Math.min(100, parseInt($("cfgSfxVol")?.value || 90, 10)));
-    playerSettings.soundOn = $("cfgMasterSound")?.checked !== false;
-    playerSettings.voiceGuide = $("cfgVoiceGuide")?.checked !== false;
+    playerSettings.bgmVol = Math.max(0, Math.min(100, parseInt($("settingBgmSlider")?.value || 80, 10)));
+    playerSettings.sfxVol = Math.max(0, Math.min(100, parseInt($("settingSfxSlider")?.value || 90, 10)));
+    playerSettings.soundOn = $("settingSoundOn")?.checked !== false;
+    playerSettings.voiceGuide = $("settingVoiceGuide")?.checked !== false;
 
     // 로컬 스토리지 안전 저장 및 전역 엔진 적용
     savePlayerSettings();
