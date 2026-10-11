@@ -186,6 +186,16 @@ let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
 let handVelocities = [{ vx: 0, vy: 0 }, { vx: 0, vy: 0 }]; // 각 손의 속도 벡터 (관성 보외용)
 
 function updatePointers() {
+  // 메인 메뉴(게임 미진행) 상태에서는 포인터 및 추적을 완전히 슬립(대기) 처리
+  if (!playing || !mode) {
+    pointers.length = 0;
+    trails[0].length = 0;
+    trails[1].length = 0;
+    lastHands = [];
+    body = null;
+    return;
+  }
+
   const prev = pointers.map((p) => ({ x: p.x, y: p.y }));
   pointers.length = 0;
   let pts = [];
@@ -255,9 +265,9 @@ function updatePointers() {
   }
 }
 
-// 초고속 손 인식 실행: 비동기 락과 관성 보외법(Inertial Extrapolation)으로 프레임 드랍 완벽 방어
+// 초고속 손 인식 실행: 메뉴 시 절전 대기, 게임 중에만 활성화
 function detectHandsNow() {
-  if (isDetectingHands || !handLandmarker || video.readyState < 2) return;
+  if (!playing || !mode || isDetectingHands || !handLandmarker || video.readyState < 2) return;
   isDetectingHands = true;
   try {
     const now = performance.now();
@@ -1890,13 +1900,20 @@ function frame(now) {
       if (timeLeft <= 0) endGame();
     }
   } else if (g) { g.draw(); }
-  drawFx();
-  if (playing) drawCombo();
-  if (!g?.noCursor) drawTrails(g?.trail ?? "#fff");
-  if (!useMouse && camInfo && mode) {
-    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "700 20px sans-serif";
-    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(W / 2 - 260, H - 52, 520, 36);
-    ctx.fillStyle = camOk ? "#80ed99" : "#ffd166"; ctx.fillText(camInfo, W / 2, H - 27);
+  if (playing) {
+    drawFx();
+    drawCombo();
+    if (g && !g.noCursor) drawTrails(g.trail ?? "#fff");
+    if (!useMouse && camInfo && mode) {
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "700 20px sans-serif";
+      ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(W / 2 - 260, H - 52, 520, 36);
+      ctx.fillStyle = camOk ? "#80ed99" : "#ffd166"; ctx.fillText(camInfo, W / 2, H - 27);
+    }
+  } else {
+    // 메인 게임 선택 화면에서는 캔버스를 완전히 비워 어떠한 모션 잔상/인식 포인트도 미표시
+    ctx.clearRect(0, 0, W, H);
+    particles.length = 0;
+    popups.length = 0;
   }
 }
 
@@ -1948,6 +1965,7 @@ function toMenu() {
   try { speechSynthesis.cancel(); } catch {}
   if (mode) games[mode].exit?.();
   playing = false; mode = null; objs = [];
+  pointers.length = 0; trails[0].length = 0; trails[1].length = 0; lastHands = []; body = null;
   isFeverTime = false; currentWave = 1;
   $("feverBorder")?.classList.add("hidden");
   $("waveBanner")?.classList.add("hidden");
