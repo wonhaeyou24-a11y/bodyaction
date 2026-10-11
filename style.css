@@ -305,7 +305,6 @@ body.tv-fullscreen-mode {
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
-  z-index: 999999 !important;
 }
 
 body.tv-fullscreen-mode #stage {
@@ -315,9 +314,57 @@ body.tv-fullscreen-mode #stage {
   max-height: 100vh !important;
 }
 
+body.tv-fullscreen-mode .hub {
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+.fs-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  pointer-events: none;
+  stroke: currentColor;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fs-icon.hidden {
+  display: none !important;
+}
+
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 12px;
+}
+
+.fs-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.fs-pill:hover .fs-icon,
+.fs-btn:hover .fs-icon {
+  transform: scale(1.18);
+}
+
 .fs-active {
   background: linear-gradient(135deg, #ffd700 0%, #ff8800 100%) !important;
-  color: #000 !important;
+  color: #111 !important;
+  border-color: #ffd700 !important;
   box-shadow: 0 0 24px rgba(255, 215, 0, 0.85) !important;
+}
+
+.fs-active .fs-icon {
+  stroke: #111 !important;
 }
 
