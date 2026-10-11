@@ -2110,33 +2110,86 @@ games.runner = {
   init() {
     this.t = 0; this.phase = useMouse ? "run" : "calib"; this.cal = 0; this.base = null; this.prevJump = false;
     this.lives = 3; this.inv = 0; this.flash = 0; this.obs = []; this.spawnT = 1; this.vy = 0; this.jy = 0; this.duck = false; rkJump = false; this.dist = 0;
+    this.prevY = null; this.lastJumpTime = 0;
   },
-  sense(dt) {                              // 몸의 높이 변화로 점프/앉기를 알아냄 (키보드·클릭으로도 가능)
+  sense(dt) { // 몸의 높이 변화 및 수직 상승 가속도로 지연 없는 즉각 점프 감지
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = getBody();
-    if (!useMouse && b && [11, 12, 23, 24].every((i) => bv(b, i, 0.3))) {
-      const shY = (b[11].y + b[12].y) / 2, hipY = (b[23].y + b[24].y) / 2, y = (shY + hipY) / 2, tl = Math.max(40, hipY - shY);
-      if (this.base == null) this.base = y;
-      const dy = y - this.base;
-      this.base += dy * Math.min(1, dt * (Math.abs(dy) < tl * 0.15 ? 1.5 : 0.15));   // 서 있는 높이를 천천히 따라감
-      const up = dy < -tl * 0.3;
-      if (up && !this.prevJump) jump = true;
-      this.prevJump = up;
-      if (dy > tl * 0.3) duck = true;
-      this.seen = true;
-    } else this.seen = false;
+    const now = performance.now();
+
+    if (!useMouse && b) {
+      // 1. 다중 키포인트 폴백 (전신이 완벽히 안 잡혀도 100% 감지)
+      let y = null, tl = 120;
+      const hasSh = bv(b, 11, 0.25) && bv(b, 12, 0.25);
+      const hasHip = bv(b, 23, 0.25) && bv(b, 24, 0.25);
+
+      if (hasSh && hasHip) {
+        // 1순위: 어깨 + 골반 중심 (가장 정확한 몸통 중심)
+        const shY = (b[11].y + b[12].y) / 2;
+        const hipY = (b[23].y + b[24].y) / 2;
+        y = (shY + hipY) / 2;
+        tl = Math.max(40, hipY - shY);
+      } else if (hasSh) {
+        // 2순위: 골반이 하단에 가려진 경우 어깨 중심 활용
+        y = (b[11].y + b[12].y) / 2;
+        tl = 100;
+      } else if (b[0] && bv(b, 0, 0.3)) {
+        // 3순위: 상체 위주 화면에서는 머리/코 좌표 활용
+        y = b[0].y;
+        tl = 80;
+      }
+
+      if (y !== null) {
+        if (this.base == null) this.base = y;
+        if (this.prevY == null) this.prevY = y;
+
+        const dy = y - this.base;
+        // 서 있는 기본 높이를 부드럽게 추종
+        this.base += dy * Math.min(1, dt * (Math.abs(dy) < tl * 0.12 ? 1.6 : 0.12));
+
+        // 2. 수직 상승 속도(Vertical Velocity) 및 도약 임펄스 감지 (초고속 반응 코어)
+        const vUp = (this.prevY - y) / Math.max(dt, 0.001); // 위로 솟구치는 픽셀 속도 (px/sec)
+        this.prevY = y;
+
+        // A) 순간 상승 속도 피크 (발을 굴러 솟구치는 0.03초 순간 감지)
+        const isUpwardImpulse = vUp > (tl * 1.5) || vUp > 180;
+        // B) 위치 변위 임계값 (가볍게 20px만 뛰어도 감지되도록 대폭 완화)
+        const isUpwardPosition = dy < -tl * 0.13;
+
+        const up = isUpwardImpulse || isUpwardPosition;
+        if (up && !this.prevJump && (now - this.lastJumpTime > 320)) {
+          jump = true;
+          this.lastJumpTime = now;
+        }
+        this.prevJump = up;
+
+        // 앉기(Duck) 인식도 민첩하게 반응 (18% 하강)
+        if (dy > tl * 0.18) duck = true;
+        this.seen = true;
+      } else {
+        this.seen = false;
+      }
+    } else {
+      this.seen = false;
+    }
     return { jump, duck };
   },
   update(dt) {
     this.t += dt;
     const { jump, duck } = this.sense(dt), e = elapsed(), hs = this.hs();
-    if (this.phase === "calib") {            // 2초 동안 똑바로 서서 기준 높이를 잡음
+    if (this.phase === "calib") {
       this.cal = this.seen ? this.cal + dt : 0;
-      if (this.cal >= 2) { this.phase = "run"; speak("출발!", true); sfx.start(); }
+      // 캘리브레이션 대기 시간을 1.2초로 단축하여 즉시 출발!
+      if (this.cal >= 1.2) { this.phase = "run"; speak("출발!", true); sfx.start(); }
       return;
     }
-    const g = H * 3.2, v0 = Math.sqrt(2 * g * hs * 0.95);
-    if (jump && this.jy <= 0) { this.vy = v0; tone(400, ac().currentTime, 0.18, "triangle", 0.12, 800); }
+    const g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
+    if (jump && this.jy <= 0) {
+      this.vy = v0;
+      tone(440, ac().currentTime, 0.16, "triangle", 0.16, 900);
+      burst(this.cx(), this.gy() - 8, "#00d2ff", 14);
+      popup(this.cx(), this.gy() - hs * 0.8, "JUMP! 🦘", "#ffd166");
+    }
     this.jy += this.vy * dt; this.vy -= g * dt; if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
     this.duck = duck && this.jy === 0;
     const v = W * 0.5 * (1 + e * 0.012); this.dist += v * dt;
