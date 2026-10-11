@@ -1,5 +1,13 @@
 import { FilesetResolver, HandLandmarker, PoseLandmarker }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+import { bus } from "./online/bus.js";
+import { mulberry32 } from "./online/rng.js";
+import { initOnline } from "./online/ui.js";
+
+// 게임 속 "난수". 혼자 할 때는 매번 다른 Math.random, 온라인 대결에서는 같은 시드로 같은 판(장애물/음표 배치)이 나오게 시드 난수를 써요.
+// (스폰처럼 판의 내용을 정하는 곳에서만 rng()를 쓰고, 반짝이 같은 꾸밈 효과는 Math.random 그대로예요)
+let rng = Math.random;
+function seedGame(seed) { rng = Number.isInteger(seed) ? mulberry32(seed) : Math.random; }
 
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
@@ -3116,8 +3124,8 @@ games.runner = {
     if (this.spawnT <= 0) {
       // 웨이브 단계가 높을수록 장애물 스폰 간격이 빨라짐
       const baseInterval = currentWave === 3 ? 1.0 : (currentWave === 2 ? 1.25 : 1.5);
-      this.spawnT = Math.max(0.75, baseInterval - e * 0.01) * (0.85 + Math.random() * 0.4);
-      const r = Math.random(), x = W + 70;
+      this.spawnT = Math.max(0.75, baseInterval - e * 0.01) * (0.85 + rng() * 0.4);
+      const r = rng(), x = W + 70;
 
       if (r < 0.15 && !isBoosting) {
         // 🚀 [신규] 하이퍼 부스터 링 (점프로 통과 시 무적 질주 가속!)
@@ -3130,7 +3138,7 @@ games.runner = {
         this.obs.push({ type: "bar", x, w: hs * 0.72, h: hs * 0.52, y0: hs * 0.60 });
       } else {
         // [보너스] 3D 골든 스타 코인 3연속 트레일
-        const hi = Math.random() < 0.45;
+        const hi = rng() < 0.45;
         for (let k = 0; k < 3; k++) {
           this.obs.push({
             type: "coin",
@@ -3619,7 +3627,7 @@ games.beat = {
     if (this.nextBeatIdx >= this.nextWallBeat) {
       this.nextWallBeat += 16;
       const wallHitTime = firstBeat + this.nextWallBeat * beatSec;
-      const wallSide = Math.random() < 0.5 ? -1 : 1;
+      const wallSide = rng() < 0.5 ? -1 : 1;
       this.walls.push({
         hitTime: wallHitTime,
         approachTime: approachTime * 1.05,
@@ -3637,19 +3645,19 @@ games.beat = {
     this.spawnCount++;
 
     // 1. 네온 스파이크 폭탄 (9개 큐브마다 1개 출현하여 리듬 긴장감 조성)
-    const isBomb = this.spawnCount % 9 === 0 && Math.random() < 0.65;
+    const isBomb = this.spawnCount % 9 === 0 && rng() < 0.65;
 
     // 2. 비트세이버 정통 패리티 플로우: 왼손(0)과 오른손(1)이 교대로 춤추듯 슬래시
     this.lastParity = 1 - this.lastParity;
     const isLeft = this.lastParity === 0;
 
     // 가로 레인: 0(좌측외곽), 1(좌측센터), 2(우측센터), 3(우측외곽)
-    const laneIdx = isLeft ? (Math.random() < 0.72 ? 1 : 0) : (Math.random() < 0.72 ? 2 : 3);
+    const laneIdx = isLeft ? (rng() < 0.72 ? 1 : 0) : (rng() < 0.72 ? 2 : 3);
     const targetXList = [W * 0.18, W * 0.38, W * 0.62, W * 0.82];
     const targetX = targetXList[laneIdx];
 
     // 높이 레이어: 상단(머리 위) 30%, 중단(가슴/배) 40%, 하단(허리/아래) 30%
-    const heightRand = Math.random();
+    const heightRand = rng();
     let targetY = H * 0.52; // 중단 기본
     if (heightRand < 0.30) {
       targetY = H * 0.28; // 상단 (만세하듯 위로 올려베기)
@@ -4364,7 +4372,7 @@ games.box = {
 function elapsed() { return GAME_SECONDS - timeLeft; }
 
 // ---------- 진행 ----------
-let warned10 = false;
+let warned10 = false, lastScoreEmit = 0;
 let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
 // 5초 레디타임(준비시간) 상태
 let isReadyTime = false;
@@ -4602,6 +4610,7 @@ function frame(now) {
       if (playing) {                                   // update 안에서 게임이 끝났을 수 있음
         if (!g.noTimer && timeLeft <= 10 && !warned10) { warned10 = true; speak("10초 남았어요!"); }
         updateLiveHud();
+        if (now - lastScoreEmit > 250) { lastScoreEmit = now; bus.emit("game:score", { score, combo }); }   // 온라인 대결 점수 공유용
         if (timeLeft <= 0) endGame();
       }
     }
@@ -4620,7 +4629,9 @@ function frame(now) {
   ctx.restore(); // globalShake restore
 }
 
-function startGame(m) {
+function startGame(m, opts = {}) {
+  seedGame(opts.seed);                                                            // 온라인 대결이면 같은 시드 = 같은 판
+  if (m === "beat" && opts.trackId) games.beat.chosenTrackId = opts.trackId;      // 온라인: 방장이 고른 곡
   ac(); // 오디오 컨텍스트 즉시 활성화 (브라우저 유저 제스처 정책 준수)
   mode = m; score = 0; timeLeft = GAME_SECONDS; spawnTimer = 0.3;
   objs = []; halves = []; particles = []; popups = []; playing = true; body = null; shield = SHIELD_MAX; flash = 0;
@@ -4643,6 +4654,7 @@ function startGame(m) {
   speak(INTRO[m], true); // 게임 설명/안내 음성 발화
   warned10 = false;
   updateLiveHud(true);
+  bus.emit("game:start", { mode: m, online: !!opts.online, seed: opts.seed ?? null });
 }
 // 점수 고속 롤링 카운트업 함수 (Web Audio 틱 사운드 동기화)
 function animateScoreRoll(targetScore) {
@@ -4726,6 +4738,7 @@ function renderTop10(modeId, list, myIdx) {
 
 function endGame() {
   playing = false;
+  bus.emit("game:end", { mode, score, maxCombo });
   stopRealTrackAudio();
   $("hud").classList.add("hidden");
   $("feverBorder")?.classList.add("hidden");
@@ -4808,6 +4821,7 @@ function endGame() {
   });
 }
 function toMenu() {
+  if (mode) bus.emit("game:quit", {});
   try { speechSynthesis.cancel(); } catch {}
   stopTrackPreview?.();
   closeBeatTrackSelector?.();
@@ -5152,29 +5166,27 @@ customAudioInput?.addEventListener("change", (e) => {
   }
 });
 
-document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", async () => {
+// 게임 시작 (카메라/인식 준비 -> 시작). 메뉴 버튼과 온라인 대결이 같이 써요. 시작하지 못하면 false.
+async function launchGame(modeName, opts = {}) {
   useMouse = $("useMouse").checked;
   if (!useMouse) {
-    if (!(await ensureVideo())) return;
-    if (!(await ensureModel(games[b.dataset.mode].body ? "pose" : "hand"))) return;
+    if (!(await ensureVideo())) return false;
+    if (!(await ensureModel(games[modeName].body ? "pose" : "hand"))) return false;
   }
-  const modeName = b.dataset.mode;
-  if (modeName === "beat") {
-    // 🎵 네온 노트 슬래시는 펌프 스타일 아케이드 트랙 선택 모달 열기!
+  if (modeName === "beat" && !opts.online) {
+    // 🎵 네온 노트 슬래시는 펌프 스타일 아케이드 트랙 선택 모달 열기! (온라인 대결은 방장이 이미 곡을 골랐어요)
     openBeatTrackSelector();
-    return;
+    return true;
   }
-  startGame(modeName);
-}));
+  startGame(modeName, opts);
+  return true;
+}
+document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => launchGame(b.dataset.mode)));
 // 카드의 아무 곳이나 눌러도 게임 시작
 document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", (e) => { if (!e.target.closest(".mode")) c.querySelector(".mode")?.click(); }));
 $("again").onclick = () => {
-  if (mode === "beat") {
-    // 다시 하기 시 이전 선택한 곡 유지하여 즉시 재도전
-    startGame("beat");
-  } else {
-    startGame(mode);
-  }
+  if (bus.onlineActive) { bus.emit("online:rematch"); return; }   // 온라인 대결 중: 상대와 서로 눌러야 다시 시작 (재대결)
+  startGame(mode);                                                // 혼자: 이전에 고른 곡 유지하여 즉시 재도전
 };
 $("toMenu").onclick = toMenu;
 $("quit").onclick = toMenu;
@@ -5533,6 +5545,13 @@ function setupPlayerSettingsModalUI() {
 // 초기화 시점 실행
 loadPlayerSettings();
 setupPlayerSettingsModalUI();
+
+// 👥 온라인 대결(친구와 대결) 화면 연결. 이 한 줄을 지워도 혼자 하기는 그대로 동작해요.
+initOnline({
+  getProfile: () => ({ name: playerSettings.nickname, avatar: playerSettings.avatar }),
+  launch: (m, opts) => launchGame(m, opts),
+  getBeatTracks: () => BEAT_TRACKS.filter((t) => !String(t.id).startsWith("custom_")).map((t) => ({ id: t.id, title: t.title })),
+});
 
 showBest();
 requestAnimationFrame((t) => { last = t; frame(t); });

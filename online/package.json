@@ -1,0 +1,6 @@
+{
+  "name": "kinetic-kaboom-online",
+  "private": true,
+  "type": "module",
+  "description": "온라인 대결 모듈. 브라우저는 이 파일을 무시하고, Node 테스트(node test/room.test.js)를 ES 모듈로 돌리기 위한 설정이에요."
+}

@@ -225,8 +225,8 @@
         <button class="tab" data-tab="body">🏃 몸놀이 (5)</button>
       </div>
       <div class="room-pin-wrap">
-        <span class="room-text">Room PIN: <strong>KABOOM-88</strong></span>
-        <span class="party-chip">🎮 Party (2P)</span>
+        <span class="room-text">Room PIN: <strong id="roomPinText">—</strong></span>
+        <button id="btnParty" class="party-chip" type="button" title="친구와 대결 (방 만들기 / 초대 코드로 참가)">🎮 Party (2P)</button>
       </div>
       <p class="sub" id="tabHint"></p>
     </nav>
@@ -530,6 +530,17 @@
   </div>
   </div><!-- /result-body -->
 
+  <!-- 👥 온라인 대결 결과: 내 점수 vs 상대 점수 (대결 중일 때만 보임) -->
+  <div id="onlineCompare" class="online-compare hidden">
+    <div class="oc-row">
+      <div class="oc-side"><span id="ocMeName" class="oc-name">나</span><b id="ocMe" class="oc-score">0</b></div>
+      <div class="oc-vs">VS</div>
+      <div class="oc-side"><span id="ocOppName" class="oc-name">상대</span><b id="ocOpp" class="oc-score">0</b></div>
+    </div>
+    <div id="ocVerdict" class="oc-verdict"></div>
+    <div id="ocRematch" class="oc-rematch"></div>
+  </div>
+
   <!-- 조작 버튼: 다시 하기 / 처음으로 -->
   <div class="result-actions">
     <button id="again" class="action-btn retry-btn">
@@ -761,6 +772,56 @@
   </div>
 </div>
 
-<script type="module" src="main.js?v=20261012_0400"></script>
+<!-- 👥 온라인 대결(친구와 대결): 방 만들기 / 초대 코드로 참가. 게임 로직과 분리된 online/ 모듈이 제어해요 -->
+<div id="onlineModal" class="online-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="onlineTitle">
+  <div class="online-card">
+    <div class="online-head">
+      <h3 id="onlineTitle">👥 친구와 대결</h3>
+      <span class="beta-chip">준비 중</span>
+      <button id="onlineClose" class="online-x" aria-label="닫기">✕</button>
+    </div>
+    <p class="online-note">지금은 <b>같은 컴퓨터의 다른 탭/창</b>끼리 연결돼요. 멀리 있는 친구와의 연결은 나중에 추가할 수 있게 준비해 두었어요.</p>
+
+    <div id="onlineStepStart">
+      <div class="online-box">
+        <label class="online-label" for="onlineMode">게임 고르기</label>
+        <select id="onlineMode"></select>
+        <div id="onlineTrackRow" class="hidden"><label class="online-label" for="onlineTrack">곡 고르기</label><select id="onlineTrack"></select></div>
+        <button id="onlineCreate" class="online-btn primary">🏠 방 만들기</button>
+      </div>
+      <div class="online-or">또는</div>
+      <div class="online-box">
+        <label class="online-label" for="onlineCodeInput">초대 코드로 참가</label>
+        <div class="online-row">
+          <input id="onlineCodeInput" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="KABOOM-XXXXXX">
+          <button id="onlineJoin" class="online-btn">🚪 참가</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="onlineStepLobby" class="hidden">
+      <div class="invite-box">
+        <span>초대 코드</span>
+        <b id="onlineCode">KABOOM-------</b>
+        <button id="onlineCopy" class="online-btn small">복사</button>
+      </div>
+      <ul id="onlinePlayers" class="online-players"></ul>
+      <p id="onlineModeInfo" class="online-info"></p>
+      <p id="onlineHint" class="online-info"></p>
+      <div class="online-actions">
+        <button id="onlineReady" class="online-btn primary hidden">✅ 준비하기</button>
+        <button id="onlineStart" class="online-btn primary hidden" disabled>▶ 게임 시작</button>
+        <button id="onlineLeave" class="online-btn">나가기</button>
+      </div>
+    </div>
+
+    <p id="onlineError" class="online-error" role="alert"></p>
+  </div>
+</div>
+<div id="onlineToast" class="online-toast hidden" role="status"></div>
+<!-- 대결 중 상대 점수 (게임 화면 위에 작게) -->
+<div id="onlineHud" class="online-hud hidden">👤 <span id="ohName">상대</span> <b id="ohScore">0</b></div>
+
+<script type="module" src="main.js?v=20261012_0430"></script>
 </body>
 </html>

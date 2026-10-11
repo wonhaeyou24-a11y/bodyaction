@@ -1818,3 +1818,75 @@ body.tv-fullscreen-mode .hub {
 /* 순위표 점수가 두 줄로 꺾이지 않게 */
 .t10-score, .t10-rank, .t10-new { white-space: nowrap; }
 @media (max-width: 760px) { .top10-list li.me { font-size: 1em; gap: 6px; } .t10-new { font-size: 0.55rem; padding: 1px 4px; } }
+
+/* ------------------ 👥 온라인 대결 (online/ 모듈) ------------------ */
+button.party-chip { border: 0; cursor: pointer; transition: transform 0.15s; }
+button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
+.online-backdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; background: rgba(8, 3, 20, 0.72); backdrop-filter: blur(6px); padding: 12px; }
+.online-card { width: min(94vw, 480px); max-height: 94vh; overflow-y: auto; padding: 18px 20px; border-radius: 26px; text-align: left; color: var(--text-main);
+  background: radial-gradient(circle at 50% 0%, rgba(45, 20, 80, 0.97) 0%, rgba(15, 8, 30, 0.99) 100%); border: 2px solid rgba(0, 210, 255, 0.4); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 210, 255, 0.2); }
+.online-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.online-head h3 { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 900; color: #fff; }
+.beta-chip { font-size: 0.65rem; font-weight: 900; color: #3b2a00; background: var(--neon-gold); padding: 2px 8px; border-radius: 999px; }
+.online-x { margin-left: auto; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 1rem; cursor: pointer; }
+.online-note { margin: 0 0 12px; font-size: 0.78rem; line-height: 1.45; color: var(--text-dim); }
+.online-note b { color: var(--neon-cyan); }
+.online-box { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; padding: 12px; display: grid; gap: 8px; }
+.online-label { font-size: 0.75rem; font-weight: 800; color: var(--text-dim); }
+.online-card select, .online-card input[type="text"] { width: 100%; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.35); color: #fff; font: inherit; font-weight: 700; }
+.online-card input[type="text"] { letter-spacing: 0.08em; text-transform: uppercase; }
+.online-row { display: flex; gap: 8px; }
+.online-row input { flex: 1; min-width: 0; }
+.online-or { text-align: center; margin: 8px 0; font-size: 0.75rem; font-weight: 800; color: var(--text-dim); }
+.online-btn { border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.12); color: #fff; padding: 9px 14px; border-radius: 12px; font-family: var(--font-display); font-weight: 900; font-size: 0.9rem; cursor: pointer; white-space: nowrap; }
+.online-btn.primary { background: linear-gradient(135deg, #00d2ff 0%, #0077ff 100%); border-color: transparent; box-shadow: 0 6px 18px rgba(0, 150, 255, 0.4); }
+.online-btn.small { padding: 4px 10px; font-size: 0.75rem; }
+.online-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.invite-box { display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.4); border: 2px dashed rgba(251, 181, 0, 0.7); border-radius: 16px; padding: 10px 14px; margin-bottom: 10px; }
+.invite-box span { font-size: 0.72rem; font-weight: 800; color: var(--text-dim); }
+.invite-box b { font-family: var(--font-display); font-size: 1.15rem; letter-spacing: 0.08em; color: var(--neon-gold); user-select: all; }
+.invite-box button { margin-left: auto; }
+.online-players { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.online-players li { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.07); border-radius: 12px; padding: 6px 10px; font-weight: 800; }
+.online-players img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, 0.4); }
+.op-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.online-players em { font-style: normal; font-size: 0.72rem; font-weight: 900; padding: 2px 8px; border-radius: 999px; }
+.op-ready { background: rgba(0, 230, 118, 0.25); color: #00e676; }
+.op-wait { background: rgba(255, 255, 255, 0.12); color: var(--text-dim); }
+.online-players li.op-empty { justify-content: center; font-size: 0.8rem; color: var(--text-dim); border: 1px dashed rgba(255, 255, 255, 0.2); background: transparent; }
+.online-info { margin: 4px 0; font-size: 0.82rem; font-weight: 800; color: var(--text-dim); }
+.online-actions { display: flex; gap: 8px; margin-top: 8px; }
+.online-actions .primary { flex: 1; }
+.online-error { margin: 8px 0 0; min-height: 1.1em; font-size: 0.8rem; font-weight: 800; color: #ff7a8a; }
+.online-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 90; background: rgba(0, 0, 0, 0.85); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.3); }
+.online-hud { position: fixed; right: 16px; top: 200px; z-index: 46; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; padding: 6px 14px; font-weight: 800; color: #fff; font-size: 0.9rem; pointer-events: none; }
+.online-hud b { color: var(--neon-gold); font-family: var(--font-display); margin-left: 4px; }
+
+/* 결과 화면: 내 점수 vs 상대 점수 */
+.online-compare { margin: 0 0 12px; padding: 8px 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.07); border: 2px solid rgba(255, 255, 255, 0.25); text-align: center; }
+.online-compare[data-outcome="win"] { border-color: #ffd700; background: linear-gradient(135deg, rgba(255, 0, 119, 0.3), rgba(255, 187, 0, 0.3)); box-shadow: 0 0 22px rgba(255, 200, 0, 0.5); }
+.online-compare[data-outcome="lose"] { border-color: rgba(120, 160, 255, 0.7); }
+.oc-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.oc-side { display: grid; min-width: 90px; }
+.oc-name { font-size: 0.72rem; font-weight: 800; color: var(--text-dim); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto; }
+.oc-score { font-family: var(--font-display); font-size: 1.5rem; font-weight: 900; color: #fff; }
+.oc-vs { font-family: var(--font-display); font-weight: 900; color: var(--neon-gold); }
+.oc-verdict { font-family: var(--font-display); font-weight: 900; font-size: 1.1rem; margin-top: 2px; color: #fff; }
+.oc-rematch { font-size: 0.75rem; font-weight: 800; color: var(--neon-cyan); min-height: 1em; }
+@media (max-width: 760px), (max-height: 700px) { .online-compare { margin-bottom: 8px; padding: 6px 10px; } .oc-score { font-size: 1.2rem; } .online-hud { top: 120px; right: 8px; font-size: 0.8rem; } }
+
+/* 온라인 대결 결과(비교 영역이 추가됨)는 스크롤이 생기지 않도록 조금 더 촘촘하게 */
+#result.has-online { padding: 12px 16px; }
+#result.has-online .result-header { margin-bottom: 2px; }
+#result.has-online .result-trophy { font-size: 2rem; }
+#result.has-online .result-title-group h2 { font-size: 1.2rem; }
+#result.has-online .rank-container { margin: 2px 0 6px; }
+#result.has-online .rank-stamp { font-size: 2.6rem; padding: 2px 18px; }
+#result.has-online .rank-label { margin-top: 4px; font-size: 0.75rem; }
+#result.has-online .result-score-wrap { margin: 4px 0 6px; padding: 4px; }
+#result.has-online .score-rolling { font-size: 1.8rem; margin: 0; }
+#result.has-online .stat-card { padding: 4px; }
+#result.has-online .top10-wrap { padding: 8px 10px; }
+#result.has-online .top10-list li { padding: 2px 8px; font-size: 0.8rem; }
+#result.has-online .result-body { margin-bottom: 8px; }
+#result.has-online .action-btn { padding: 10px 14px; }
