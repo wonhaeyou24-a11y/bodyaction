@@ -4540,19 +4540,27 @@ for (const [id, set, key] of [["optSound", (v) => (soundOn = v), "sound"], ["opt
     if (!voiceOn) try { speechSynthesis.cancel(); } catch {}
   });
 }
-// 메뉴: 손놀이 / 몸놀이 탭 (마지막으로 본 탭을 기억)
+// 메뉴: 전체 / 손놀이 / 몸놀이 탭 (마지막으로 본 탭을 기억)
 const TAB_HINT = {
-  hand: "카메라 앞에서 손으로 화면을 건드려 보세요. 영상은 이 기기 밖으로 나가지 않아요.",
-  body: "머리부터 발끝까지 보이게 한두 걸음 뒤로 물러서 주세요. 영상은 이 기기 밖으로 나가지 않아요.",
+  all: "⭐ 15종의 모든 모션 액션 아케이드 파티 게임을 자유롭게 플레이하세요!",
+  hand: "👋 손놀이: 카메라 앞에서 손으로 화면을 건드려 보세요. 영상은 이 기기 밖으로 나가지 않아요.",
+  body: "🏃 몸놀이: 머리부터 발끝까지 보이게 한두 걸음 뒤로 물러서 주세요. 영상은 이 기기 밖으로 나가지 않아요.",
 };
 function setTab(t) {
+  t = t || "all";
   document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
-  document.querySelectorAll(".modes").forEach((m) => m.classList.toggle("hidden", m.dataset.cat !== t));
-  $("tabHint").textContent = TAB_HINT[t];
+  document.querySelectorAll(".modes").forEach((m) => {
+    if (t === "all") {
+      m.classList.remove("hidden");
+    } else {
+      m.classList.toggle("hidden", m.dataset.cat !== t);
+    }
+  });
+  $("tabHint").textContent = TAB_HINT[t] || TAB_HINT.all;
   try { localStorage.setItem("tab", t); } catch {}
 }
 document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
-setTab((() => { try { return localStorage.getItem("tab") === "body" ? "body" : "hand"; } catch { return "hand"; } })());
+setTab((() => { try { return localStorage.getItem("tab") || "all"; } catch { return "all"; } })());
 
 showBest();
 requestAnimationFrame((t) => { last = t; frame(t); });

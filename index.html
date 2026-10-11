@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261011_2350">
+<link rel="stylesheet" href="style.css?v=20261012_0025">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -190,7 +190,10 @@
     <div class="sensor-pill">
       <div class="sensor-dot"><i></i></div>
       <div class="sensor-text">
-        <b>LIVE MOTION SENSOR</b>
+        <div class="sensor-title-row">
+          <b>LIVE MOTION SENSOR</b>
+          <span class="sensor-fps-tag">60 FPS • Calibrated</span>
+        </div>
         <span id="status">카메라 영상은 이 기기 밖으로 나가지 않아요</span>
       </div>
     </div>
@@ -204,17 +207,27 @@
       <div class="coin-pill">⭐ <span id="totalBest">0</span></div>
       <div class="ticket-pill">🎟️ <span>120</span></div>
       <div class="profile">
-        <img src="assets/avatar.jpg" alt="플레이어 캐릭터">
+        <div class="avatar-wrap">
+          <img src="assets/avatar.jpg" alt="플레이어 캐릭터">
+          <span class="lvl-badge">14</span>
+        </div>
         <div><b>P1 Leo</b><small>PARTY LEADER</small></div>
       </div>
     </div>
   </header>
 
   <main class="hub-main">
-    <!-- 필터 칩 (손놀이 / 몸놀이) -->
+    <!-- Stitch 원본 서브 네비게이션: 카테고리 필터 칩 & 룸 핀 -->
     <nav class="chips" aria-label="게임 종류">
-      <button class="tab active" data-tab="hand">🖐 손놀이 (11)</button>
-      <button class="tab" data-tab="body">🕺 몸놀이 (5)</button>
+      <div class="filter-group">
+        <button class="tab active" data-tab="all">⭐ 전체 게임 (15)</button>
+        <button class="tab" data-tab="hand">👋 손놀이 (10)</button>
+        <button class="tab" data-tab="body">🏃 몸놀이 (5)</button>
+      </div>
+      <div class="room-pin-wrap">
+        <span class="room-text">Room PIN: <strong>KABOOM-88</strong></span>
+        <span class="party-chip">🎮 Party (2P)</span>
+      </div>
       <p class="sub" id="tabHint"></p>
     </nav>
 
@@ -570,6 +583,6 @@
   </div>
 </div>
 
-<script type="module" src="main.js?v=20261012_0012"></script>
+<script type="module" src="main.js?v=20261012_0025"></script>
 </body>
 </html>
