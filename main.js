@@ -1297,7 +1297,7 @@ const Art = {
   },
 
   // 8. 네온 비트 큐브 노트 (화살표 없는 자유 슬래시 3D 네온 크리스탈 큐브)
-  // 8. 🎮 비트세이버 PSVR 스타일 3D 입체 네온 큐브 블록 (NotebookLM & Stitch 최적화)
+  // 8. 🎮 비트세이버 PSVR 스타일 3D 입체 네온 큐브 블록 (60FPS 초고속 최적화 렌더러)
   drawBeatNote(x, y, r, color, half = 0, rot = 0) {
     try {
       ctx.save();
@@ -1312,15 +1312,11 @@ const Art = {
       }
 
       // 1. 3D 큐브 입체 원근 면 오프셋 (Bevel Offset)
-      const bOff = r * 0.28; // 상단 및 측면 깊이 오프셋
+      const bOff = r * 0.28;
       const mainW = r * 1.7, mainH = r * 1.7;
       const ox = -mainW / 2, oy = -mainH / 2 + bOff * 0.5;
 
-      // 2. 큐브 외곽 강렬한 네온 블룸 글로우
-      ctx.shadowColor = color;
-      ctx.shadowBlur = Math.min(32, r * 0.85);
-
-      // A. [상단 입체면 (Top Face)] - 부드러운 상단 반사광
+      // A. [상단 입체면 (Top Face)]
       ctx.fillStyle = color === "#00d2ff" ? "rgba(77, 222, 255, 0.45)" : "rgba(255, 99, 160, 0.45)";
       ctx.beginPath();
       ctx.moveTo(ox, oy);
@@ -1330,7 +1326,7 @@ const Art = {
       ctx.closePath();
       ctx.fill();
 
-      // B. [우측 입체면 (Right Face)] - 측면 음영
+      // B. [우측 입체면 (Right Face)]
       ctx.fillStyle = color === "#00d2ff" ? "rgba(0, 140, 200, 0.55)" : "rgba(180, 20, 80, 0.55)";
       ctx.beginPath();
       ctx.moveTo(ox + mainW, oy);
@@ -1341,52 +1337,52 @@ const Art = {
       ctx.fill();
 
       // C. [전면부 메인 바디 (Front Face)] - 딥 다크 네온 하우징
-      const bodyGrad = ctx.createLinearGradient(ox, oy, ox + mainW, oy + mainH);
-      bodyGrad.addColorStop(0, "rgba(18, 10, 36, 0.94)");
-      bodyGrad.addColorStop(1, "rgba(8, 4, 18, 0.98)");
-      ctx.fillStyle = bodyGrad;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = Math.max(3, r * 0.1);
+      ctx.fillStyle = "rgba(14, 8, 28, 0.96)";
       ctx.beginPath();
       ctx.roundRect(ox, oy, mainW, mainH, Math.max(6, r * 0.16));
       ctx.fill();
+
+      // D. [초고속 2-Pass 네온 외곽선] (shadowBlur 0ms 대체: 외곽 은은한 후광 + 본체 선)
+      ctx.strokeStyle = color === "#00d2ff" ? "rgba(0, 210, 255, 0.35)" : "rgba(255, 51, 119, 0.35)";
+      ctx.lineWidth = Math.max(6, r * 0.2);
       ctx.stroke();
 
-      // D. [내부 림 라이트 (Fresnel Rim)] - 고휘도 발광 테두리
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
-      ctx.lineWidth = Math.max(1.5, r * 0.045);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(2.5, r * 0.08);
+      ctx.stroke();
+
+      // E. [내부 화이트 림 라이트 (Fresnel Rim)]
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.roundRect(ox + 3, oy + 3, mainW - 6, mainH - 6, Math.max(4, r * 0.12));
       ctx.stroke();
 
-      // E. [중앙 크리스탈 코어 타깃] - 백색 고휘도 발광 펄스
-      const coreR = r * 0.36;
-      const coreGrad = ctx.createRadialGradient(0, oy + mainH * 0.5, 0, 0, oy + mainH * 0.5, coreR);
-      coreGrad.addColorStop(0, "#ffffff");
-      coreGrad.addColorStop(0.55, color);
-      coreGrad.addColorStop(1, "transparent");
-      ctx.fillStyle = coreGrad;
+      // F. [중앙 크리스탈 코어 타깃]
+      const cy = oy + mainH * 0.5;
+      ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(0, oy + mainH * 0.5, coreR, 0, Math.PI * 2);
+      ctx.arc(0, cy, r * 0.25, 0, Math.PI * 2);
       ctx.fill();
 
-      // F. [중앙 타깃 십자 크로스 헤어 & 다이아몬드]
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(0, cy, r * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // G. [중앙 타깃 십자 헤어]
+      const chLen = r * 0.24;
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = Math.max(2, r * 0.06);
-      ctx.shadowColor = "#ffffff";
-      ctx.shadowBlur = 10;
-      const cy = oy + mainH * 0.5;
-      const chLen = r * 0.22;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(-chLen, cy); ctx.lineTo(chLen, cy);
       ctx.moveTo(0, cy - chLen); ctx.lineTo(0, cy + chLen);
       ctx.stroke();
 
-      // 절단 시 절단면 고열 플라즈마 이펙트
+      // 절단면 플라즈마 라인
       if (half !== 0) {
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 5;
-        ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 18;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(0, oy - bOff);
         ctx.lineTo(0, oy + mainH);
@@ -2848,91 +2844,18 @@ games.beat = {
 
     ctx.save();
     if (this.screenShake > 0) {
-      ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+      ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
     }
 
-    // 1. 🌟 [PSVR 비트세이버 3D 무대 터널 & BBS 런웨이 트랙]
-    // A. 바닥 런웨이 사다리꼴 플랫폼
-    const rwTopW = 70, rwBotW = W * 0.88;
-    const rwGrad = ctx.createLinearGradient(originX, originY, originX, H);
-    rwGrad.addColorStop(0, "rgba(8, 4, 24, 0.4)");
-    rwGrad.addColorStop(0.5, "rgba(18, 8, 38, 0.7)");
-    rwGrad.addColorStop(1, "rgba(28, 10, 50, 0.95)");
-    ctx.fillStyle = rwGrad;
-    ctx.beginPath();
-    ctx.moveTo(originX - rwTopW * 0.5, originY + 10);
-    ctx.lineTo(originX + rwTopW * 0.5, originY + 10);
-    ctx.lineTo(originX + rwBotW * 0.5, H);
-    ctx.lineTo(originX - rwBotW * 0.5, H);
-    ctx.closePath();
-    ctx.fill();
+    // 1. 비트 펄스 네온 타격 가이드 라인 (Stitch 3D 터널 위의 라이트닝 스트라이크 존)
+    const flashAlpha = 0.45 + this.beatFlash * 0.4;
+    ctx.strokeStyle = isFeverTime ? "#ff0055" : `rgba(0, 210, 255, ${flashAlpha})`;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(W * 0.08, H * 0.32); ctx.lineTo(W * 0.92, H * 0.32); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W * 0.05, H * 0.54); ctx.lineTo(W * 0.95, H * 0.54); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W * 0.08, H * 0.74); ctx.lineTo(W * 0.92, H * 0.74); ctx.stroke();
 
-    // B. 바닥 트랙 좌우 네온 에지 라인 (BBS Side Lights)
-    ctx.save();
-    ctx.shadowBlur = 22;
-    // 좌측 에지 (Cyan)
-    ctx.strokeStyle = "#00d2ff"; ctx.shadowColor = "#00d2ff"; ctx.lineWidth = 3.5;
-    ctx.beginPath(); ctx.moveTo(originX - rwTopW * 0.5, originY + 10); ctx.lineTo(originX - rwBotW * 0.5, H); ctx.stroke();
-    // 우측 에지 (Magenta)
-    ctx.strokeStyle = "#ff3377"; ctx.shadowColor = "#ff3377"; ctx.lineWidth = 3.5;
-    ctx.beginPath(); ctx.moveTo(originX + rwTopW * 0.5, originY + 10); ctx.lineTo(originX + rwBotW * 0.5, H); ctx.stroke();
-    ctx.restore();
-
-    // C. 바닥 수평 원근 네온 라인들 (비트 펄스 연동)
-    const flashAlpha = 0.2 + this.beatFlash * 0.45;
-    for (let zi = 0.15; zi <= 1.0; zi += 0.14) {
-      const ly = originY + 10 + (H - (originY + 10)) * (zi * zi);
-      const lw = rwTopW + (rwBotW - rwTopW) * zi;
-      ctx.strokeStyle = `rgba(180, 220, 255, ${flashAlpha * (0.3 + zi * 0.7)})`;
-      ctx.lineWidth = 1.2 + zi * 1.5;
-      ctx.beginPath();
-      ctx.moveTo(originX - lw * 0.5, ly);
-      ctx.lineTo(originX + lw * 0.5, ly);
-      ctx.stroke();
-    }
-
-    // D. 소실점 'X'자형 정적 백 레이저 (Back Lasers)
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    const laserAlpha = 0.25 + this.beatFlash * 0.4;
-    // 좌상 -> 우하 대각선 빔 (Cyan)
-    ctx.strokeStyle = `rgba(0, 210, 255, ${laserAlpha})`; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(0, H * 0.05); ctx.lineTo(originX, originY); ctx.lineTo(W, H * 0.85); ctx.stroke();
-    // 우상 -> 좌하 대각선 빔 (Magenta)
-    ctx.strokeStyle = `rgba(255, 51, 119, ${laserAlpha})`; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(W, H * 0.05); ctx.lineTo(originX, originY); ctx.lineTo(0, H * 0.85); ctx.stroke();
-
-    // E. 소실점 회전 레이저 빔 (Spinning Lasers)
-    const cosL = Math.cos(this.laserAngle) * 350, sinL = Math.sin(this.laserAngle) * 220;
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.35)"; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(originX, originY); ctx.lineTo(originX + cosL, originY + sinL); ctx.stroke();
-    ctx.strokeStyle = "rgba(255, 51, 119, 0.35)"; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(originX, originY); ctx.lineTo(originX - cosL, originY - sinL); ctx.stroke();
-    ctx.restore();
-
-    // 2. 전방위 12개 방사형 네온 가이드 레일
-    const targetXList = [W * 0.16, W * 0.38, W * 0.62, W * 0.84];
-    const targetYList = [H * 0.28, H * 0.52, H * 0.75];
-
-    targetXList.forEach((tx, col) => {
-      targetYList.forEach((ty, row) => {
-        ctx.strokeStyle = (col < 2 ? "rgba(0, 210, 255, 0.20)" : "rgba(255, 51, 119, 0.20)");
-        ctx.lineWidth = (row === 1 ? 1.8 : 1.2);
-        ctx.beginPath();
-        ctx.moveTo(originX, originY);
-        ctx.lineTo(tx, ty);
-        ctx.stroke();
-      });
-    });
-
-    // 3. 비트세이버 타격 가이드 스트라이크 라인
-    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.85)";
-    ctx.lineWidth = 3.5; ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.moveTo(W * 0.10, H * 0.28); ctx.lineTo(W * 0.90, H * 0.28); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W * 0.06, H * 0.52); ctx.lineTo(W * 0.94, H * 0.52); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W * 0.10, H * 0.75); ctx.lineTo(W * 0.90, H * 0.75); ctx.stroke();
-
-    // 4. 네온 벽 장애물 (Walls) 렌더링
+    // 2. 네온 벽 장애물 (Walls) 렌더링
     for (const w of this.walls) {
       const scale = w.z;
       const wallW = w.w * scale, wallH = w.h * scale;
@@ -2942,7 +2865,6 @@ games.beat = {
       ctx.save();
       ctx.fillStyle = w.hit ? "rgba(255, 51, 102, 0.45)" : "rgba(255, 30, 80, 0.25)";
       ctx.strokeStyle = "#ff2266"; ctx.lineWidth = 4;
-      ctx.shadowColor = "#ff2266"; ctx.shadowBlur = 20;
       ctx.fillRect(wallX, wallY, wallW, wallH);
       ctx.strokeRect(wallX, wallY, wallW, wallH);
 
@@ -2953,7 +2875,7 @@ games.beat = {
       ctx.restore();
     }
 
-    // 5. 3D 입체 큐브 및 네온 폭탄 렌더링 (Z축 깊이 순)
+    // 3. 3D 입체 큐브 및 네온 폭탄 렌더링 (Z축 깊이 순)
     const sorted = [...objs].sort((a, b) => a.z - b.z);
     for (const o of sorted) {
       if (o.isBomb) {
@@ -2962,33 +2884,32 @@ games.beat = {
         Art.drawBeatNote(o.x, o.y, o.r, o.color, 0);
       }
     }
-    // 잘린 큐브 파편 렌더링 (회전 효과 포함)
+    // 잘린 큐브 파편 렌더링
     for (const h of this.halves) {
       ctx.save(); ctx.globalAlpha = Math.max(h.life, 0);
       Art.drawBeatNote(h.x, h.y, h.r, h.color, h.half, h.rot || 0);
       ctx.restore();
     }
 
-    // 6. 컷팅 충격파 팽창 링 FX
+    // 4. 컷팅 충격파 팽창 링 FX (고속 가산 블렌딩)
     for (const ring of this.sparkRings) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, ring.life);
       ctx.strokeStyle = ring.color;
-      ctx.lineWidth = Math.max(1, 4 * ring.life);
-      ctx.shadowColor = ring.color; ctx.shadowBlur = 16;
+      ctx.lineWidth = Math.max(1.5, 4 * ring.life);
       ctx.beginPath();
       ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
-    // 7. 전신 포즈 스켈레톤
+    // 5. 전신 포즈 스켈레톤
     const skel = getBody();
     if (!useMouse && skel) {
-      drawSkeleton(skel, "rgba(0, 210, 255, 0.40)", 0.55);
+      drawSkeleton(skel, "rgba(0, 210, 255, 0.45)", 0.6);
     }
 
-    // 8. 🌟 [PSVR 세이버 잔상 리본 트레일 (Saber Ribbon Trails)]
+    // 6. 🌟 [PSVR 세이버 잔상 리본 트레일 (Saber Ribbon Trails)]
     const saberCols = ["#00d2ff", "#ff3377"];
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
@@ -3012,42 +2933,47 @@ games.beat = {
     });
     ctx.restore();
 
-    // 9. 🌟 [PSVR 정통 듀얼 라이트세이버 블레이드 렌더링]
+    // 7. 🌟 [PSVR 듀얼 라이트세이버 블레이드 렌더링 - 60FPS 고속 2-Pass 네온]
     this.sabers.forEach((s, i) => {
       if (!s || !s.base || !s.tip) return;
       const col = saberCols[i];
       ctx.save();
 
-      // A. 손잡이 (Hilt) - 메탈릭 바
+      // 손잡이 (Hilt)
       const dx = s.tip.x - s.base.x, dy = s.tip.y - s.base.y;
       const len = Math.hypot(dx, dy) || 1;
       const hiltLen = 22;
       const hx = s.base.x - (dx / len) * hiltLen, hy = s.base.y - (dy / len) * hiltLen;
-      ctx.strokeStyle = "#404452"; ctx.lineWidth = 10; ctx.lineCap = "round";
+      ctx.strokeStyle = "#3a4055"; ctx.lineWidth = 9; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(s.base.x, s.base.y); ctx.stroke();
 
-      // B. 가드 링 & 이미터
+      // 가드 이미터
       ctx.fillStyle = "#ffffff";
       ctx.beginPath(); ctx.arc(s.base.x, s.base.y, 6, 0, Math.PI * 2); ctx.fill();
 
-      // C. 플라즈마 블레이드 외곽 네온 글로우
-      ctx.strokeStyle = col; ctx.lineWidth = 15; ctx.lineCap = "round";
-      ctx.shadowColor = col; ctx.shadowBlur = 32;
+      // 초고속 2-Pass 플라즈마 블레이드 (shadowBlur 0ms 완전 대체)
+      // 외곽 넓은 네온 글로우 빔
+      ctx.strokeStyle = col === "#00d2ff" ? "rgba(0, 210, 255, 0.45)" : "rgba(255, 51, 119, 0.45)";
+      ctx.lineWidth = 18; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
 
-      // D. 고열 순백색 코어 빔
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 5.5; ctx.shadowBlur = 10;
+      // 중간 네온 메인 빔
+      ctx.strokeStyle = col; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
+
+      // 내부 고열 순백색 코어
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(s.base.x, s.base.y); ctx.lineTo(s.tip.x, s.tip.y); ctx.stroke();
       ctx.restore();
     });
 
-    // 10. 아케이드 HUD: 콤보 멀티플라이어 x1~x8 링
+    // 8. 아케이드 HUD: 콤보 멀티플라이어 x1~x8 링
     const multX = W * 0.12, multY = H * 0.86;
     ctx.save();
-    ctx.fillStyle = "rgba(10, 10, 25, 0.80)";
+    ctx.fillStyle = "rgba(10, 10, 25, 0.82)";
     ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = this.multiplier >= 8 ? "#ffd700" : (this.multiplier >= 4 ? "#b04dff" : "#00d2ff");
-    ctx.lineWidth = 5; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 18;
+    ctx.lineWidth = 4.5;
     ctx.beginPath(); ctx.arc(multX, multY, 44, 0, Math.PI * 2); ctx.stroke();
 
     ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -3064,11 +2990,11 @@ games.beat = {
     ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
     ctx.fillRect(barX, barY, barW, barH);
     const engColor = this.energy > 50 ? "#00e676" : (this.energy > 25 ? "#ffd166" : "#ff3366");
-    ctx.fillStyle = engColor; ctx.shadowColor = engColor; ctx.shadowBlur = 14;
+    ctx.fillStyle = engColor;
     ctx.fillRect(barX, barY, barW * (this.energy / 100), barH);
     ctx.restore();
 
-    // 11. 현재 재생 중인 사운드트랙 배지
+    // 9. 현재 재생 중인 사운드트랙 배지
     if (this.currentTrack) {
       const trk = this.currentTrack;
       ctx.save();
@@ -3076,8 +3002,7 @@ games.beat = {
       const badgeX = W / 2 - badgeW / 2, badgeY = 62;
       ctx.fillStyle = "rgba(10, 6, 24, 0.86)";
       ctx.strokeStyle = trk.tagColor || "#00d2ff";
-      ctx.lineWidth = 1.8;
-      ctx.shadowColor = trk.tagColor || "#00d2ff"; ctx.shadowBlur = 16;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 13);
       ctx.fill(); ctx.stroke();
@@ -3601,19 +3526,55 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.restore();
 }
 
-function drawBackground(color, camAlpha = 0.85) {
-  if (!mode) { ctx.clearRect(0, 0, W, H); return; }   // 메뉴에서는 캔버스를 투명하게 → 아케이드 허브 배경이 보임
-  // 화면 흔들림 시에도 가장자리 여백이 드러나 점등되지 않도록 안전 패딩 채움
-  ctx.fillStyle = color; ctx.fillRect(-24, -24, W + 48, H + 48);
+// 🎨 Stitch 프로젝트 고화질 3D 스테이지 배경 에셋 매핑
+const STAGE_IMAGES = {};
+const STAGE_SRCS = {
+  beat: "assets/stage_beat.jpg",
+  runner: "assets/stage_runner.jpg",
+  dodge: "assets/stage_dodge.jpg",
+  kungfu: "assets/stage_kungfu.jpg",
+  brick: "assets/stage_brick.jpg",
+  space: "assets/stage_space.jpg",
+  balloon: "assets/stage_balloon.jpg",
+  ninja: "assets/stage_ninja.jpg"
+};
+for (const [m, src] of Object.entries(STAGE_SRCS)) {
+  const img = new Image();
+  img.src = src;
+  STAGE_IMAGES[m] = img;
+}
+
+function drawBackground(color, camAlpha = 0.45) {
+  if (!mode) { ctx.clearRect(0, 0, W, H); return; } // 메뉴에서는 투명 처리
+  // 1. 기본 배경 베이스 채우기
+  ctx.fillStyle = color;
+  ctx.fillRect(-24, -24, W + 48, H + 48);
+
+  // 2. 🌟 Stitch 고화질 3D 스테이지 아트 렌더링
+  const stageImg = STAGE_IMAGES[mode];
+  if (stageImg && stageImg.complete && stageImg.naturalWidth > 0) {
+    const iw = stageImg.naturalWidth, ih = stageImg.naturalHeight;
+    const s = Math.max((W + 48) / iw, (H + 48) / ih);
+    const sw = iw * s, sh = ih * s;
+    ctx.drawImage(stageImg, (W - sw) / 2, (H - sh) / 2, sw, sh);
+
+    // 은은한 다크 틴트 (스테이지 깊이감과 가독성 확보)
+    ctx.fillStyle = "rgba(10, 6, 26, 0.42)";
+    ctx.fillRect(-24, -24, W + 48, H + 48);
+  }
+
+  // 3. 실시간 플레이어 웹캠 비디오 (Stitch 3D 무대 위에 자연스러운 반투명 합성)
   if (!useMouse && video && video.readyState >= 2) {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
-    ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1);
-    ctx.globalAlpha = camAlpha;
+    ctx.save();
+    ctx.translate(W, 0); ctx.scale(-1, 1);
+    ctx.globalAlpha = camAlpha ?? 0.40;
     try {
       ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
     } catch {}
-    ctx.restore(); ctx.globalAlpha = 1;
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 }
 
