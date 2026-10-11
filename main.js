@@ -190,6 +190,81 @@ const INTRO = {
 };
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
+// 🎵 네온 노트 슬래시 전용 랜덤 멀티 사운드트랙 (시작할 때마다 다양한 비트와 리듬 제공)
+const BEAT_TRACKS = [
+  {
+    id: "overdrive",
+    title: "⚡ Cyber Overdrive",
+    genre: "CYBERPUNK EDM",
+    bpm: 144,
+    root: 220,
+    scale: [0, 3, 5, 7, 10],
+    prog: [0, 5, 7, 3],
+    wave: "sawtooth",
+    drums: "edm",
+    vol: 0.65,
+    noteSpeed: 1.15,
+    tagColor: "#00d2ff"
+  },
+  {
+    id: "tokyo",
+    title: "🌌 Neon Tokyo Drift",
+    genre: "SYNTH HOUSE",
+    bpm: 128,
+    root: 261.63,
+    scale: [0, 2, 4, 7, 9],
+    prog: [0, 7, 9, 5],
+    wave: "square",
+    drums: "pop",
+    vol: 0.6,
+    noteSpeed: 1.0,
+    tagColor: "#ff3377"
+  },
+  {
+    id: "laser",
+    title: "🔥 Glitch Laser Blast",
+    genre: "HARDSTYLE DNB",
+    bpm: 152,
+    root: 196,
+    scale: [0, 1, 5, 7, 8],
+    prog: [0, 0, 5, 3],
+    wave: "sawtooth",
+    drums: "taiko",
+    vol: 0.65,
+    noteSpeed: 1.25,
+    tagColor: "#ffd700"
+  },
+  {
+    id: "bounce",
+    title: "✨ Future Bass Bounce",
+    genre: "FUTURE BASS",
+    bpm: 122,
+    root: 293.66,
+    scale: [0, 3, 5, 7, 8],
+    prog: [0, 5, 7, 0],
+    wave: "triangle",
+    drums: "edm",
+    vol: 0.58,
+    noteSpeed: 0.95,
+    tagColor: "#00ffaa"
+  },
+  {
+    id: "cyberpunk",
+    title: "🌙 Midnight Cyberpunk",
+    genre: "DARK TECHNO",
+    bpm: 136,
+    root: 174.61,
+    scale: [0, 3, 5, 6, 7, 10],
+    prog: [0, 3, 5, 7],
+    wave: "sawtooth",
+    drums: "drone",
+    vol: 0.62,
+    noteSpeed: 1.08,
+    tagColor: "#b04dff"
+  }
+];
+let lastBeatTrackIdx = -1;
+
 const BGM = {
   balloon: { bpm: 112, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop" },
   ninja:   { bpm: 124, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "square", drums: "taiko", vol: 0.55 },
@@ -203,7 +278,7 @@ const BGM = {
   runner:  { bpm: 138, root: 220, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.45 },
   kungfu:  { bpm: 128, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.5 },
   versus:  { bpm: 130, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sawtooth", drums: "pop", vol: 0.45 },
-  beat:    { bpm: 128, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 5, 7, 3], wave: "sawtooth", drums: "pop", vol: 0.6 },
+  beat:    { ...BEAT_TRACKS[0] },
   magic:   { bpm: 98, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sine", drums: "none", vol: 0.5 },
   keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.5 },
   box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.55 },
@@ -224,7 +299,14 @@ function bgmTick() {
       const idx = (ARP[s] + (bar % 2)) % c.scale.length;
       tone(f(c.scale[idx], 2), t, 0.2, c.wave, 0.07 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
     }
-    if (c.drums === "pop") {
+    if (c.drums === "edm") {
+      // 강력한 4-on-the-floor 펀치 킥
+      if (s % 2 === 0) tone(160, t, 0.18, "sine", 0.38 * v, 38, undefined, bgmBus);
+      // 오프비트 오픈 하이햇
+      if (s % 2 === 1) noise(t, 0.06, 0.05 * v, 6500, ((s % 4) - 1.5) / 3, bgmBus);
+      // 클랩/스네어 (2, 6박자)
+      if (s === 2 || s === 6) noise(t, 0.11, 0.12 * v, 2400, undefined, bgmBus);
+    } else if (c.drums === "pop") {
       if (s % 4 === 0) tone(140, t, 0.16, "sine", 0.3 * v, 45, undefined, bgmBus);
       if (s === 2 || s === 6) noise(t, 0.1, 0.08 * v, 1800, undefined, bgmBus);
       noise(t, 0.03, 0.035 * v, 7000, ((s % 2) - 0.5) / 2, bgmBus);
@@ -2273,6 +2355,19 @@ games.beat = {
   body: true, bg: "#060312", camAlpha: 0.38,
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
+    // 🎵 시작할 때마다 매번 다른 노래와 비트로 즐길 수 있도록 5종 트랙 중 랜덤 선곡 (연속 중복 방지)
+    let trackIdx = Math.floor(Math.random() * BEAT_TRACKS.length);
+    if (trackIdx === lastBeatTrackIdx) trackIdx = (trackIdx + 1) % BEAT_TRACKS.length;
+    lastBeatTrackIdx = trackIdx;
+    this.currentTrack = BEAT_TRACKS[trackIdx];
+    BGM.beat = { ...this.currentTrack };
+
+    // 곡 시작 네온 배너 알림 (화면 중앙 상단에 선명하게 안내)
+    setTimeout(() => {
+      popup(W / 2, H * 0.36, `🎵 NOW PLAYING: ${this.currentTrack.title}`, this.currentTrack.tagColor);
+      popup(W / 2, H * 0.43, `[${this.currentTrack.genre}]  ${this.currentTrack.bpm} BPM`, "#ffffff");
+    }, 250);
+
     this.halves = [];
     this.walls = []; // 비트세이버 네온 벽 장애물 (Walls)
     this.lanes = [-1.5, -0.5, 0.5, 1.5]; // 4개 3D 레인 (가로 4슬롯)
@@ -2319,7 +2414,9 @@ games.beat = {
 
     // 높이 레이어 (바닥/중단 2단 구조)
     const layer = Math.random() < 0.35 ? -0.15 : 0.05;
-    const speed = (0.34 + elapsed() * 0.005) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
+    // 선택된 곡의 트랙 속도(noteSpeed)에 정밀 동기화된 노트 이동 속도
+    const speedMult = this.currentTrack ? this.currentTrack.noteSpeed : 1.0;
+    const speed = (0.34 * speedMult + elapsed() * 0.005) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
 
     objs.push({
       z: 0.05, speed, lane, layer, isLeft, dir,
@@ -2338,7 +2435,15 @@ games.beat = {
       });
     }
   },
-  interval: () => Math.max(0.30, 0.68 - elapsed() * 0.006),
+  // 현재 재생 중인 음악의 실제 BPM 박자(1박 또는 0.5박)에 맞춘 리듬 스폰 간격
+  interval() {
+    const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
+    const beatSec = 60 / bpm; // 1박자 (초)
+    const waveMult = currentWave === 3 ? 0.75 : currentWave === 2 ? 0.88 : 1.0;
+    // 4분음표(1박) 또는 박진감 넘치는 8분음표(0.5박) 리듬 패턴
+    const rhythm = Math.random() < 0.35 ? beatSec * 0.5 : beatSec;
+    return Math.max(0.24, rhythm * waveMult);
+  },
   update(dt) {
     const judgeZ = 0.94; // 비트세이버 타격 최적 판정선
     const now = performance.now();
@@ -2666,9 +2771,32 @@ games.beat = {
     ctx.fillRect(barX, barY, barW * (this.energy / 100), barH);
     ctx.restore();
 
+    // 8. 🎵 현재 재생 중인 사운드트랙 네온 배지 (HUD 상단 중앙)
+    if (this.currentTrack) {
+      const trk = this.currentTrack;
+      ctx.save();
+      const badgeW = Math.min(W * 0.44, 320), badgeH = 26;
+      const badgeX = W / 2 - badgeW / 2, badgeY = 62;
+      ctx.fillStyle = "rgba(10, 6, 24, 0.82)";
+      ctx.strokeStyle = trk.tagColor || "#00d2ff";
+      ctx.lineWidth = 1.6;
+      ctx.shadowColor = trk.tagColor || "#00d2ff";
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 13);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = trk.tagColor || "#00d2ff";
+      ctx.font = "900 12.5px 'Rubik', sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(`🎵 ${trk.title}  •  ${trk.bpm} BPM`, W / 2, badgeY + badgeH / 2);
+      ctx.restore();
+    }
+
     ctx.restore(); // screenShake restore
 
-    topHud("🕺 비트세이버 플로우! 음악에 맞춰 크게 스윙하고 벽(DODGE)은 피하세요!");
+    const trackName = this.currentTrack ? `[${this.currentTrack.title}]` : "";
+    topHud(`🕺 ${trackName} 비트에 맞춰 시원하게 스윙하고, 네온 벽(DODGE)은 피하세요!`);
     bodyHint();
   }
 };
