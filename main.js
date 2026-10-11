@@ -1956,68 +1956,80 @@ const Art = {
       ctx.beginPath(); ctx.roundRect(-w * 0.38, 0, w * 0.76, 16, 6); ctx.fill();
       ctx.strokeStyle = "#475569"; ctx.lineWidth = 2; ctx.stroke();
 
-      // 3. 샌드백 3D 실린더 바디 렌더링 (원통형 가죽 & 네온 코팅)
+      // 3. 샌드백 3D 실린더 바디 (Stitch 하이테크 다크 카본 & 메탈릭 티타늄)
       const grad = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
       if (flash > 0) {
-        grad.addColorStop(0, "#ff4b72");
-        grad.addColorStop(0.3, "#ffffff");
-        grad.addColorStop(0.7, "#ffd700");
-        grad.addColorStop(1, "#ff4b72");
+        grad.addColorStop(0, "#00d2ff");
+        grad.addColorStop(0.25, "#ffffff");
+        grad.addColorStop(0.65, "#ffd700");
+        grad.addColorStop(1, "#ff0077");
       } else {
-        grad.addColorStop(0, "#4a0410");
-        grad.addColorStop(0.2, "#80081d");
-        grad.addColorStop(0.55, "#d81e3e");
-        grad.addColorStop(0.8, "#ff3358");
-        grad.addColorStop(0.92, "#80081d");
-        grad.addColorStop(1, "#38030b");
+        grad.addColorStop(0, "#0a0e17");
+        grad.addColorStop(0.2, "#1e293b");
+        grad.addColorStop(0.5, "#334155");
+        grad.addColorStop(0.75, "#1e293b");
+        grad.addColorStop(0.9, "#0f172a");
+        grad.addColorStop(1, "#05070c");
       }
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.roundRect(-w / 2, 14, w, h - 14, [12, 12, w / 2, w / 2]);
+      ctx.roundRect(-w / 2, 14, w, h - 14, [16, 16, w / 2, w / 2]);
       ctx.fill();
 
-      // 외곽 2-Pass 고선명 림 스트로크
-      ctx.strokeStyle = flash > 0 ? "#ffd700" : "#ff2a4b";
+      // 수직 메탈릭 크롬 하이라이트 리본
+      const hlGrad = ctx.createLinearGradient(-w * 0.15, 0, w * 0.1, 0);
+      hlGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      hlGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.28)");
+      hlGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = hlGrad;
+      ctx.fillRect(-w * 0.15, 14, w * 0.25, h - 24);
+
+      // 외곽 사이버 네온 림 스트로크
+      ctx.strokeStyle = flash > 0 ? "#ffd700" : "rgba(0, 210, 255, 0.85)";
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // 4. 네온 스티치 밴드 (상/중/하 사이버 가죽 림)
-      const bandYList = [h * 0.22, h * 0.76];
+      // 4. 네온 일렉트릭 LED 밴드 (상/중/하 사이버 림)
+      const bandYList = [h * 0.20, h * 0.76];
       bandYList.forEach((by) => {
-        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-        ctx.fillRect(-w / 2 + 2, by, w - 4, 12);
-        // 네온 스티치 라인
-        ctx.strokeStyle = flash > 0 ? "#ffd700" : "#ff7800";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.moveTo(-w / 2 + 4, by + 6); ctx.lineTo(w / 2 - 4, by + 6); ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.fillStyle = "rgba(10, 15, 30, 0.95)";
+        ctx.fillRect(-w / 2 + 2, by, w - 4, 14);
+        // 네온 LED 스트립
+        ctx.strokeStyle = flash > 0 ? "#ffffff" : "#ff0077";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-w / 2 + 4, by + 7); ctx.lineTo(w / 2 - 4, by + 7); ctx.stroke();
       });
 
-      // 5. 중앙 홀로그램 십자선 타겟팅 스위트스팟 (Cyber Target Reticle)
+      // 5. 중앙 홀로그램 사이버 아케이드 타겟팅 레티클 (Cyber Reticle)
       const targetY = h * 0.48;
       // 외곽 네온 링
-      ctx.strokeStyle = flash > 0 ? "rgba(255, 215, 0, 0.95)" : "rgba(0, 210, 255, 0.85)";
+      ctx.strokeStyle = flash > 0 ? "#ffd700" : "#00d2ff";
       ctx.lineWidth = 3.5;
-      ctx.beginPath(); ctx.arc(0, targetY, w * 0.28, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, targetY, w * 0.30, 0, Math.PI * 2); ctx.stroke();
 
-      // 내부 정밀 십자선 및 센터 코어
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)"; ctx.lineWidth = 2;
+      // 내부 회전 감각의 세그먼트 가이드 링
+      ctx.strokeStyle = flash > 0 ? "#ffffff" : "rgba(255, 0, 119, 0.75)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.arc(0, targetY, w * 0.20, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 중심 정밀 십자선 & 펄스 닷
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.95)"; ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(-w * 0.2, targetY); ctx.lineTo(w * 0.2, targetY);
-      ctx.moveTo(0, targetY - w * 0.2); ctx.lineTo(0, targetY + w * 0.2);
+      ctx.moveTo(-w * 0.22, targetY); ctx.lineTo(w * 0.22, targetY);
+      ctx.moveTo(0, targetY - w * 0.22); ctx.lineTo(0, targetY + w * 0.22);
       ctx.stroke();
 
-      // 중심 펄스 닷
       ctx.fillStyle = flash > 0 ? "#ffd700" : "#00d2ff";
-      ctx.beginPath(); ctx.arc(0, targetY, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, targetY, 8, 0, Math.PI * 2); ctx.fill();
 
-      // 6. 브랜드 아케이드 뱃지 (KABOOM BOXING)
-      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      // 6. 하이테크 브랜드 타이포그래피 (KINETIC SPEED BAG)
+      ctx.fillStyle = "rgba(0, 210, 255, 0.9)";
       ctx.font = "900 11px 'Rubik', sans-serif";
       ctx.textAlign = "center";
       ctx.letterSpacing = "2px";
-      ctx.fillText("KINETIC BOXING", 0, h * 0.34);
+      ctx.fillText("CYBER SPEED BAG", 0, h * 0.33);
 
       ctx.restore();
     } catch {}
@@ -3988,28 +4000,40 @@ function drawBackground(color, camAlpha = 0.20) {
   // 2. 게임별 전용 아케이드 무대 그래픽 렌더링 (방 안 풍경 대신 게임 스테이지가 전면에 오도록 연출)
   ctx.save();
   if (mode === "box" || mode === "kungfu") {
-    // 🥊 네온 복싱 링 아레나: 상단 스포트라이트 원뿔 광선 + 네온 링 로프 + 원근감 캔버스 매트
-    const spotGrad = ctx.createRadialGradient(W / 2, 0, 10, W / 2, H * 0.5, W * 0.45);
-    spotGrad.addColorStop(0, "rgba(255, 75, 114, 0.22)");
-    spotGrad.addColorStop(0.6, "rgba(255, 120, 0, 0.08)");
-    spotGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = spotGrad;
-    ctx.fillRect(0, 0, W, H);
+    // 🥊 네온 복싱 링 아레나: 듀얼 스포트라이트 광선 + 코너 포스트 기둥 + 4선 네온 로프 + 원근감 링 매트
+    // 좌/우 듀얼 스포트라이트 원뿔 광선
+    const spotL = ctx.createRadialGradient(W * 0.25, 0, 10, W * 0.35, H * 0.55, W * 0.4);
+    spotL.addColorStop(0, "rgba(0, 210, 255, 0.22)");
+    spotL.addColorStop(0.6, "rgba(0, 210, 255, 0.05)");
+    spotL.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = spotL; ctx.fillRect(0, 0, W, H);
 
-    // 복싱 링 네온 로프 (좌우 3선)
-    ctx.strokeStyle = "rgba(255, 42, 75, 0.35)"; ctx.lineWidth = 3;
-    const ropeHeights = [H * 0.45, H * 0.60, H * 0.75];
-    ropeHeights.forEach((ry) => {
-      ctx.beginPath(); ctx.moveTo(0, ry - 40); ctx.lineTo(W * 0.35, ry); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(W, ry - 40); ctx.lineTo(W * 0.65, ry); ctx.stroke();
+    const spotR = ctx.createRadialGradient(W * 0.75, 0, 10, W * 0.65, H * 0.55, W * 0.4);
+    spotR.addColorStop(0, "rgba(255, 0, 119, 0.22)");
+    spotR.addColorStop(0.6, "rgba(255, 0, 119, 0.05)");
+    spotR.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = spotR; ctx.fillRect(0, 0, W, H);
+
+    // 복싱 링 코너 기둥 (Corner Posts)
+    ctx.strokeStyle = "rgba(100, 116, 139, 0.6)"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(W * 0.08, H * 0.35); ctx.lineTo(W * 0.08, H * 0.88); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W * 0.92, H * 0.35); ctx.lineTo(W * 0.92, H * 0.88); ctx.stroke();
+
+    // 복싱 링 네온 로프 (좌/우 3선 네온 로프)
+    const ropeHeights = [H * 0.44, H * 0.58, H * 0.72];
+    ropeHeights.forEach((ry, idx) => {
+      ctx.strokeStyle = idx === 0 ? "rgba(0, 210, 255, 0.45)" : (idx === 1 ? "rgba(255, 215, 0, 0.4)" : "rgba(255, 42, 75, 0.45)");
+      ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(W * 0.08, ry); ctx.lineTo(W * 0.38, ry + 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W * 0.92, ry); ctx.lineTo(W * 0.62, ry + 15); ctx.stroke();
     });
 
-    // 바닥 복싱 링 매트 그리드
+    // 바닥 복싱 링 매트 그리드 & 센터 서클
     const horizon = H * 0.72;
-    ctx.strokeStyle = "rgba(255, 75, 114, 0.15)"; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.18)"; ctx.lineWidth = 1.5;
     for (let i = 0; i < 5; i++) {
       const y = horizon + Math.pow(i / 4, 1.8) * (H - horizon);
-      ctx.beginPath(); ctx.moveTo(W * 0.1, y); ctx.lineTo(W * 0.9, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W * 0.05, y); ctx.lineTo(W * 0.95, y); ctx.stroke();
     }
   } else if (mode === "beat") {
     // 🕺 비트세이버 소실점 레이저 터널
@@ -4030,13 +4054,13 @@ function drawBackground(color, camAlpha = 0.20) {
   }
   ctx.restore();
 
-  // 3. 실시간 플레이어 웹캠 비디오 (방 안 잡동사니 간섭 차단 -> 은은한 네온 실루엣 0.18 알파로 아바타처럼 합성)
+  // 3. 실시간 플레이어 웹캠 비디오 (방 안 잡동사니 노출 완전 차단 -> 은은한 네온 실루엣 0.12 알파로 아바타처럼 일체화)
   if (!useMouse && video && video.readyState >= 2) {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save();
     ctx.translate(W, 0); ctx.scale(-1, 1);
-    ctx.globalAlpha = 0.18; // 방 가구와 벽지 노출을 최소화하고 플레이어 움직임만 신비롭게 비춤
+    ctx.globalAlpha = 0.12; // 방 가구와 벽지 노출을 차단하고 플레이어의 빠른 손놀림만 은은하게 비춤
     try {
       ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
     } catch {}

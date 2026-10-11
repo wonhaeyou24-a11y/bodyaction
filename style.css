@@ -688,19 +688,22 @@ body.tv-fullscreen-mode .hub {
   background: #b91c1c;
 }
 
-/* 중앙 상단 가이드 배너 */
+/* 중앙 상단 가이드 배너 (상단 헤더 바로 아래 밀착시켜 게임 필드 중앙 시야 100% 확보) */
 .hud-guide-banner {
-  align-self: center;
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
   pointer-events: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 18px;
+  padding: 5px 16px;
   border-radius: 999px;
-  background: rgba(20, 6, 43, 0.85);
+  background: rgba(16, 6, 36, 0.9);
   border: 1px solid rgba(0, 210, 255, 0.35);
-  box-shadow: 0 4px 20px rgba(0, 210, 255, 0.25);
-  margin-top: -10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10;
 }
 
 .guide-icon {
