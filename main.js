@@ -21,11 +21,18 @@ addEventListener("resize", resize); resize();
 let actx, master, bgmBus, noiseBuf, soundOn = true, voiceOn = true;
 function ac() {
   if (!actx) {
-    actx = new AudioContext();
+    actx = new (window.AudioContext || window.webkitAudioContext)();
     master = actx.createGain();
-    const comp = actx.createDynamicsCompressor();          // 소리가 겹쳐도 깨지지 않게
+    const comp = actx.createDynamicsCompressor();          // 소리가 겹쳐도 깨지지 않고 웅장하게 마스터링
+    comp.threshold.setValueAtTime(-14, actx.currentTime);
+    comp.knee.setValueAtTime(30, actx.currentTime);
+    comp.ratio.setValueAtTime(5, actx.currentTime);
+    comp.attack.setValueAtTime(0.003, actx.currentTime);
+    comp.release.setValueAtTime(0.25, actx.currentTime);
     master.connect(comp).connect(actx.destination);
-    bgmBus = actx.createGain(); bgmBus.gain.value = 0.5; bgmBus.connect(master);
+    bgmBus = actx.createGain();
+    bgmBus.gain.value = 0.85; // 웅장하고 선명하게 들리도록 BGM 게인 상향 (기존 0.5)
+    bgmBus.connect(master);
   }
   if (actx.state === "suspended") actx.resume();
   master.gain.value = soundOn ? 1 : 0;
@@ -125,8 +132,11 @@ const sfx = {
   levelUp() { const t = ac().currentTime; [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.07, 0.25, "square", 0.08)); },
   saber(x, left) {
     const t = ac().currentTime, p = panOf(x);
-    tone(left ? 620 : 880, t, 0.12, "sawtooth", 0.18, 220, p);
-    noise(t, 0.08, 0.2, 4000, p);
+    // 1. 묵직한 서브우퍼 베이스 임팩트 펀치 (가슴을 울리는 비트세이버 타격감, 175Hz -> 30Hz 하향)
+    tone(left ? 175 : 155, t, 0.14, "sine", 0.46, 30, p);
+    // 2. 찰진 일렉트릭 플라즈마 파열음 (화이트 노이즈 2600Hz + 고속 톱니파 슬라이스 사운드)
+    tone(left ? 1100 : 900, t, 0.08, "sawtooth", 0.22, 260, p);
+    noise(t, 0.09, 0.32, 2600, p);
   },
   spell(x, type) {
     const t = ac().currentTime, p = panOf(x);
@@ -202,7 +212,7 @@ const BEAT_TRACKS = [
     prog: [0, 5, 7, 3],
     wave: "sawtooth",
     drums: "edm",
-    vol: 0.65,
+    vol: 0.88,
     noteSpeed: 1.15,
     tagColor: "#00d2ff"
   },
@@ -215,8 +225,8 @@ const BEAT_TRACKS = [
     scale: [0, 2, 4, 7, 9],
     prog: [0, 7, 9, 5],
     wave: "square",
-    drums: "pop",
-    vol: 0.6,
+    drums: "edm",
+    vol: 0.85,
     noteSpeed: 1.0,
     tagColor: "#ff3377"
   },
@@ -224,13 +234,13 @@ const BEAT_TRACKS = [
     id: "laser",
     title: "🔥 Glitch Laser Blast",
     genre: "HARDSTYLE DNB",
-    bpm: 152,
+    bpm: 150,
     root: 196,
     scale: [0, 1, 5, 7, 8],
     prog: [0, 0, 5, 3],
     wave: "sawtooth",
-    drums: "taiko",
-    vol: 0.65,
+    drums: "edm",
+    vol: 0.88,
     noteSpeed: 1.25,
     tagColor: "#ffd700"
   },
@@ -238,13 +248,13 @@ const BEAT_TRACKS = [
     id: "bounce",
     title: "✨ Future Bass Bounce",
     genre: "FUTURE BASS",
-    bpm: 122,
+    bpm: 124,
     root: 293.66,
     scale: [0, 3, 5, 7, 8],
     prog: [0, 5, 7, 0],
     wave: "triangle",
     drums: "edm",
-    vol: 0.58,
+    vol: 0.85,
     noteSpeed: 0.95,
     tagColor: "#00ffaa"
   },
@@ -252,13 +262,13 @@ const BEAT_TRACKS = [
     id: "cyberpunk",
     title: "🌙 Midnight Cyberpunk",
     genre: "DARK TECHNO",
-    bpm: 136,
+    bpm: 134,
     root: 174.61,
     scale: [0, 3, 5, 6, 7, 10],
     prog: [0, 3, 5, 7],
     wave: "sawtooth",
-    drums: "drone",
-    vol: 0.62,
+    drums: "edm",
+    vol: 0.86,
     noteSpeed: 1.08,
     tagColor: "#b04dff"
   }
@@ -266,56 +276,77 @@ const BEAT_TRACKS = [
 let lastBeatTrackIdx = -1;
 
 const BGM = {
-  balloon: { bpm: 112, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop" },
-  ninja:   { bpm: 124, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "square", drums: "taiko", vol: 0.55 },
-  mole:    { bpm: 120, root: 329.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 5, 7], wave: "square", drums: "pop", vol: 0.5 },
-  space:   { bpm: 92, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone" },
+  balloon: { bpm: 112, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.65 },
+  ninja:   { bpm: 124, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "square", drums: "taiko", vol: 0.70 },
+  mole:    { bpm: 120, root: 329.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
+  space:   { bpm: 92, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone", vol: 0.65 },
   draw:    { bpm: 76, root: 196, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "sine", drums: "none", vol: 0.5 },
-  dodge:   { bpm: 132, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 3, 5, 7], wave: "square", drums: "pop", vol: 0.45 },
-  pose:    { bpm: 116, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 0], wave: "triangle", drums: "pop", vol: 0.55 },
-  brick:   { bpm: 118, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 7, 5, 7], wave: "square", drums: "pop", vol: 0.45 },
-  leak:    { bpm: 104, root: 246.94, scale: [0, 2, 4, 7, 9], prog: [0, 5, 3, 5], wave: "sine", drums: "pop", vol: 0.5 },
-  runner:  { bpm: 138, root: 220, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.45 },
-  kungfu:  { bpm: 128, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.5 },
-  versus:  { bpm: 130, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sawtooth", drums: "pop", vol: 0.45 },
+  dodge:   { bpm: 132, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 3, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
+  pose:    { bpm: 116, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 0], wave: "triangle", drums: "pop", vol: 0.70 },
+  brick:   { bpm: 118, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 7, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
+  leak:    { bpm: 104, root: 246.94, scale: [0, 2, 4, 7, 9], prog: [0, 5, 3, 5], wave: "sine", drums: "pop", vol: 0.65 },
+  runner:  { bpm: 138, root: 220, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
+  kungfu:  { bpm: 128, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.70 },
+  versus:  { bpm: 130, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sawtooth", drums: "pop", vol: 0.65 },
   beat:    { ...BEAT_TRACKS[0] },
   magic:   { bpm: 98, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sine", drums: "none", vol: 0.5 },
-  keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.5 },
-  box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.55 },
+  keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
+  box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.70 },
 };
 const ARP = [0, 2, 1, 3, 2, 4, 3, 1];
 let bgmNext = 0, bgmStep = 0;
-function bgmStart() { ac(); bgmNext = actx.currentTime + 0.15; bgmStep = 0; }
-function bgmTick() {
+function bgmStart() { ac(); bgmNext = actx.currentTime + 0.05; bgmStep = 0; }
+function bgmTick(isIntro = false) {
   const c = BGM[mode];
   if (!c || !playing || !actx) return;
   while (bgmNext < actx.currentTime + 0.25) {
-    const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = c.prog[bar % 4], t = bgmNext, v = c.vol ?? 0.7;
-    const speed = 1 + Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0);
+    const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = c.prog[bar % 4], t = bgmNext, v = (c.vol ?? 0.8) * (isIntro ? 0.75 : 1.0);
+    const speed = 1 + (isIntro ? 0 : Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0));
     bgmNext += 60 / (c.bpm * speed) / 2;
     const f = (semi, oct = 1) => c.root * oct * 2 ** ((semi + ch) / 12);
-    if (s % 2 === 0) tone(f(0, 0.5), t, 0.25, "triangle", 0.16 * v, undefined, undefined, bgmBus);          // 베이스
-    if ((c.drums !== "drone" || s % 4 === 0) && Math.random() < 0.75) {                                     // 멜로디(좌우로 번갈아)
-      const idx = (ARP[s] + (bar % 2)) % c.scale.length;
-      tone(f(c.scale[idx], 2), t, 0.2, c.wave, 0.07 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+
+    // 1. 묵직한 서브 베이스라인 (Triangle & Sawtooth)
+    if (s % 2 === 0) {
+      tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
     }
+
+    // 2. 신스 리드 멜로디 (인기 EDM 아르페지오) - 인트로 동안에는 은은하게 서포트
+    if (!isIntro || (bar >= 1 && s % 4 === 0)) {
+      if ((c.drums !== "drone" || s % 4 === 0) && Math.random() < 0.82) {
+        const idx = (ARP[s] + (bar % 2)) % c.scale.length;
+        tone(f(c.scale[idx], 2), t, 0.18, c.wave, 0.14 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+      }
+    }
+
+    // 3. 비트 드럼 엔진 (4-on-the-floor EDM & POP)
     if (c.drums === "edm") {
-      // 강력한 4-on-the-floor 펀치 킥
-      if (s % 2 === 0) tone(160, t, 0.18, "sine", 0.38 * v, 38, undefined, bgmBus);
-      // 오프비트 오픈 하이햇
-      if (s % 2 === 1) noise(t, 0.06, 0.05 * v, 6500, ((s % 4) - 1.5) / 3, bgmBus);
-      // 클랩/스네어 (2, 6박자)
-      if (s === 2 || s === 6) noise(t, 0.11, 0.12 * v, 2400, undefined, bgmBus);
+      // 💥 강력한 4-on-the-floor 펀치 서브 킥 (정박 s=0, 2, 4, 6)
+      if (s % 2 === 0) {
+        tone(175, t, 0.18, "sine", 0.58 * v, 36, undefined, bgmBus);
+        // 비트 플래시 시각적 펄스 연동 (정박 킥에 칼같이 점등!)
+        if (mode === "beat" && games.beat) {
+          games.beat.beatFlash = Math.max(games.beat.beatFlash || 0, isIntro ? 0.45 : 0.85);
+        }
+      }
+      // 🎶 찰진 일렉트릭 스네어 & 클랩 (2, 4박자 정박 - s=2, 6)
+      if (!isIntro && (s === 2 || s === 6)) {
+        tone(210, t, 0.12, "sine", 0.32 * v, 80, undefined, bgmBus);
+        noise(t, 0.13, 0.22 * v, 2400, undefined, bgmBus);
+      }
+      // ⚡ 오프비트 오픈 하이햇 (엇박 s=1, 3, 5, 7)
+      if (s % 2 === 1) {
+        noise(t, 0.07, 0.09 * v, 7500, ((s % 4) - 1.5) / 3, bgmBus);
+      }
     } else if (c.drums === "pop") {
-      if (s % 4 === 0) tone(140, t, 0.16, "sine", 0.3 * v, 45, undefined, bgmBus);
-      if (s === 2 || s === 6) noise(t, 0.1, 0.08 * v, 1800, undefined, bgmBus);
-      noise(t, 0.03, 0.035 * v, 7000, ((s % 2) - 0.5) / 2, bgmBus);
+      if (s % 4 === 0) tone(145, t, 0.18, "sine", 0.42 * v, 42, undefined, bgmBus);
+      if (s === 2 || s === 6) noise(t, 0.12, 0.14 * v, 2000, undefined, bgmBus);
+      noise(t, 0.04, 0.05 * v, 7200, ((s % 2) - 0.5) / 2, bgmBus);
     } else if (c.drums === "taiko") {
-      if (s === 0 || s === 3 || s === 4 || s === 7) tone(100, t, 0.25, "sine", 0.4 * v, 40, undefined, bgmBus);
-      if (s === 2 || s === 6) noise(t, 0.1, 0.1 * v, 1000, undefined, bgmBus);
+      if (s === 0 || s === 3 || s === 4 || s === 7) tone(110, t, 0.25, "sine", 0.5 * v, 38, undefined, bgmBus);
+      if (s === 2 || s === 6) noise(t, 0.12, 0.16 * v, 1100, undefined, bgmBus);
     } else if (c.drums === "drone") {
-      if (s === 0) { tone(f(0, 0.5), t, 1.8, "sawtooth", 0.05, undefined, -0.4, bgmBus); tone(f(0, 0.5) * 1.01, t, 1.8, "sawtooth", 0.05, undefined, 0.4, bgmBus); }
-      if (s % 4 === 0) tone(80, t, 0.2, "sine", 0.15, 40, undefined, bgmBus);
+      if (s === 0) { tone(f(0, 0.5), t, 1.8, "sawtooth", 0.08, undefined, -0.4, bgmBus); tone(f(0, 0.5) * 1.01, t, 1.8, "sawtooth", 0.08, undefined, 0.4, bgmBus); }
+      if (s % 4 === 0) tone(85, t, 0.2, "sine", 0.25, 38, undefined, bgmBus);
     }
   }
 }
@@ -3057,7 +3088,7 @@ const GestureMatcher = {
 // 1. 🎵 네온 노트 슬래시 (beat): 비트세이버 정통 게임플레이 디자인 (Body Motion & Parity Flow)
 // ============================================================================
 games.beat = {
-  body: true, bg: "#060312", camAlpha: 0.38,
+  body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 음악 BPM 전용 정밀 스케줄러 적용
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
     // 🎵 시작할 때마다 매번 다른 노래와 비트로 즐길 수 있도록 5종 트랙 중 랜덤 선곡 (연속 중복 방지)
@@ -3080,6 +3111,10 @@ games.beat = {
     this.laserAngle = 0; // 소실점 회전 레이저 각도
     this.beatFlash = 0; // 비트 싱크 플래시 & 페이드 조명
 
+    this.beatTimer = 0; // 🎵 음악 BPM 온비트 스폰 타이머
+    this.beatStep = 0;
+    this.lastParity = 0; // 0: 좌팔(Cyan), 1: 우팔(Magenta) 교대 리듬 플로우
+
     this.lastSwingT = [0, 0];
     this.lastCutT = [0, 0]; // 스윙 모멘텀 쿨다운 (손을 뱅글뱅글 돌리는 잔동작 무력화)
     this.prevWrist = [{ x: W * 0.35, y: H * 0.6 }, { x: W * 0.65, y: H * 0.6 }];
@@ -3099,26 +3134,32 @@ games.beat = {
   },
   spawn() {
     this.spawnCount++;
-    const speedMult = this.currentTrack ? this.currentTrack.noteSpeed : 1.0;
-    const speed = (0.33 * speedMult + elapsed() * 0.005) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
+    const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
+    const beatSec = 60 / bpm;
+    // 🎵 정확히 4비트(또는 피버 시 3비트) 비행하여 온비트 킥 드럼 소리가 울리는 순간 판정선 통과!
+    const flightBeats = currentWave === 3 ? 3 : 4;
+    const flightTime = flightBeats * beatSec;
+    const speed = 0.63 / Math.max(0.7, flightTime);
 
-    // 1. 네온 스파이크 폭탄(Bomb) 주기적 스폰 (뱅글뱅글 꼼수 방지: 7~8개 큐브마다 1개 등장)
-    const isBomb = this.spawnCount % 7 === 0 && Math.random() < 0.85;
+    // 1. 네온 스파이크 폭탄(Bomb) 주기적 스폰 (뱅글뱅글 꼼수 방지: 8개 큐브마다 1개 등장)
+    const isBomb = this.spawnCount % 8 === 0 && Math.random() < 0.75;
 
-    // 2. 전방위 3D 비행 궤적 (좌/우 4개 레인 x 상/중/하 3개 높이 레이어 = 총 12개 전방위 궤적)
+    // 2. 비트세이버 정통 패리티 플로우: 왼손(0)과 오른손(1)이 춤추듯 교대 스윙
+    this.lastParity = 1 - this.lastParity;
+    const isLeft = this.lastParity === 0;
+
     // 가로 레인: 0(좌측외곽), 1(좌측센터), 2(우측센터), 3(우측외곽)
-    const laneIdx = (Math.random() * 4) | 0;
-    const isLeft = laneIdx < 2; // 0, 1은 왼팔 파랑, 2, 3은 오른팔 분홍
-    const targetXList = [W * 0.16, W * 0.38, W * 0.62, W * 0.84];
+    const laneIdx = isLeft ? (Math.random() < 0.7 ? 1 : 0) : (Math.random() < 0.7 ? 2 : 3);
+    const targetXList = [W * 0.18, W * 0.38, W * 0.62, W * 0.82];
     const targetX = targetXList[laneIdx];
 
-    // 높이 레이어: 상단(머리 위/공중) 32%, 중단(가슴/배) 36%, 하단(허리/아래) 32%
+    // 높이 레이어: 상단(머리 위) 30%, 중단(가슴/배) 40%, 하단(허리/아래) 30%
     const heightRand = Math.random();
     let targetY = H * 0.52; // 중단
-    if (heightRand < 0.32) {
+    if (heightRand < 0.30) {
       targetY = H * 0.28; // 상단 (만세하듯 위로 올려베기/가로베기!)
-    } else if (heightRand > 0.68) {
-      targetY = H * 0.75; // 하단 (허리/아래쪽으로 시원하게 내려베기!)
+    } else if (heightRand > 0.70) {
+      targetY = H * 0.74; // 하단 (허리/아래쪽으로 시원하게 내려베기!)
     }
 
     objs.push({
@@ -3129,9 +3170,9 @@ games.beat = {
       dead: false, cut: false
     });
 
-    // 3. 네온 벽 장애물 (온몸 좌우 피하기)
+    // 3. 네온 벽 장애물 (온몸 좌우 피하기 - 16비트 주기마다 출현)
     this.wallTimer++;
-    if (this.wallTimer >= 10 && Math.random() < 0.55) {
+    if (this.wallTimer >= 14 && Math.random() < 0.5) {
       this.wallTimer = 0;
       const wallSide = Math.random() < 0.5 ? -1 : 1;
       this.walls.push({
@@ -3140,13 +3181,10 @@ games.beat = {
       });
     }
   },
-  // 현재 음악의 실제 BPM 박자에 맞춘 리듬 스폰 간격
+  // BPM 정밀 스케줄러를 자체 구현하여 interval은 예비용으로 보존
   interval() {
     const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
-    const beatSec = 60 / bpm;
-    const waveMult = currentWave === 3 ? 0.75 : currentWave === 2 ? 0.88 : 1.0;
-    const rhythm = Math.random() < 0.35 ? beatSec * 0.5 : beatSec;
-    return Math.max(0.24, rhythm * waveMult);
+    return 60 / bpm;
   },
   update(dt) {
     const judgeZ = 0.94;
@@ -3155,6 +3193,19 @@ games.beat = {
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
     this.beatFlash = Math.max(0, this.beatFlash - dt * 2.8);
     this.laserAngle += dt * 0.95;
+
+    // 🎵 음악 BPM 온비트 정밀 스폰 엔진 (BPM Sync Scheduler)
+    const bpm = this.currentTrack ? this.currentTrack.bpm : 128;
+    const beatSec = 60 / bpm;
+    this.beatTimer += dt;
+    const spawnBeat = currentWave === 3 ? (this.beatStep % 3 === 0 ? beatSec * 0.5 : beatSec) :
+                      currentWave === 2 ? (this.beatStep % 4 === 2 ? beatSec * 0.5 : beatSec) :
+                      beatSec;
+    if (this.beatTimer >= spawnBeat) {
+      this.beatTimer -= spawnBeat;
+      this.beatStep++;
+      this.spawn();
+    }
 
     // 콤보 배수
     if (combo >= 14) this.multiplier = 8;
@@ -4140,6 +4191,9 @@ function frame(now) {
       // 게임 필드 및 포즈/세이버 렌더링 (플레이어가 자신의 위치와 자세를 실시간 체크)
       g.draw();
 
+      // 🎵 카운트다운 5초 동안 심장을 뛰게 하는 인트로 비트 재생
+      bgmTick(true);
+
       // 5초 카운트다운 오버레이 UI 렌더링
       drawReadyCountdown(readyTimeLeft, Boolean(g.body));
 
@@ -4151,7 +4205,6 @@ function frame(now) {
         sfx.countdown(true); // 팡파르 시작음
         triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
         speak("시작!", true);
-        bgmStart();
         spawnTimer = 0.3;
       }
     } else {
@@ -4203,11 +4256,13 @@ function frame(now) {
 }
 
 function startGame(m) {
+  ac(); // 오디오 컨텍스트 즉시 활성화 (브라우저 유저 제스처 정책 준수)
   mode = m; score = 0; timeLeft = GAME_SECONDS; spawnTimer = 0.3;
   objs = []; halves = []; particles = []; popups = []; playing = true; body = null; shield = SHIELD_MAX; flash = 0;
   combo = 0; comboTimer = 0; maxCombo = 0;
   currentWave = 1; isFeverTime = false;
   games[m].init?.();
+  bgmStart(); // 🎵 게임 시작 직후 5초 레디 동안 인트로 비트부터 흘러나오도록 가동
   $("menu").classList.add("hidden"); $("result").classList.add("hidden"); $("hud").classList.remove("hidden");
   $("feverBorder")?.classList.add("hidden");
   const stageWave = $("stageWave");
