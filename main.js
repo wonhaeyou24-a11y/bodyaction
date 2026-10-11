@@ -94,6 +94,38 @@ const sfx = {
   start() { const t = ac().currentTime; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.09, 0.2, "triangle", 0.14)); },
   end() { const t = ac().currentTime; [784, 659, 784, 1046.5].forEach((f, i) => tone(f, t + i * 0.14, 0.3, "triangle", 0.14)); },
   levelUp() { const t = ac().currentTime; [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.07, 0.25, "square", 0.08)); },
+  saber(x, left) {
+    const t = ac().currentTime, p = panOf(x);
+    tone(left ? 620 : 880, t, 0.12, "sawtooth", 0.18, 220, p);
+    noise(t, 0.08, 0.2, 4000, p);
+  },
+  spell(x, type) {
+    const t = ac().currentTime, p = panOf(x);
+    if (type === "lightning") {
+      tone(1200, t, 0.22, "sawtooth", 0.25, 120, p);
+      noise(t, 0.25, 0.3, 1200, p);
+    } else if (type === "shield") {
+      tone(440, t, 0.35, "sine", 0.25, 880, p);
+      tone(660, t + 0.08, 0.35, "triangle", 0.2, 1320, p);
+    } else {
+      tone(220, t, 0.3, "sawtooth", 0.3, 80, p);
+      noise(t, 0.35, 0.35, 400, p);
+    }
+  },
+  gksave(x) {
+    const t = ac().currentTime, p = panOf(x);
+    tone(180, t, 0.18, "square", 0.32, 50, p);
+    noise(t, 0.15, 0.35, 1500, p);
+  },
+  goal() {
+    const t = ac().currentTime;
+    [300, 260, 220, 180].forEach((f, i) => tone(f, t + i * 0.1, 0.2, "sawtooth", 0.25));
+  },
+  bagPunch(x, heavy) {
+    const t = ac().currentTime, p = panOf(x);
+    tone(heavy ? 95 : 135, t, 0.18, "square", 0.35, 45, p);
+    noise(t, 0.1, heavy ? 0.35 : 0.22, 1200, p);
+  },
 };
 
 // 음성 안내 (브라우저 내장 한국어 음성)
@@ -114,6 +146,10 @@ const INTRO = {
   space: "유성이 온다! 지구를 지켜라!", draw: "허공에 그림을 그려 보세요! 주먹을 쥐면 멈춰요!",
   dodge: "온몸으로 돌을 피하고 동전을 모아요!",
   brick: "공을 튕겨서 벽돌을 깨요!", leak: "물이 새요! 손으로 구멍을 막아요!", runner: "점프하고, 앉아서 장애물을 피해요!", kungfu: "다가오는 적을 주먹으로 쳐요!", pose: "화면의 자세를 따라 해 보세요!", versus: "대결 시작! 먼저 터뜨려라!",
+  beat: "비트에 맞춰 날아오는 네온 큐브를 양손으로 베어요! 시작!",
+  magic: "손끝으로 마법진을 그려요! 원은 쉴드, 브이는 번개, 세모는 파이어!",
+  keeper: "골대를 향해 날아오는 슛을 온몸과 손으로 막아내요! 시작!",
+  box: "양주먹으로 샌드백을 광속으로 연타해요! 펀치 시작!",
 };
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
@@ -130,6 +166,10 @@ const BGM = {
   runner:  { bpm: 138, root: 220, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.45 },
   kungfu:  { bpm: 128, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.5 },
   versus:  { bpm: 130, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sawtooth", drums: "pop", vol: 0.45 },
+  beat:    { bpm: 128, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 5, 7, 3], wave: "sawtooth", drums: "pop", vol: 0.6 },
+  magic:   { bpm: 98, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sine", drums: "none", vol: 0.5 },
+  keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.5 },
+  box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.55 },
 };
 const ARP = [0, 2, 1, 3, 2, 4, 3, 1];
 let bgmNext = 0, bgmStep = 0;
@@ -1023,6 +1063,157 @@ const Art = {
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     } catch {}
+  },
+
+  // 8. 네온 비트 큐브 노트 (비트 슬래시 전용 3D 큐브 + 화살표)
+  drawBeatNote(x, y, r, dir, color, half = 0) {
+    try {
+      ctx.save();
+      ctx.translate(x, y);
+      if (half !== 0) {
+        ctx.beginPath();
+        ctx.rect(half < 0 ? -r * 1.5 : 0, -r * 1.5, r * 1.5, r * 3);
+        ctx.clip();
+      }
+      ctx.shadowColor = color; ctx.shadowBlur = 16;
+      ctx.fillStyle = "rgba(20, 10, 35, 0.85)";
+      ctx.strokeStyle = color; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.roundRect(-r, -r, r * 2, r * 2, 12); ctx.fill(); ctx.stroke();
+
+      // 내부 광택
+      const g = ctx.createLinearGradient(-r, -r, r, r);
+      g.addColorStop(0, color); g.addColorStop(1, "transparent");
+      ctx.fillStyle = g; ctx.globalAlpha = 0.35;
+      ctx.beginPath(); ctx.roundRect(-r + 4, -r + 4, r * 2 - 8, r * 2 - 8, 8); ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // 슬래시 방향 화살표
+      ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#ffffff"; ctx.lineWidth = 5; ctx.lineCap = "round";
+      ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 8;
+      ctx.save();
+      const angles = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0, any: 0 };
+      ctx.rotate(angles[dir] ?? 0);
+      if (dir === "any") {
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.45, 0); ctx.lineTo(r * 0.4, 0);
+        ctx.lineTo(r * 0.15, -r * 0.3); ctx.moveTo(r * 0.4, 0); ctx.lineTo(r * 0.15, r * 0.3);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.restore();
+    } catch {}
+  },
+
+  // 9. 위저드 마법진 & 룬 이펙트
+  drawMagicRune(pts, type = "rune", glowCol = "#b04dff") {
+    try {
+      if (!pts || pts.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = glowCol; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.shadowColor = glowCol; ctx.shadowBlur = 24;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.stroke();
+
+      // 궤적 중심 백색 코어
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.shadowBlur = 0;
+      ctx.stroke();
+
+      // 끝점 스파크
+      const last = pts[pts.length - 1];
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(last.x, last.y, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } catch {}
+  },
+
+  // 10. 3D 축구 골대 & 축구공 (모션 키퍼)
+  drawSoccerField(goalW, goalH, lives) {
+    try {
+      // 골대 프레임
+      const gx = W / 2 - goalW / 2, gy = H * 0.15;
+      ctx.save();
+      // 골 그물망
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.18)"; ctx.lineWidth = 1.5;
+      for (let x = gx; x <= gx + goalW; x += 32) {
+        ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(gx + (x - gx) * 0.9, gy + goalH); ctx.stroke();
+      }
+      for (let y = gy; y <= gy + goalH; y += 28) {
+        ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx + goalW, y); ctx.stroke();
+      }
+      // 흰색 골대 포스트
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 14; ctx.lineJoin = "round";
+      ctx.shadowColor = "rgba(0, 210, 255, 0.5)"; ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy + goalH); ctx.lineTo(gx, gy); ctx.lineTo(gx + goalW, gy); ctx.lineTo(gx + goalW, gy + goalH);
+      ctx.stroke();
+      ctx.restore();
+    } catch {}
+  },
+  drawSoccerBall(x, y, r, rot = 0) {
+    try {
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(rot);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)"; ctx.shadowBlur = 12;
+      // 흰색 공
+      ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = "#1a1a1a"; ctx.stroke();
+      ctx.shadowBlur = 0;
+      // 오각형 패치들
+      ctx.fillStyle = "#222222";
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2); ctx.fill();
+      for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / 5) {
+        const px = Math.cos(a) * r * 0.72, py = Math.sin(a) * r * 0.72;
+        ctx.beginPath(); ctx.arc(px, py, r * 0.22, 0, Math.PI * 2); ctx.fill();
+      }
+      // 입체 하이라이트
+      const hl = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r);
+      hl.addColorStop(0, "rgba(255,255,255,0.7)"); hl.addColorStop(1, "transparent");
+      ctx.fillStyle = hl; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } catch {}
+  },
+
+  // 11. 스피드 펀치 백 (가죽 샌드백 + 체인 + 물리 반동)
+  drawPunchBag(cx, cy, w, h, tilt = 0, flash = 0) {
+    try {
+      ctx.save();
+      ctx.translate(cx, cy - h / 2);
+      ctx.rotate(tilt);
+
+      // 천장 체인
+      ctx.strokeStyle = "#888888"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(-w * 0.3, 0); ctx.lineTo(-w * 0.1, -H * 0.2);
+      ctx.moveTo(w * 0.3, 0); ctx.lineTo(w * 0.1, -H * 0.2); ctx.stroke();
+
+      // 샌드백 본체
+      const bg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+      if (flash > 0) {
+        bg.addColorStop(0, "#ff99aa"); bg.addColorStop(0.5, "#ffffff"); bg.addColorStop(1, "#ff99aa");
+      } else {
+        bg.addColorStop(0, "#851428"); bg.addColorStop(0.35, "#d82444"); bg.addColorStop(0.7, "#ff4b72"); bg.addColorStop(1, "#520c18");
+      }
+      ctx.fillStyle = bg;
+      ctx.shadowColor = flash > 0 ? "#ff0055" : "rgba(0,0,0,0.6)"; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.roundRect(-w / 2, 0, w, h, [16, 16, w / 2, w / 2]); ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = "#400812"; ctx.stroke();
+
+      // 가죽 스티치 띠
+      ctx.fillStyle = "#220409";
+      ctx.fillRect(-w / 2, h * 0.25, w, 14);
+      ctx.fillRect(-w / 2, h * 0.7, w, 14);
+
+      // 타격 타겟 마크
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, h * 0.48, w * 0.28, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w * 0.2, h * 0.48); ctx.lineTo(w * 0.2, h * 0.48);
+      ctx.moveTo(0, h * 0.48 - w * 0.2); ctx.lineTo(0, h * 0.48 + w * 0.2); ctx.stroke();
+
+      ctx.restore();
+    } catch {}
   }
 };
 
@@ -1842,6 +2033,421 @@ games.versus = {
   },
 };
 
+// ============================================================================
+// 🔮 경량 $1 제스처 궤적 매칭 엔진 (Template Matching Engine)
+// ============================================================================
+const GestureMatcher = {
+  // 기준 마법진 템플릿 점군 (32개 점 정규화)
+  templates: {
+    circle: (() => {
+      const pts = [];
+      for (let i = 0; i < 32; i++) {
+        const a = (i / 32) * Math.PI * 2;
+        pts.push({ x: 50 + Math.cos(a) * 45, y: 50 + Math.sin(a) * 45 });
+      }
+      return pts;
+    })(),
+    v: (() => {
+      const pts = [];
+      for (let i = 0; i < 16; i++) pts.push({ x: 10 + i * 2.5, y: 15 + i * 5 });
+      for (let i = 0; i < 16; i++) pts.push({ x: 50 + i * 2.5, y: 95 - i * 5 });
+      return pts;
+    })(),
+    triangle: (() => {
+      const pts = [];
+      for (let i = 0; i < 10; i++) pts.push({ x: 50 + i * 4, y: 15 + i * 7.5 });
+      for (let i = 0; i < 11; i++) pts.push({ x: 90 - i * 8, y: 90 });
+      for (let i = 0; i < 11; i++) pts.push({ x: 10 + i * 4, y: 90 - i * 7.5 });
+      return pts;
+    })(),
+  },
+
+  resample(points, n = 32) {
+    if (points.length < 2) return points;
+    let totalLen = 0;
+    for (let i = 1; i < points.length; i++) {
+      totalLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    }
+    const I = totalLen / (n - 1);
+    let D = 0;
+    const newPts = [{ x: points[0].x, y: points[0].y }];
+    for (let i = 1; i < points.length; i++) {
+      const d = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+      if (D + d >= I) {
+        const qx = points[i - 1].x + ((I - D) / d) * (points[i].x - points[i - 1].x);
+        const qy = points[i - 1].y + ((I - D) / d) * (points[i].y - points[i - 1].y);
+        newPts.push({ x: qx, y: qy });
+        points.splice(i, 0, { x: qx, y: qy });
+        D = 0;
+      } else D += d;
+    }
+    while (newPts.length < n) newPts.push({ ...points[points.length - 1] });
+    return newPts.slice(0, n);
+  },
+
+  normalize(points) {
+    if (points.length < 2) return points;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of points) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
+    const w = Math.max(maxX - minX, 1), h = Math.max(maxY - minY, 1);
+    return points.map((p) => ({
+      x: ((p.x - minX) / w) * 100,
+      y: ((p.y - minY) / h) * 100
+    }));
+  },
+
+  match(points) {
+    if (points.length < 8) return null;
+    const resampled = this.resample([...points], 32);
+    const normalized = this.normalize(resampled);
+
+    let bestDist = Infinity, bestName = null;
+    for (const [name, tmpl] of Object.entries(this.templates)) {
+      let d = 0;
+      for (let i = 0; i < 32; i++) {
+        d += Math.hypot(normalized[i].x - tmpl[i].x, normalized[i].y - tmpl[i].y);
+      }
+      d /= 32;
+      if (d < bestDist) {
+        bestDist = d;
+        bestName = name;
+      }
+    }
+    // 유사도 판정 (평균 오차 32px 이하)
+    const score = Math.max(0, 1 - bestDist / 38);
+    return score >= 0.58 ? { name: bestName, score } : null;
+  }
+};
+
+// ============================================================================
+// 1. 🎵 네온 노트 슬래시 (beat): 양손 속도/방향 감지 리듬 액션 게임
+// ============================================================================
+games.beat = {
+  bg: "#090518", camAlpha: 0.35,
+  trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
+  init() {
+    this.halves = [];
+    this.lanes = [W * 0.3, W * 0.5, W * 0.7];
+    this.dirs = ["up", "down", "left", "right", "any"];
+  },
+  spawn() {
+    const laneX = this.lanes[(Math.random() * this.lanes.length) | 0];
+    const isLeft = laneX < W * 0.5;
+    const dir = this.dirs[(Math.random() * this.dirs.length) | 0];
+    const speedMult = currentWave === 3 ? 1.45 : currentWave === 2 ? 1.2 : 1.0;
+    objs.push({
+      x: laneX + (Math.random() - 0.5) * 40,
+      y: -60,
+      r: 44,
+      vy: (4.8 + Math.random() * 2.2) * (H / 800) * speedMult,
+      dir,
+      color: isLeft ? "#00d2ff" : "#ff3377",
+      isLeft,
+      dead: false
+    });
+  },
+  interval: () => Math.max(0.28, 0.75 - elapsed() * 0.007),
+  update(dt) {
+    for (const o of objs) o.y += o.vy * dt * 60;
+    // 슬래시 판정: 판정선 부근(H * 0.75)에서 빠른 휘두름 감지
+    for (const p of pointers) {
+      if (p.speed < 12) continue;
+      const angle = Math.atan2(p.y - p.py, p.x - p.px);
+      for (const o of objs) {
+        if (o.dead || Math.hypot(p.x - o.x, p.y - o.y) > o.r + 35 + reach) continue;
+        // 슬라이스 방향 검사
+        let dirMatch = o.dir === "any";
+        if (o.dir === "up") dirMatch = (p.y - p.py) < -6;
+        else if (o.dir === "down") dirMatch = (p.y - p.py) > 6;
+        else if (o.dir === "left") dirMatch = (p.x - p.px) < -6;
+        else if (o.dir === "right") dirMatch = (p.x - p.px) > 6;
+
+        if (dirMatch) {
+          o.dead = true;
+          sfx.saber(o.x, o.isLeft);
+          burst(o.x, o.y, o.color, 24);
+          award(o.x, o.y, 2, o.color);
+          this.halves.push(
+            { x: o.x - 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -4, vy: o.vy * 0.5, half: -1, life: 1 },
+            { x: o.x + 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 4, vy: o.vy * 0.5, half: 1, life: 1 }
+          );
+        }
+      }
+    }
+    objs = objs.filter((o) => !o.dead && o.y < H + 100);
+    for (const h of this.halves) {
+      h.x += h.vx; h.y += h.vy; h.life -= 0.035;
+    }
+    this.halves = this.halves.filter((h) => h.life > 0);
+  },
+  draw() {
+    // 사이버펑크 네온 비트 그리드
+    const judgeY = H * 0.75;
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.25)"; ctx.lineWidth = 2;
+    for (const lx of this.lanes) {
+      ctx.beginPath(); ctx.moveTo(W / 2 + (lx - W / 2) * 0.1, 0); ctx.lineTo(lx, H); ctx.stroke();
+    }
+    // 네온 판정선
+    ctx.save();
+    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.6)"; ctx.lineWidth = 4;
+    ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.moveTo(W * 0.15, judgeY); ctx.lineTo(W * 0.85, judgeY); ctx.stroke();
+    ctx.restore();
+
+    for (const o of objs) Art.drawBeatNote(o.x, o.y, o.r, o.dir, o.color, 0);
+    for (const h of this.halves) {
+      ctx.save(); ctx.globalAlpha = Math.max(h.life, 0);
+      Art.drawBeatNote(h.x, h.y, h.r, h.dir, h.color, h.half);
+      ctx.restore();
+    }
+  }
+};
+
+// ============================================================================
+// 2. 🔮 위저드 스펠 캐스터 (magic): 허공 마법진 궤적 매칭 제스처 게임
+// ============================================================================
+games.magic = {
+  bg: "#100924", camAlpha: 0.35,
+  trail: "#b04dff",
+  init() {
+    this.stroke = [];
+    this.idleTimer = 0;
+    this.lastSpell = "";
+    this.spellFx = [];
+    this.target = { x: W / 2, y: H * 0.32, hp: 100, maxHp: 100, hitFlash: 0 };
+    this.monsterType = 0;
+  },
+  update(dt) {
+    this.target.hitFlash = Math.max(0, this.target.hitFlash - dt * 3);
+    const p = pointers[0];
+    if (p && !p.fist && p.speed > 2) {
+      this.stroke.push({ x: p.x, y: p.y });
+      if (this.stroke.length > 70) this.stroke.shift();
+      this.idleTimer = 0.28;
+    } else {
+      this.idleTimer -= dt;
+      if (this.idleTimer <= 0 && this.stroke.length >= 10) {
+        // 제스처 매칭 검사
+        const res = GestureMatcher.match(this.stroke);
+        if (res) {
+          const type = res.name;
+          const tx = this.target.x, ty = this.target.y;
+          sfx.spell(tx, type);
+          if (type === "lightning") {
+            this.lastSpell = "⚡ LIGHTNING BOLT!";
+            this.target.hp -= 35;
+            burst(tx, ty, "#ffeb3b", 35);
+            award(tx, ty - 60, 5, "#ffeb3b");
+          } else if (type === "triangle") {
+            this.lastSpell = "🔥 FIREBALL EXPLOSION!";
+            this.target.hp -= 40;
+            burst(tx, ty, "#ff5500", 40);
+            award(tx, ty - 60, 6, "#ff5500");
+          } else { // circle
+            this.lastSpell = "🛡️ ARCANE SHIELD!";
+            this.target.hp -= 25;
+            burst(tx, ty, "#00d2ff", 30);
+            award(tx, ty - 60, 4, "#00d2ff");
+          }
+          this.target.hitFlash = 1;
+          this.spellFx.push({ text: this.lastSpell, life: 1, x: tx, y: ty - 100 });
+          if (this.target.hp <= 0) {
+            popup(tx, ty, "MONSTER DEFEATED!", "#ffd700");
+            sfx.levelUp();
+            this.monsterType = (this.monsterType + 1) % 3;
+            this.target.maxHp += 30;
+            this.target.hp = this.target.maxHp;
+            award(tx, ty, 15, "#ffd700");
+          }
+        }
+        this.stroke = [];
+      }
+    }
+    for (const f of this.spellFx) f.life -= dt * 0.9;
+    this.spellFx = this.spellFx.filter((f) => f.life > 0);
+  },
+  draw() {
+    // 몬스터 렌더링
+    const tx = this.target.x, ty = this.target.y;
+    ctx.save();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `${80 + Math.sin(performance.now() * 0.005) * 8}px serif`;
+    const emojis = ["👾", "🐉", "👹"];
+    ctx.fillText(emojis[this.monsterType] ?? "👾", tx, ty);
+    // 몬스터 체력 게이지
+    const bw = 240, bh = 14;
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.beginPath(); ctx.roundRect(tx - bw / 2, ty + 60, bw, bh, 6); ctx.fill();
+    const hpRate = Math.max(0, this.target.hp / this.target.maxHp);
+    ctx.fillStyle = hpRate > 0.4 ? "#ff3366" : "#ff0000";
+    ctx.beginPath(); ctx.roundRect(tx - bw / 2 + 2, ty + 62, (bw - 4) * hpRate, bh - 4, 4); ctx.fill();
+    ctx.font = "800 16px 'Rubik', sans-serif"; ctx.fillStyle = "#fff";
+    ctx.fillText(`BOSS HP: ${Math.max(0, Math.ceil(this.target.hp))}`, tx, ty + 95);
+    ctx.restore();
+
+    // 마법진 궤적
+    Art.drawMagicRune(this.stroke, "magic", "#b04dff");
+
+    // 스펠 텍스트
+    for (const f of this.spellFx) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(f.life, 0);
+      ctx.font = "900 36px 'Rubik', sans-serif";
+      ctx.fillStyle = "#ffeb3b"; ctx.shadowColor = "#ffeb3b"; ctx.shadowBlur = 20;
+      ctx.textAlign = "center"; ctx.fillText(f.text, f.x, f.y - (1 - f.life) * 40);
+      ctx.restore();
+    }
+    topHud("허공에 원(방어), V(번개), 세모(불꽃) 마법진을 그리세요!");
+  }
+};
+
+// ============================================================================
+// 3. ⚽ 모션 키퍼 골키퍼 (keeper): 3D 슛 슈퍼 세이브 스포츠 모드
+// ============================================================================
+games.keeper = {
+  body: true, bg: "#082112", camAlpha: 0.45,
+  init() {
+    this.lives = 5;
+    this.goalW = Math.min(W * 0.72, 700);
+    this.goalH = H * 0.65;
+    this.saves = 0;
+    this.flash = 0;
+  },
+  spawn() {
+    const speed = (0.28 + elapsed() * 0.005) * (currentWave === 3 ? 1.4 : currentWave === 2 ? 1.2 : 1.0);
+    const gx = W / 2 - this.goalW / 2;
+    const targetX = gx + 50 + Math.random() * (this.goalW - 100);
+    const targetY = H * 0.15 + 40 + Math.random() * (this.goalH - 80);
+    objs.push({
+      z: 0.05, speed, targetX, targetY,
+      x: W / 2, y: H * 0.45,
+      rot: 0, r: 16, dead: false, saved: false
+    });
+  },
+  interval: () => Math.max(0.42, 1.1 - elapsed() * 0.01),
+  update(dt) {
+    this.flash = Math.max(0, this.flash - dt * 2);
+    for (const b of objs) {
+      b.z += b.speed * dt * (0.8 + b.z * 1.6);
+      b.x = W / 2 + (b.targetX - W / 2) * b.z;
+      b.y = H * 0.45 + (b.targetY - H * 0.45) * b.z;
+      b.r = 16 + b.z * 46;
+      b.rot += 0.08;
+
+      // 슈퍼 세이브 판정 (공이 다가왔을 때 z >= 0.8)
+      if (!b.dead && !b.saved && b.z >= 0.78 && b.z <= 1.05) {
+        // 손 또는 전신 관절과 충돌 확인
+        let blocked = false;
+        for (const p of pointers) {
+          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + 35 + reach) { blocked = true; break; }
+        }
+        if (!blocked && body) {
+          for (let i = 0; i < body.length; i++) {
+            const pt = body[i];
+            if (pt && pt.v > 0.4 && Math.hypot(pt.x - b.x, pt.y - b.y) < b.r + 28) { blocked = true; break; }
+          }
+        }
+        if (blocked) {
+          b.saved = true;
+          this.saves++;
+          sfx.gksave(b.x);
+          burst(b.x, b.y, "#22c55e", 28);
+          award(b.x, b.y, 3, "#22c55e");
+          popup(b.x, b.y - 40, "SUPER SAVE! 🧤", "#22c55e");
+        }
+      }
+
+      // 골인 실점 판정
+      if (!b.dead && !b.saved && b.z >= 1.05) {
+        b.dead = true;
+        this.lives--;
+        this.flash = 1;
+        sfx.goal();
+        speak(this.lives === 1 ? "마지막 골 찬스예요!" : "앗, 골인!");
+        popup(b.x, b.y, "GOAL IN! ⚽", "#ff3366");
+        if (this.lives <= 0) { endGame(); return; }
+      }
+    }
+    objs = objs.filter((b) => !b.dead && b.z < 1.3);
+  },
+  draw() {
+    Art.drawSoccerField(this.goalW, this.goalH, this.lives);
+    if (!useMouse) drawSkeleton(getBody(), "rgba(34, 197, 94, 0.85)", 0.55);
+    for (const b of objs) {
+      if (b.saved) {
+        ctx.save(); ctx.globalAlpha = 0.6;
+        Art.drawSoccerBall(b.x, b.y, b.r * 0.9, b.rot);
+        ctx.restore();
+      } else {
+        Art.drawSoccerBall(b.x, b.y, b.r, b.rot);
+      }
+    }
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif";
+    ctx.fillStyle = "#fff"; ctx.fillText(heartsText(this.lives), W / 2, 104);
+    if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+    bodyHint();
+  }
+};
+
+// ============================================================================
+// 4. 🥊 스피드 펀치 백 (box): 양손 주먹 초고속 연타 피트니스 모드
+// ============================================================================
+games.box = {
+  bg: "#180a12", camAlpha: 0.45,
+  trail: "#ff4b72",
+  init() {
+    this.tilt = 0;
+    this.tiltVel = 0;
+    this.hitCool = [0, 0];
+    this.flash = 0;
+    this.punches = 0;
+    this.shake = 0;
+  },
+  update(dt) {
+    this.shake = Math.max(0, this.shake - dt);
+    this.flash = Math.max(0, this.flash - dt * 2.5);
+    // 샌드백 물리 진동 (스프링 감쇠)
+    this.tiltVel -= this.tilt * 45 * dt;
+    this.tiltVel *= 0.93;
+    this.tilt += this.tiltVel * dt;
+
+    const bw = 150, bh = Math.min(H * 0.52, 340);
+    const cx = W / 2, cy = H * 0.48;
+
+    pointers.forEach((p, i) => {
+      this.hitCool[i] = Math.max(0, (this.hitCool[i] || 0) - dt);
+      const isPunching = p.punch || p.fist || p.speed > 16;
+      if (isPunching && this.hitCool[i] <= 0) {
+        if (Math.abs(p.x - cx) < bw * 0.65 + reach && p.y > cy - bh / 2 && p.y < cy + bh / 2) {
+          this.hitCool[i] = 0.11; // 110ms 쿨다운 디바운스
+          this.punches++;
+          const heavy = p.speed > 24;
+          sfx.bagPunch(p.x, heavy);
+          this.tiltVel += (p.x < cx ? 1 : -1) * (heavy ? 0.45 : 0.28);
+          this.flash = 1;
+          this.shake = 0.12;
+          burst(p.x, p.y, heavy ? "#ffeb3b" : "#ff4b72", heavy ? 22 : 14);
+          award(p.x, p.y, heavy ? 2 : 1, "#ff4b72");
+          if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성!`, true);
+        }
+      }
+    });
+  },
+  draw() {
+    ctx.save();
+    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+    const bw = 150, bh = Math.min(H * 0.52, 340);
+    Art.drawPunchBag(W / 2, H * 0.48, bw, bh, this.tilt, this.flash);
+    ctx.restore();
+
+    ctx.textAlign = "center"; ctx.font = "900 24px 'Rubik', sans-serif"; ctx.fillStyle = "#ffd166";
+    ctx.fillText(`TOTAL PUNCHES: ${this.punches}`, W / 2, H * 0.88);
+    topHud("양주먹으로 샌드백을 광속으로 연타하세요! 펀치!");
+  }
+};
+
 const elapsed = () => GAME_SECONDS - timeLeft;
 
 // ---------- 진행 ----------
@@ -1974,7 +2580,12 @@ function toMenu() {
   showBest();
 }
 async function showBest() {
-  const modesList = [["balloon", "풍선"], ["ninja", "과일"], ["mole", "두더지"], ["space", "유성"], ["brick", "벽돌"], ["leak", "물막기"], ["kungfu", "쿵푸"], ["dodge", "피하기"], ["pose", "포즈"], ["runner", "달리기"]];
+  const modesList = [
+    ["balloon", "풍선"], ["ninja", "과일"], ["mole", "두더지"], ["space", "유성"],
+    ["brick", "벽돌"], ["leak", "물막기"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
+    ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"], ["magic", "마법"],
+    ["keeper", "골키퍼"], ["box", "펀치백"]
+  ];
   const items = await Promise.all(modesList.map(async ([m, n]) => {
     const val = await SecureStore.loadCheckpoint("best-" + m, 0);
     document.querySelectorAll(`[data-best="${m}"]`).forEach((e) => { e.textContent = (val || 0) + "점"; });   // 카드별 최고 기록
