@@ -4864,49 +4864,12 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.restore();
 }
 
-// 🎨 Stitch 프로젝트 고화질 3D 스테이지 배경 에셋 매핑
-const STAGE_IMAGES = {};
-const STAGE_SRCS = {
-  beat: "assets/stage_beat.jpg",
-  runner: "assets/stage_runner.jpg",
-  dodge: "assets/stage_dodge.jpg",
-  kungfu: "assets/stage_kungfu.jpg",
-  brick: "assets/stage_brick.jpg",
-  space: "assets/stage_space.jpg",
-  balloon: "assets/stage_balloon.jpg",
-  ninja: "assets/stage_ninja.jpg"
-};
-for (const [m, src] of Object.entries(STAGE_SRCS)) {
-  const img = new Image();
-  img.src = src;
-  STAGE_IMAGES[m] = img;
-}
-
 function drawBackground(color, camAlpha = 0.20) {
   if (!mode) { ctx.clearRect(0, 0, W, H); return; } // 메뉴에서는 투명 처리
 
-  // 1. 깊이감 있는 딥 다크 사이버 아케이드 베이스 (#0c0618)
+  // 1. 깊이감 있는 딥 다크 사이버 아케이드 베이스 (#0c0618) - 시인성 및 게임 오브젝트 식별력 극대화
   ctx.fillStyle = "#0c0618";
   ctx.fillRect(-24, -24, W + 48, H + 48);
-
-  // 🎨 Stitch 프로젝트 고화질 3D 스테이지 배경 렌더링 (점핑러너는 역동적인 패럴랙스 질주 스크롤!)
-  const stgImg = STAGE_IMAGES[mode];
-  if (stgImg && stgImg.complete && stgImg.naturalWidth > 0) {
-    ctx.save();
-    if (mode === "runner") {
-      // 🚀 점핑 러너 전용 듀얼 패럴랙스 스크롤 (원경 네온 사이버 하이웨이 배경이 속도에 맞춰 끊김 없이 질주)
-      const scrollX = -((games.runner?.dist || 0) * 0.22) % W;
-      ctx.globalAlpha = 0.58;
-      ctx.drawImage(stgImg, scrollX, 0, W, H);
-      if (scrollX < 0) {
-        ctx.drawImage(stgImg, scrollX + W, 0, W, H);
-      }
-    } else {
-      ctx.globalAlpha = 0.50;
-      ctx.drawImage(stgImg, 0, 0, W, H);
-    }
-    ctx.restore();
-  }
 
   // 2. 게임별 전용 아케이드 무대 그래픽 렌더링 (방 안 풍경 대신 게임 스테이지가 전면에 오도록 연출)
   ctx.save();
