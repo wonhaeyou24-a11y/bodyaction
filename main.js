@@ -3929,32 +3929,38 @@ for (const [m, src] of Object.entries(STAGE_SRCS)) {
   STAGE_IMAGES[m] = img;
 }
 
-function drawBackground(color, camAlpha = 0.45) {
+function drawBackground(color, camAlpha = 0.42) {
   if (!mode) { ctx.clearRect(0, 0, W, H); return; } // 메뉴에서는 투명 처리
-  // 1. 기본 배경 베이스 채우기
-  ctx.fillStyle = color;
+
+  // 1. 깊이감 있는 딥 다크 사이버 아케이드 베이스 (정적 캐릭터 그림 전면 제거로 타겟 시인성 100% 확보)
+  ctx.fillStyle = color || "#0a061a";
   ctx.fillRect(-24, -24, W + 48, H + 48);
 
-  // 2. 🌟 Stitch 고화질 3D 스테이지 아트 렌더링
-  const stageImg = STAGE_IMAGES[mode];
-  if (stageImg && stageImg.complete && stageImg.naturalWidth > 0) {
-    const iw = stageImg.naturalWidth, ih = stageImg.naturalHeight;
-    const s = Math.max((W + 48) / iw, (H + 48) / ih);
-    const sw = iw * s, sh = ih * s;
-    ctx.drawImage(stageImg, (W - sw) / 2, (H - sh) / 2, sw, sh);
-
-    // 은은한 다크 틴트 (스테이지 깊이감과 가독성 확보)
-    ctx.fillStyle = "rgba(10, 6, 26, 0.42)";
-    ctx.fillRect(-24, -24, W + 48, H + 48);
+  // 2. 가볍고 세련된 원근감 사이버 그리드 바닥 (비트세이버 / 아케이드 무대 감성, 0ms 부하)
+  ctx.save();
+  ctx.strokeStyle = "rgba(0, 210, 255, 0.12)";
+  ctx.lineWidth = 1.5;
+  const horizon = H * 0.72;
+  // 가로 라인
+  for (let i = 0; i < 6; i++) {
+    const y = horizon + Math.pow(i / 5, 2) * (H - horizon);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
+  // 세로 투시선 (소실점으로 모이는 원근 라인)
+  const cx = W / 2;
+  for (let k = -5; k <= 5; k++) {
+    const bx = cx + k * (W * 0.12);
+    ctx.beginPath(); ctx.moveTo(cx + k * 8, horizon); ctx.lineTo(bx, H); ctx.stroke();
+  }
+  ctx.restore();
 
-  // 3. 실시간 플레이어 웹캠 비디오 (Stitch 3D 무대 위에 자연스러운 반투명 합성)
+  // 3. 실시간 플레이어 웹캠 비디오 (거울 모드로 자연스러운 미러링 합성 - 시야 방해 없는 반투명 실루엣)
   if (!useMouse && video && video.readyState >= 2) {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save();
     ctx.translate(W, 0); ctx.scale(-1, 1);
-    ctx.globalAlpha = camAlpha ?? 0.40;
+    ctx.globalAlpha = camAlpha ?? 0.38;
     try {
       ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
     } catch {}
