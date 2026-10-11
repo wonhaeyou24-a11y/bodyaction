@@ -590,9 +590,15 @@
       <div class="beat-modal-title-group">
         <span class="beat-modal-badge">ARCADE MUSIC SELECT</span>
         <h2 class="beat-modal-title">🎵 네온 노트 슬래시 • 트랙 선택</h2>
-        <p class="beat-modal-desc">원하는 명곡을 선택하고 비트와 멜로디에 맞춰 신나게 슬래시하세요!</p>
+        <p class="beat-modal-desc">원하는 명곡을 선택하거나, 내 컴퓨터의 MP3 노래를 불러와서 비트세이버처럼 플레이하세요!</p>
       </div>
-      <button id="beatModalClose" class="beat-modal-close-btn" title="닫기">✕</button>
+      <div class="beat-header-actions">
+        <input type="file" id="customAudioInput" accept="audio/*" style="display: none;">
+        <button id="btnCustomMusic" class="btn-custom-music" title="내 컴퓨터의 MP3 노래를 불러와서 플레이">
+          <span style="font-size: 14px;">📂</span> 내 MP3 불러오기
+        </button>
+        <button id="beatModalClose" class="beat-modal-close-btn" title="닫기">✕</button>
+      </div>
     </div>
 
     <!-- 곡 리스트 그리드 -->
@@ -618,6 +624,6 @@
   </div>
 </div>
 
-<script type="module" src="main.js?v=20261012_0100"></script>
+<script type="module" src="main.js?v=20261012_0116"></script>
 </body>
 </html>

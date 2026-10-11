@@ -203,14 +203,16 @@ const INTRO = {
 // 🎵 네온 노트 슬래시 전용 랜덤 멀티 사운드트랙 (시작할 때마다 다양한 비트와 리듬 제공)
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
 // 🎵 네온 노트 슬래시 전용 대중적인 명곡 & EDM 사운드트랙 라인업
+// 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
+// 🎵 네온 노트 슬래시 전용 고음질 실제 실연 음원(MP3/OGG) & 대중 명곡 라인업
 const BEAT_TRACKS = [
   {
     id: "radetzky",
     title: "🎺 라데츠키 행진곡 (Radetzky March)",
-    genre: "MARCH EDM DANCE",
+    genre: "USMC ORCHESTRA MARCH",
     bpm: 140,
     root: 293.66, // D4
-    // 빰-빰-빰빰빰! 온 국민이 아는 요한 슈트라우스의 대표 행진곡 멜로디
+    audioFile: "assets/music/radetzky.mp3", // 🎵 미국 해병대 군악대 실제 오케스트라 녹음 MP3!
     melody: [
       0, 2, 4, 5,   9, null, 9, null,   9, null, 9, null,   11, null, 7, null,
       7, null, 7, null,   5, null, 4, null,   2, null, 0, null,   0, 2, 4, 5,
@@ -227,10 +229,10 @@ const BEAT_TRACKS = [
   {
     id: "virus",
     title: "⚡ 베토벤 바이러스 (Beethoven Virus)",
-    genre: "CLASSIC ROCK DANCE",
+    genre: "PATHETIQUE PIANO ROCK",
     bpm: 152,
     root: 261.63, // C4
-    // 펌프 잇 업 및 리듬게임의 영원한 레전드! 비창 소나타 3악장
+    audioFile: "assets/music/virus.ogg", // 🎵 베토벤 비창 3악장 실제 피아노 실연 음원!
     melody: [
       7, 12, 14, 15,   14, 12, 11, 12,   14, null, 7, null,   11, 12, 14, null,
       12, 11, 8, 11,   12, null, 7, null,   12, 14, 15, 17,   15, 14, 12, null,
@@ -247,10 +249,10 @@ const BEAT_TRACKS = [
   {
     id: "turkish",
     title: "⚜️ 터키 행진곡 (Turkish March Cyber)",
-    genre: "NEO CYBER MOZART",
+    genre: "MOZART PIANO DANCE",
     bpm: 138,
     root: 220, // A3
-    // 모차르트 터키 행진곡 시그니처 멜로디
+    audioFile: "assets/music/turkish.ogg", // 🎵 모차르트 터키 행진곡 실제 피아노 실연 음원!
     melody: [
       2, 0, -1, 0,   3, null, null, null,   5, 3, 2, 3,   7, null, null, null,
       8, 7, 6, 7,   14, 12, 11, 12,   14, null, 14, null,   12, 11, 9, 7,
@@ -267,10 +269,10 @@ const BEAT_TRACKS = [
   {
     id: "saints",
     title: "🥁 성자의 행진 (When the Saints)",
-    genre: "BIG BAND MARCH EDM",
+    genre: "BRASS BAND MARCH",
     bpm: 132,
     root: 261.63, // C4
-    // 누구나 흥얼거리는 흥겨운 재즈 행진곡
+    audioFile: "assets/music/saints.ogg", // 🎵 실제 브라스 밴드 연주 실연 음원!
     melody: [
       0, null, 4, null,   5, null, 7, null,   null, null, null, null,   null, null, null, null,
       0, null, 4, null,   5, null, 7, null,   null, null, null, null,   null, null, null, null,
@@ -286,11 +288,11 @@ const BEAT_TRACKS = [
   },
   {
     id: "canon",
-    title: "✨ 캐논 록 (Canon Rock EDM)",
-    genre: "NEO BAROQUE DANCE",
+    title: "✨ 캐논 변주곡 (Pachelbel's Canon)",
+    genre: "STRINGS ORCHESTRA",
     bpm: 134,
     root: 293.66, // D4
-    // 전 세계인이 사랑하는 파헬벨의 캐논 변주곡
+    audioFile: "assets/music/canon.ogg", // 🎵 실제 현악 오케스트라 실연 음원!
     melody: [
       9, null, 7, null,   5, null, 4, null,   2, null, 0, null,   2, null, 4, null,
       5, null, 4, null,   2, null, 0, null,   -1, null, -3, null,   -1, null, 0, null,
@@ -355,7 +357,43 @@ const BGM = {
 };
 const ARP = [0, 2, 1, 3, 2, 4, 3, 1];
 let bgmNext = 0, bgmStep = 0;
-function bgmStart() { ac(); bgmNext = actx.currentTime + 0.05; bgmStep = 0; }
+
+// 🎵 실제 고음질 MP3/오디오 음원 플레이어 시스템 (비트세이버급 사운드 퀄리티)
+let bgmAudio = null;
+function playRealTrackAudio(fileUrl, loop = true) {
+  try {
+    stopRealTrackAudio();
+    if (!fileUrl) return;
+    bgmAudio = new Audio(fileUrl);
+    bgmAudio.loop = loop;
+    bgmAudio.volume = soundOn ? 0.95 : 0;
+    bgmAudio.play().catch((e) => console.warn("오디오 자동재생 허용 필요:", e));
+  } catch (err) {
+    console.warn("실제 오디오 음원 로드 실패, 신스 폴백 가동:", err);
+  }
+}
+function stopRealTrackAudio() {
+  if (bgmAudio) {
+    try {
+      bgmAudio.pause();
+      bgmAudio.currentTime = 0;
+    } catch {}
+    bgmAudio = null;
+  }
+}
+
+function bgmStart() {
+  ac();
+  bgmNext = actx.currentTime + 0.05;
+  bgmStep = 0;
+  const c = BGM[mode];
+  if (c && c.audioFile) {
+    playRealTrackAudio(c.audioFile, true);
+  } else {
+    stopRealTrackAudio();
+  }
+}
+
 function bgmTick(isIntro = false) {
   const c = BGM[mode];
   if (!c || !playing || !actx) return;
@@ -365,18 +403,20 @@ function bgmTick(isIntro = false) {
     bgmNext += 60 / (c.bpm * speed) / 2;
     const f = (semi, oct = 1) => c.root * oct * 2 ** ((semi + ch) / 12);
 
-    // 1. 묵직한 서브 베이스라인 (행진곡 베이스 시퀀스 or 코드 톤)
+    // 1. 묵직한 서브 베이스라인 (실제 음원이 연주 중일 때는 과하지 않게 조화로운 저음 서포트)
     if (s % 2 === 0) {
-      if (c.bassSeq && c.bassSeq.length > 0) {
-        const bassSemi = c.bassSeq[bar % c.bassSeq.length];
-        tone(c.root * 0.5 * 2 ** (bassSemi / 12), t, 0.28, "triangle", 0.28 * v, undefined, undefined, bgmBus);
-      } else {
-        tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
+      if (!c.audioFile) {
+        if (c.bassSeq && c.bassSeq.length > 0) {
+          const bassSemi = c.bassSeq[bar % c.bassSeq.length];
+          tone(c.root * 0.5 * 2 ** (bassSemi / 12), t, 0.28, "triangle", 0.28 * v, undefined, undefined, bgmBus);
+        } else {
+          tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
+        }
       }
     }
 
-    // 2. 신스 리드 멜로디 (유명 행진곡 실제 멜로디 시퀀스 or EDM 아르페지오)
-    if (!isIntro || (bar >= 1 && s % 4 === 0)) {
+    // 2. 신스 리드 멜로디 (실제 오디오 음원이 없을 때만 신스 멜로디 연주, 있으면 실제 음원이 노래를 연주!)
+    if (!c.audioFile && (!isIntro || (bar >= 1 && s % 4 === 0))) {
       if (c.melody && c.melody.length > 0) {
         const noteIdx = e % c.melody.length;
         const semi = c.melody[noteIdx];
@@ -4382,6 +4422,7 @@ function animateScoreRoll(targetScore) {
 
 function endGame() {
   playing = false;
+  stopRealTrackAudio();
   $("hud").classList.add("hidden");
   $("feverBorder")?.classList.add("hidden");
   $("waveBanner")?.classList.add("hidden");
@@ -4543,12 +4584,18 @@ let selectedBeatTrackId = "radetzky"; // 기본 선택곡: 라데츠키 행진�
 let previewStopTimer = null;
 let isPreviewing = false;
 let currentPreviewTrackId = null;
+let previewAudio = null;
 
 function stopTrackPreview() {
   if (previewStopTimer) {
     clearTimeout(previewStopTimer);
     previewStopTimer = null;
   }
+  if (previewAudio) {
+    try { previewAudio.pause(); previewAudio.currentTime = 0; } catch {}
+    previewAudio = null;
+  }
+  stopRealTrackAudio();
   isPreviewing = false;
   currentPreviewTrackId = null;
   document.querySelectorAll(".track-preview-btn").forEach((btn) => {
@@ -4574,10 +4621,21 @@ function playTrackPreview(track) {
       activeBtn.textContent = "⏹ 정지";
     }
 
-    // 8마디 동안 신나는 멜로디와 펀치 킥 미리듣기 재생
+    // 🎵 실제 고음질 MP3/오디오 실연 음원이 있으면 스튜디오 음질로 즉시 미리듣기 재생!
+    if (track.audioFile) {
+      previewAudio = new Audio(track.audioFile);
+      previewAudio.volume = soundOn ? 0.95 : 0;
+      previewAudio.play().catch((e) => console.warn("미리듣기 재생 권한:", e));
+      previewStopTimer = setTimeout(() => {
+        stopTrackPreview();
+      }, 15000);
+      return;
+    }
+
+    // 실제 오디오 파일이 없는 트랙은 8마디 신스 멜로디 시연
     const t0 = actx.currentTime + 0.05;
     const bpm = track.bpm || 132;
-    const stepDur = 60 / bpm / 2; // 8분음표 단위
+    const stepDur = 60 / bpm / 2;
     const totalSteps = 32;
 
     for (let step = 0; step < totalSteps; step++) {
@@ -4585,21 +4643,13 @@ function playTrackPreview(track) {
       const s = step % 8;
       const v = (track.vol ?? 0.8) * 0.75;
 
-      // 1. 묵직한 서브 베이스 킥
-      if (s % 2 === 0) {
-        tone(175, t, 0.16, "sine", 0.45 * v, 36, undefined, bgmBus);
-      }
-      // 2. 찰진 스네어 (2, 4박)
+      if (s % 2 === 0) tone(175, t, 0.16, "sine", 0.45 * v, 36, undefined, bgmBus);
       if (s === 2 || s === 6) {
         tone(210, t, 0.1, "sine", 0.25 * v, 80, undefined, bgmBus);
         noise(t, 0.11, 0.18 * v, 2400, undefined, bgmBus);
       }
-      // 3. 오픈 하이햇
-      if (s % 2 === 1) {
-        noise(t, 0.06, 0.08 * v, 7500, undefined, bgmBus);
-      }
+      if (s % 2 === 1) noise(t, 0.06, 0.08 * v, 7500, undefined, bgmBus);
 
-      // 4. 멜로디 시퀀스 연주
       if (track.melody && track.melody.length > 0) {
         const noteIdx = step % track.melody.length;
         const semi = track.melody[noteIdx];
@@ -4674,6 +4724,7 @@ function openBeatTrackSelector() {
 
   BEAT_TRACKS.forEach((track) => {
     const isAct = selectedBeatTrackId === track.id;
+    const isRealAudio = Boolean(track.audioFile);
     html += `
       <div class="beat-track-card ${isAct ? "active" : ""}" data-track-id="${track.id}" style="border-left: 4px solid ${track.tagColor};">
         <div class="track-card-top">
@@ -4681,6 +4732,7 @@ function openBeatTrackSelector() {
             <span class="track-genre-badge" style="background: ${track.tagColor}26; color: ${track.tagColor}; border: 1px solid ${track.tagColor}4d;">
               ${track.genre}
             </span>
+            ${isRealAudio ? `<span style="font-size: 10px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 6px;">🎧 실제 음원</span>` : ""}
           </div>
           <div class="track-card-title">${track.title}</div>
         </div>
@@ -4738,6 +4790,41 @@ $("beatModalStart")?.addEventListener("click", () => {
   closeBeatTrackSelector();
   games.beat.chosenTrackId = selectedBeatTrackId;
   startGame("beat");
+});
+
+// 📂 내 컴퓨터의 실제 MP3 노래 불러오기 (비트세이버 커스텀 송 로더)
+const customAudioInput = $("customAudioInput");
+const btnCustomMusic = $("btnCustomMusic");
+btnCustomMusic?.addEventListener("click", () => {
+  customAudioInput?.click();
+});
+customAudioInput?.addEventListener("change", (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const blobUrl = URL.createObjectURL(file);
+    const fileName = file.name.replace(/\.[^/.]+$/, "");
+    const customTrack = {
+      id: "custom_" + Date.now(),
+      title: "🎵 " + fileName,
+      genre: "CUSTOM USER MP3",
+      bpm: 136,
+      root: 261.63,
+      audioFile: blobUrl,
+      drums: "edm",
+      vol: 0.95,
+      noteSpeed: 1.15,
+      tagColor: "#ec4899"
+    };
+    BEAT_TRACKS.unshift(customTrack);
+    selectedBeatTrackId = customTrack.id;
+    openBeatTrackSelector();
+    popup(W / 2, H * 0.45, `📂 내 노래 불러오기 완료: ${fileName}`, "#ec4899");
+    speak("내 노래가 준비되었습니다! 시작 버튼을 눌러주세요!");
+  } catch (err) {
+    console.error("MP3 파일 로드 실패:", err);
+    alert("오디오 파일을 불러오지 못했습니다.");
+  }
 });
 
 document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", async () => {
