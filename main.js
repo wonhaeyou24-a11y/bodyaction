@@ -395,7 +395,7 @@ let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
 let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
-let lastHandInferTime = 0, lastPoseInferTime = 0;
+let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 let bodyVelocities = []; // 관절별 60 FPS 외삽용 속도 벡터
 let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 되었는지 여부
@@ -423,16 +423,16 @@ function updatePointers() {
     pts = [{ x: mouse.x, y: mouse.y }];
   } else if (games[mode]?.body) {                      // 몸 게임: 전신 포즈 인식
     if (poseLandmarker && video.readyState >= 2 && !isDetectingBody) {
-      // 30 FPS 엄격한 비디오 주기 가드: 마지막 추론 후 32ms 이상일 때만 AI 추론 실행 (메인 스레드 60 FPS 보장)
-      const shouldInfer = (now - lastPoseInferTime >= 32);
+      // 추론 종료 후 최소 38ms 동안은 메인 스레드가 60 FPS 렌더링에만 전념하도록 절대적 휴식 시간 보장!
+      const shouldInfer = (now - lastPoseInferEndTime >= 38);
       if (shouldInfer) {
-        lastPoseInferTime = now;
         isDetectingBody = true;
+        const inferStart = performance.now();
         try {
           const t0 = Math.max(now, lastDetectTimestamp + 1);
           lastDetectTimestamp = t0;
           const r = poseLandmarker.detectForVideo(video, t0);
-          detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
+          detectMs = detectMs * 0.85 + (performance.now() - inferStart) * 0.15;
           if (r.landmarks && r.landmarks.length) {
             bodySeen = t0;
             const newBody = r.landmarks[0].map((l, i) => {
@@ -457,9 +457,10 @@ function updatePointers() {
           console.warn("포즈 인식 예외:", err);
         } finally {
           isDetectingBody = false;
+          lastPoseInferEndTime = performance.now(); // 추론이 끝난 시점 기준으로 쿨다운 기록!
         }
       } else if (body && body.length > 0) {
-        // 추론 스킵 프레임 (32ms 간격 사이 60 FPS 프레임): 관절 물리 속도로 60 FPS 미세 외삽
+        // 추론 휴식 구간: 관절 물리 속도로 60 FPS 미세 외삽하여 끊김 없는 실시간 반응
         for (let i = 0; i < body.length; i++) {
           const bv = bodyVelocities[i];
           if (bv && (Math.abs(bv.vx) > 0.3 || Math.abs(bv.vy) > 0.3)) {
@@ -476,8 +477,7 @@ function updatePointers() {
     camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
 
-    // AI 추론 스킵 프레임 (60 FPS 사이 프레임): 속도 벡터로 좌표를 60 FPS 전진 외삽
-    // 이 처리를 통해 curSpeed가 0.0으로 급락하는 것을 원천 차단하고 스윙/슬라이스 판정을 100% 매 프레임 보존!
+    // AI 추론 휴식 프레임 (60 FPS 렌더링 프레임): 속도 벡터로 60 FPS 전진 외삽
     if (!lastHandsInferFresh && lastHands.length > 0) {
       for (let i = 0; i < lastHands.length; i++) {
         const v = handVelocities[i];
@@ -520,22 +520,21 @@ function updatePointers() {
   }
 }
 
-// 3D 기하 제스처 판정 및 32ms 엄격 인터벌 스케줄러 탑재 손 인식 엔진
+// 3D 기하 제스처 판정 및 렌더링 전용 숨통 시간 확보 손 인식 엔진
 function detectHandsNow() {
   if (!playing || !mode || isDetectingHands || !handLandmarker || video.readyState < 2) return;
   const now = performance.now();
-  // 30 FPS 엄격한 주기 가드: 마지막 추론 후 32ms 미만이면 스킵하여 메인 스레드 60 FPS 유지!
-  if (now - lastHandInferTime < 32) return;
+  // 추론 종료 후 최소 35ms 동안은 브라우저 60 FPS 렌더링에만 전념하도록 절대적 휴식 시간 보장!
+  if (now - lastHandInferEndTime < 35) return;
   
-  const inferInterval = (now - lastHandInferTime) / 1000;
-  lastHandInferTime = now;
   isDetectingHands = true;
+  const inferStart = performance.now();
   try {
     const t0 = Math.max(now, lastDetectTimestamp + 1);
     lastDetectTimestamp = t0;
 
     const r = handLandmarker.detectForVideo(video, t0);
-    detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
+    detectMs = detectMs * 0.85 + (performance.now() - inferStart) * 0.15;
 
     const palm = ($("trackMode").value === "palm" || mode === "box") && mode !== "draw";
     reach = palm ? 32 : 12;
@@ -637,6 +636,7 @@ function detectHandsNow() {
     console.warn("손 인식 파이프라인 예외 보호:", err);
   } finally {
     isDetectingHands = false;
+    lastHandInferEndTime = performance.now(); // 추론 종료 시점 기준 쿨다운 기록!
   }
 }
 
@@ -4355,19 +4355,7 @@ async function ensureVideo() {
     // 해상도는 640x480, 프레임은 가능하면 60fps로 요청 (프레임이 많을수록 빠른 손동작도 놓치지 않음)
     video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 30 }, facingMode: "user" } });
     await video.play();
-    // 카메라 새 프레임이 도착하는 즉시 손 인식 (화면 그리기를 기다리지 않고 병렬 처리)
-    if (video.requestVideoFrameCallback && !video.__rvfc) {
-      video.__rvfc = true;
-      const pump = () => {
-        try {
-          if (handLandmarker && !useMouse && !games[mode]?.body) {
-            detectHandsNow();
-          }
-        } catch {}
-        video.requestVideoFrameCallback(pump);
-      };
-      video.requestVideoFrameCallback(pump);
-    }
+    // 카메라 및 AI 추론 파이프라인 일원화 (렌더 루프와의 중복 경합 완전 차단)
     vision = await FilesetResolver.forVisionTasks(WASM);
     return true;
   } catch (e) {
@@ -4386,20 +4374,20 @@ async function ensureModel(kind) {
   if (kind === "pose" ? poseLandmarker : handLandmarker) return true;
   $("status").textContent = kind === "pose" ? "몸 인식 준비 중… (처음엔 조금 걸려요)" : "손 인식 준비 중…";
   try {
-    // 저조도(어두운 환경) 및 빠른 모션 블러 상황에서도 손/몸을 놓치지 않도록 신뢰도 임계치 최적화 (0.28)
+    // 오인식(노이즈) 방지 및 빠른 스윙 추적력 극대화를 위한 고정밀 신뢰도 세팅
     if (kind === "pose") {
       poseLandmarker = await makeLandmarker(PoseLandmarker, POSE_MODEL, {
         numPoses: 1,
-        minPoseDetectionConfidence: 0.28,
-        minPosePresenceConfidence: 0.28,
-        minTrackingConfidence: 0.28
+        minPoseDetectionConfidence: 0.38,
+        minPosePresenceConfidence: 0.38,
+        minTrackingConfidence: 0.40
       });
     } else {
       handLandmarker = await makeLandmarker(HandLandmarker, MODEL, {
         numHands: 2, // 1인 플레이어 2손 집중 추적으로 GPU/WASM 연산량 50% 절감 & 60 FPS 즉각 반응
-        minHandDetectionConfidence: 0.28,
-        minHandPresenceConfidence: 0.28,
-        minTrackingConfidence: 0.28
+        minHandDetectionConfidence: 0.35,
+        minHandPresenceConfidence: 0.35,
+        minTrackingConfidence: 0.40
       });
     }
     $("status").textContent = "";
