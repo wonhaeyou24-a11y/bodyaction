@@ -1,0 +1,11 @@
+# OS 생성 파일
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# 로그 및 임시 파일
+*.log
+node_modules/
+.vscode/
+.idea/

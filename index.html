@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="카메라 앞에서 손과 몸으로 즐기는 모션 아케이드 게임 - KINETIC KABOOM">
+<title>KINETIC KABOOM - 손과 몸으로 놀자!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800&family=Rubik:ital,wght@0,500;0,700;0,800;0,900;1,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
+<div class="bg-ambience" aria-hidden="true">
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+</div>
+
+<video id="video" autoplay playsinline muted webkit-playsinline></video>
+<canvas id="stage"></canvas>
+
+<div id="feverBorder" class="fever-border hidden"></div>
+<div id="waveBanner" class="wave-banner hidden">
+  <div id="waveBannerText" class="wave-banner-text">WAVE 1</div>
+  <div id="waveBannerSub" class="wave-banner-sub">START!</div>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="hud-box stage-box">
+    <span class="hud-label">STAGE</span>
+    <div id="stageWave">WAVE 1</div>
+  </div>
+  <div class="hud-box score-box">
+    <span class="hud-label">SCORE</span>
+    <div id="score">0점</div>
+  </div>
+  <div class="hud-box time-box">
+    <span class="hud-label">TIME</span>
+    <div id="time">60</div>
+  </div>
+  <div class="hud-actions">
+    <button id="btnFsHud" class="candy-btn cyan-btn fs-btn" title="TV/대화면 전체화면 토글">⛶</button>
+    <button id="quit" class="candy-btn red-btn">나가기</button>
+  </div>
+</div>
+
+<!-- ================= 아케이드 허브 (Stitch 시안 반영) ================= -->
+<div id="menu" class="hub">
+  <header class="hub-top">
+    <div class="brand">
+      <div class="brand-mark"><span>⚡</span></div>
+      <div class="brand-text">
+        <strong>KINETIC KABOOM</strong>
+        <span class="brand-sub"><em>FAMILY MOTION ARCADE</em></span>
+      </div>
+    </div>
+
+    <div class="sensor-pill">
+      <div class="sensor-dot"><i></i></div>
+      <div class="sensor-text">
+        <b>LIVE MOTION SENSOR</b>
+        <span id="status">카메라 영상은 이 기기 밖으로 나가지 않아요</span>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <button id="btnFsHub" class="fs-pill" title="TV/대화면 전체화면 토글">⛶ TV 전체화면</button>
+      <div class="coin-pill">🏆 <span id="totalBest">0</span></div>
+      <div class="profile">
+        <img src="assets/avatar.jpg" alt="플레이어 캐릭터">
+        <div><b>P1 플레이어</b><small>PARTY LEADER</small></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="hub-main">
+    <!-- 필터 칩 (손놀이 / 몸놀이) -->
+    <nav class="chips" aria-label="게임 종류">
+      <button class="tab active" data-tab="hand">🖐 손놀이 (9)</button>
+      <button class="tab" data-tab="body">🕺 몸놀이 (3)</button>
+      <p class="sub" id="tabHint"></p>
+    </nav>
+
+    <!-- 히어로 배너 -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-copy">
+        <div class="hero-tags">
+          <span class="tag tag-hot">🔥 PARTY SPOTLIGHT</span>
+          <span class="tag tag-sensor">🖐 손 인식</span>
+          <span class="tag tag-soft">👥 1~2명</span>
+        </div>
+        <h1>COSMIC METEOR <span class="grad-text">DEFENSE!</span></h1>
+        <p>우주에서 날아오는 불타는 유성을 손으로 팡팡 터뜨려서 지구를 지켜요! 방어막이 모두 깨지기 전에 최고 점수에 도전!</p>
+        <div class="hero-stats">
+          <span class="hero-stars">★★★</span><b>FAMILY HIT</b>
+          <i class="sep"></i>
+          <span>기록 <b data-best="space">0점</b></span>
+          <i class="sep"></i>
+          <span class="live">● 실시간 모션 인식</span>
+        </div>
+        <div class="hero-cta">
+          <button class="mode candy-btn magenta-btn big" data-mode="space">🎮 바로 플레이!</button>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <img src="assets/hero.jpg" alt="우주 유성을 피하는 귀여운 우주 로봇과 토끼">
+        <div class="hero-badges"><span>⚡ MOTION CAMERA</span><span class="gold">1~2 PLAYERS</span></div>
+      </div>
+    </section>
+
+    <div class="stage-title">
+      <div class="bar"></div>
+      <div>
+        <h2>SELECT ARCADE STAGE</h2>
+        <p>카메라에서 한두 걸음 떨어져 서세요. 손을 흔들거나 휘둘러 게임을 골라요!</p>
+      </div>
+    </div>
+
+    <!-- 손놀이 카드 그리드 -->
+    <div class="modes" data-cat="hand">
+      <article class="card" style="--accent:#00d2ff">
+        <div class="card-img">
+          <img src="assets/balloon.jpg" alt="풍선을 터뜨리는 펭귄" loading="lazy">
+          <span class="chip chip-cyan">👋 손 휘두르기</span>
+          <span class="stars">★☆☆</span>
+          <span class="host">🐧 펭귄 페니</span>
+        </div>
+        <div class="card-body">
+          <h3>풍선 팡팡</h3>
+          <p>알록달록 커다란 파티 풍선을 시간이 끝나기 전에 톡톡 터뜨려요!</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="balloon">0점</b></div>
+          <button class="mode play-btn cyan" data-mode="balloon">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#e1037d">
+        <div class="card-img">
+          <img src="assets/ninja.jpg" alt="과일을 베는 닌자 고양이" loading="lazy">
+          <span class="chip chip-pink">⚔️ 슬라이스</span>
+          <span class="stars">★★☆</span>
+          <span class="host">🐱 수염 사범</span>
+        </div>
+        <div class="card-body">
+          <h3>과일 닌자</h3>
+          <p>날아오는 수박과 오렌지를 쓱싹! 폭탄은 절대 건드리면 안 돼요.</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="ninja">0점</b></div>
+          <button class="mode play-btn pink" data-mode="ninja">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#fbb500">
+        <div class="card-img">
+          <img src="assets/mole.jpg" alt="구멍에서 튀어나오는 두더지" loading="lazy">
+          <span class="chip chip-gold">🔨 반응속도</span>
+          <span class="stars">★☆☆</span>
+          <span class="host">🐹 두더지 몰리</span>
+        </div>
+        <div class="card-body">
+          <h3>두더지 팡</h3>
+          <p>쏙 올라오는 두더지를 번개같이 잡아요. 황금 토끼는 보너스!</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="mole">0점</b></div>
+          <button class="mode play-btn gold" data-mode="mole">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#8c7cff">
+        <div class="card-img">
+          <img src="assets/space.jpg" alt="유성을 막는 우주 로봇 조종사" loading="lazy">
+          <span class="chip chip-violet">☄️ 우주 방어</span>
+          <span class="stars">★★★</span>
+          <span class="host">🤖 로봇 조종사</span>
+        </div>
+        <div class="card-body">
+          <h3>우주 유성 막기</h3>
+          <p>지구로 달려오는 불타는 유성을 터뜨리고 방어막을 지켜요.</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="space">0점</b></div>
+          <button class="mode play-btn violet" data-mode="space">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#19e6c3">
+        <div class="card-img">
+          <img src="assets/brick.jpg" alt="벽돌을 깨는 로봇" loading="lazy">
+          <span class="chip chip-teal">🧱 패들 컨트롤</span>
+          <span class="stars">★★☆</span>
+          <span class="host">🤖 스파키</span>
+        </div>
+        <div class="card-body">
+          <h3>네온 벽돌깨기</h3>
+          <p>손으로 판을 움직여 에너지 볼을 튕기고 네온 벽돌을 와장창!</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="brick">0점</b></div>
+          <button class="mode play-btn teal" data-mode="brick">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#3aa0ff">
+        <div class="card-img">
+          <img src="assets/leak.jpg" alt="새는 파이프를 막는 수달" loading="lazy">
+          <span class="chip chip-blue">💧 손으로 막기</span>
+          <span class="stars">★★☆</span>
+          <span class="host">🦦 수달 오티</span>
+        </div>
+        <div class="card-body">
+          <h3>물방울 파이프</h3>
+          <p>구멍에서 물이 솟구쳐요! 손으로 꾹 눌러 막고 물이 차는 걸 막아요.</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="leak">0점</b></div>
+          <button class="mode play-btn blue" data-mode="leak">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#ff4d5e">
+        <div class="card-img">
+          <img src="assets/kungfu.jpg" alt="쿵푸 호랑이 사범" loading="lazy">
+          <span class="chip chip-red">🥊 펀치</span>
+          <span class="stars">★★★</span>
+          <span class="host">🐯 호랑이 사범</span>
+        </div>
+        <div class="card-body">
+          <h3>쿵푸 펀치 도장</h3>
+          <p>다가오는 닌자와 도깨비를 주먹으로 퍽! 폭탄은 치지 마세요.</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="kungfu">0점</b></div>
+          <button class="mode play-btn red" data-mode="kungfu">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#c26bff">
+        <div class="card-img">
+          <img src="assets/draw.jpg" alt="무지개 빛을 그리는 여우" loading="lazy">
+          <span class="chip chip-violet">🎨 창의력</span>
+          <span class="stars">★☆☆</span>
+          <span class="host">🦊 화가 폭스</span>
+        </div>
+        <div class="card-body">
+          <h3>매직 드로잉</h3>
+          <p>검지 손가락으로 허공에 빛나는 무지개 그림을 그려요.</p>
+          <div class="best-bar"><span>🎨 모드</span><b>자유 그리기</b></div>
+          <button class="mode play-btn violet" data-mode="draw">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#ff6fa8">
+        <div class="card-img">
+          <img src="assets/balloon.jpg" alt="풍선 대결" loading="lazy">
+          <span class="chip chip-pink">🤝 2인용</span>
+          <span class="stars">★★☆</span>
+          <span class="host">🔵 vs 🔴</span>
+        </div>
+        <div class="card-body">
+          <h3>2인 풍선 대결</h3>
+          <p>왼쪽 파랑팀 vs 오른쪽 분홍팀! 같은 풍선을 먼저 터뜨리면 내 점수.</p>
+          <div class="best-bar"><span>👥 모드</span><b>친구·가족 대결</b></div>
+          <button class="mode play-btn pink" data-mode="versus">▶ PLAY NOW</button>
+        </div>
+      </article>
+    </div>
+
+    <!-- 몸놀이 카드 그리드 -->
+    <div class="modes hidden" data-cat="body">
+      <article class="card" style="--accent:#ff8a3d">
+        <div class="card-img">
+          <img src="assets/hero.jpg" alt="바위를 피하는 우주 토끼" loading="lazy">
+          <span class="chip chip-gold">🏃 전신 이동</span>
+          <span class="stars">★★☆</span>
+          <span class="host">🦝 라쿤 코코</span>
+        </div>
+        <div class="card-body">
+          <h3>바위 피하기</h3>
+          <p>온몸으로 좌우로 움직여 떨어지는 바위는 피하고 코인을 모아요!</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="dodge">0점</b></div>
+          <button class="mode play-btn gold" data-mode="dodge">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#b04dff">
+        <div class="card-img">
+          <img src="assets/runner.jpg" alt="점프하는 우주 토끼" loading="lazy">
+          <span class="chip chip-violet">🦘 점프 & 숙이기</span>
+          <span class="stars">★★★</span>
+          <span class="host">🐰 우주 토끼</span>
+        </div>
+        <div class="card-body">
+          <h3>점핑 러너</h3>
+          <p>점프로 장애물을 넘고 숙여서 지나가며 끝없이 달려요!</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="runner">0점</b></div>
+          <button class="mode play-btn violet" data-mode="runner">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#19e68a">
+        <div class="card-img">
+          <img src="assets/avatar.jpg" alt="포즈를 취하는 마스코트" loading="lazy">
+          <span class="chip chip-teal">🙆 스트레칭</span>
+          <span class="stars">★☆☆</span>
+          <span class="host">🤖 코스모</span>
+        </div>
+        <div class="card-body">
+          <h3>포즈 미믹</h3>
+          <p>화면에 나오는 동작을 똑같이 따라 하면 점수가 쑥쑥 올라가요.</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="pose">0점</b></div>
+          <button class="mode play-btn teal" data-mode="pose">▶ PLAY NOW</button>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <!-- 하단 설정 바 -->
+  <footer class="hub-bar">
+    <label class="opt">🎯 인식
+      <select id="trackMode"><option value="palm">손바닥 (쉬움)</option><option value="finger">검지 끝 (정밀)</option></select>
+    </label>
+    <label class="opt"><input type="checkbox" id="optSound" checked> 🔊 사운드·BGM</label>
+    <label class="opt"><input type="checkbox" id="optVoice" checked> 🗣 음성</label>
+    <label class="opt"><input type="checkbox" id="useMouse"> 🖱 마우스 모드</label>
+    <p id="best"></p>
+  </footer>
+</div>
+
+<div id="result" class="panel glass-arcade hidden">
+  <div class="result-trophy">🏆</div>
+  <h2>STAGE CLEAR!</h2>
+  <div id="finalScore"></div>
+  <div id="finalBest"></div>
+  <div class="row">
+    <button id="again" class="candy-btn cyan-btn">다시 하기</button>
+    <button id="toMenu" class="candy-btn purple-btn">처음으로</button>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
