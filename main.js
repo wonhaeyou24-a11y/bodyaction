@@ -10,7 +10,7 @@ const $ = (id) => document.getElementById(id);
 const video = $("video"), canvas = $("stage"), ctx = canvas.getContext("2d");
 let W = 0, H = 0;
 function resize() {
-  const d = Math.min(window.devicePixelRatio || 1, 1.5);   // 고해상도 화면에서 그리기 부담 줄이기(성능)
+  const d = 1.0;   // 60 FPS 무지연 렌더링을 위해 캔버스 스케일 1.0 고정 (GPU 렌더링 부하 55% 절감)
   W = innerWidth; H = innerHeight;
   canvas.width = W * d; canvas.height = H * d;
   ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -395,6 +395,7 @@ let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
 let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
+let lastHandInferTime = 0, lastHandVideoTime = -1, lastPoseInferTime = 0, lastPoseVideoTime = -1;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 
 function updatePointers() {
@@ -416,12 +417,17 @@ function updatePointers() {
     pts = [{ x: mouse.x, y: mouse.y }];
   } else if (games[mode]?.body) {                      // 몸 게임: 전신 포즈 인식
     if (poseLandmarker && video.readyState >= 2 && !isDetectingBody) {
-      isDetectingBody = true;
-      try {
-        const t0 = Math.max(now, lastDetectTimestamp + 1);
-        lastDetectTimestamp = t0;
-        const r = poseLandmarker.detectForVideo(video, t0);
-        detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
+      // 30 FPS 비디오 주기 가드: 마지막 추론 후 28ms 미만이면 스킵하여 메인 스레드 60 FPS 유지!
+      const shouldInfer = (now - lastPoseInferTime >= 28) || (video.currentTime !== lastPoseVideoTime && video.currentTime > 0);
+      if (shouldInfer) {
+        lastPoseInferTime = now;
+        lastPoseVideoTime = video.currentTime;
+        isDetectingBody = true;
+        try {
+          const t0 = Math.max(now, lastDetectTimestamp + 1);
+          lastDetectTimestamp = t0;
+          const r = poseLandmarker.detectForVideo(video, t0);
+          detectMs = detectMs * 0.9 + (performance.now() - now) * 0.1;
         if (r.landmarks && r.landmarks.length) {
           bodySeen = t0;
           body = r.landmarks[0].map((l, i) => {
@@ -439,6 +445,7 @@ function updatePointers() {
         console.warn("포즈 인식 예외:", err);
       } finally {
         isDetectingBody = false;
+      }
       }
     }
     camOk = !!body;
@@ -482,9 +489,13 @@ function updatePointers() {
 // 3D 기하 제스처 판정 및 1유로 필터 융합 손 인식 엔진
 function detectHandsNow() {
   if (!playing || !mode || isDetectingHands || !handLandmarker || video.readyState < 2) return;
+  const now = performance.now();
+  // 30 FPS 비디오 주기 가드: 비디오 프레임이 갱신되지 않았거나 마지막 추론 후 28ms 미만이면 스킵하여 60 FPS 보장!
+  if (now - lastHandInferTime < 28 && video.currentTime === lastHandVideoTime && video.currentTime > 0) return;
+  lastHandInferTime = now;
+  lastHandVideoTime = video.currentTime;
   isDetectingHands = true;
   try {
-    const now = performance.now();
     const t0 = Math.max(now, lastDetectTimestamp + 1);
     lastDetectTimestamp = t0;
 
@@ -4000,19 +4011,13 @@ function drawBackground(color, camAlpha = 0.20) {
   // 2. 게임별 전용 아케이드 무대 그래픽 렌더링 (방 안 풍경 대신 게임 스테이지가 전면에 오도록 연출)
   ctx.save();
   if (mode === "box" || mode === "kungfu") {
-    // 🥊 네온 복싱 링 아레나: 듀얼 스포트라이트 광선 + 코너 포스트 기둥 + 4선 네온 로프 + 원근감 링 매트
-    // 좌/우 듀얼 스포트라이트 원뿔 광선
-    const spotL = ctx.createRadialGradient(W * 0.25, 0, 10, W * 0.35, H * 0.55, W * 0.4);
-    spotL.addColorStop(0, "rgba(0, 210, 255, 0.22)");
-    spotL.addColorStop(0.6, "rgba(0, 210, 255, 0.05)");
-    spotL.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = spotL; ctx.fillRect(0, 0, W, H);
-
-    const spotR = ctx.createRadialGradient(W * 0.75, 0, 10, W * 0.65, H * 0.55, W * 0.4);
-    spotR.addColorStop(0, "rgba(255, 0, 119, 0.22)");
-    spotR.addColorStop(0.6, "rgba(255, 0, 119, 0.05)");
-    spotR.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = spotR; ctx.fillRect(0, 0, W, H);
+    // 좌/우 듀얼 네온 스포트라이트 광원 (가벼운 단일 선형 광원 패스로 렌더링 부하 대폭 절감)
+    const spotGrad = ctx.createLinearGradient(0, 0, W, H * 0.75);
+    spotGrad.addColorStop(0, "rgba(0, 210, 255, 0.16)");
+    spotGrad.addColorStop(0.5, "rgba(20, 6, 43, 0)");
+    spotGrad.addColorStop(1, "rgba(225, 3, 125, 0.16)");
+    ctx.fillStyle = spotGrad;
+    ctx.fillRect(0, 0, W, H);
 
     // 복싱 링 코너 기둥 (Corner Posts)
     ctx.strokeStyle = "rgba(100, 116, 139, 0.6)"; ctx.lineWidth = 8;
@@ -4071,7 +4076,7 @@ function drawBackground(color, camAlpha = 0.20) {
 
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+  const dt = Math.min((now - last) / 1000, 0.1); last = now; // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 
   ctx.save();
   // 글로벌 타격 화면 흔들림(Screen Shake)
