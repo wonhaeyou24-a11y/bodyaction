@@ -2163,95 +2163,181 @@ const GestureMatcher = {
 // 1. 🎵 네온 노트 슬래시 (beat): 양손 속도/방향 감지 리듬 액션 게임
 // ============================================================================
 games.beat = {
-  bg: "#090518", camAlpha: 0.35,
+  bg: "#080416", camAlpha: 0.35,
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
     this.halves = [];
-    this.dirs = ["up", "down", "left", "right", "any"];
-  },
-  getLanes() {
-    return [W * 0.25, W * 0.5, W * 0.75];
+    this.lanes = [-1.5, -0.5, 0.5, 1.5]; // 4개 3D 레인
+    this.dirs = ["down", "up", "left", "right", "any"];
+    this.lastSwingT = [0, 0];
+    this.spawnAcc = 0;
   },
   spawn() {
-    const lanes = this.getLanes();
-    const laneX = lanes[(Math.random() * lanes.length) | 0];
-    const isLeft = laneX < W * 0.5;
+    const lane = this.lanes[(Math.random() * this.lanes.length) | 0];
+    const isLeft = lane < 0; // 왼쪽 2개 레인은 왼손 파랑, 오른쪽은 오른손 분홍
     const dir = this.dirs[(Math.random() * this.dirs.length) | 0];
-    const speedMult = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.15 : 1.0;
+    const speed = (0.34 + elapsed() * 0.005) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
     objs.push({
-      x: laneX + (Math.random() - 0.5) * 30,
-      y: -50,
-      r: 44,
-      vy: (4.2 + Math.random() * 2.0) * (H / 800) * speedMult,
-      dir,
+      z: 0.05, speed, lane, isLeft, dir,
       color: isLeft ? "#00d2ff" : "#ff3377",
-      isLeft,
-      dead: false
+      dead: false, cut: false
     });
   },
-  interval: () => Math.max(0.3, 0.75 - elapsed() * 0.007),
+  interval: () => Math.max(0.32, 0.72 - elapsed() * 0.006),
   update(dt) {
-    for (const o of objs) o.y += o.vy * dt * 60;
-    for (const p of pointers) {
-      if (p.speed < 6) continue;
-      for (const o of objs) {
-        if (o.dead || !segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 35)) continue;
-        let perfect = o.dir === "any";
-        if (o.dir === "up") perfect = (p.y - p.py) < -4;
-        else if (o.dir === "down") perfect = (p.y - p.py) > 4;
-        else if (o.dir === "left") perfect = (p.x - p.px) < -4;
-        else if (o.dir === "right") perfect = (p.x - p.px) > 4;
+    const judgeZ = 0.94; // 비트세이버 타격 최적 판정선
+    const now = performance.now();
 
-        o.dead = true;
-        sfx.saber(o.x, o.isLeft);
-        burst(o.x, o.y, o.color, perfect ? 28 : 16);
-        const pts = perfect ? 3 : 1;
-        award(o.x, o.y, pts, perfect ? "#ffd700" : o.color);
-        popup(o.x, o.y - 30, perfect ? "PERFECT! +3" : "GOOD! +1", perfect ? "#ffd700" : o.color);
-        this.halves.push(
-          { x: o.x - 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -5, vy: o.vy * 0.4, half: -1, life: 1 },
-          { x: o.x + 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 5, vy: o.vy * 0.4, half: 1, life: 1 }
-        );
+    // 1. 플레이어 스윙 액션 감지 (어디서든 속도/가속도 피크가 발생하면 스윙 인정!)
+    const swing = [false, false];
+    const swingDir = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+
+    pointers.forEach((p, i) => {
+      // 8px 이상 빠른 스윙이거나 마우스 클릭 스윙
+      const isFast = p.speed > 7.5 || (useMouse && mouse.down && p.speed > 3);
+      if (isFast && now - this.lastSwingT[i] > 110) {
+        swing[i] = true;
+        this.lastSwingT[i] = now;
+        swingDir[i] = { x: p.x - p.px, y: p.y - p.py };
       }
+    });
+
+    if (useMouse && mouse.down && now - this.lastSwingT[0] > 110) {
+      swing[0] = true;
+      this.lastSwingT[0] = now;
+      swingDir[0] = { x: mouse.x - (pointers[0]?.px ?? mouse.x), y: mouse.y - (pointers[0]?.py ?? mouse.y) };
     }
+
+    // 2. 노트 전진 및 판정
     for (const o of objs) {
-      if (!o.dead && o.y > H + 50) {
+      o.z += o.speed * dt * (0.8 + o.z * 1.5);
+      o.x = W / 2 + o.lane * (W * 0.22) * o.z;
+      o.y = H * 0.45 + (H * 0.32) * o.z;
+      o.r = 16 + o.z * 48;
+
+      // 비트세이버 판정 윈도우 (z: 0.82 ~ 1.08)
+      if (!o.dead && !o.cut && o.z >= 0.80 && o.z <= 1.08) {
+        let isHit = false;
+        let perfect = false;
+
+        // A. 타이밍 모션 액션 판정: 해당 손 색상(또는 단일 포인터)의 스윙 감지
+        const targetHandIdx = o.isLeft ? 0 : (pointers.length > 1 ? 1 : 0);
+        if (swing[targetHandIdx] || swing[0] || (pointers.length > 1 && swing[1])) {
+          isHit = true;
+          const sDir = swingDir[targetHandIdx] || swingDir[0];
+          // 스윙 방향 일치도 검사
+          if (o.dir === "any") perfect = true;
+          else if (o.dir === "down" && sDir.y > 3) perfect = true;
+          else if (o.dir === "up" && sDir.y < -3) perfect = true;
+          else if (o.dir === "left" && sDir.x < -3) perfect = true;
+          else if (o.dir === "right" && sDir.x > 3) perfect = true;
+          else perfect = Math.abs(o.z - judgeZ) < 0.06; // 타이밍이 극도로 정확하면 퍼펙트
+        }
+
+        // B. 직접 슬래시 충돌 판정 (포인터 궤적이 노트와 교차)
+        if (!isHit) {
+          for (const p of pointers) {
+            if (segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 35)) {
+              isHit = true; perfect = true; break;
+            }
+          }
+        }
+
+        if (isHit) {
+          o.dead = true; o.cut = true;
+          sfx.saber(o.x, o.isLeft);
+          burst(o.x, o.y, o.color, perfect ? 32 : 18);
+          const pts = perfect ? 3 : 2;
+          award(o.x, o.y, pts, perfect ? "#ffd700" : o.color);
+          popup(o.x, o.y - 40, perfect ? "PERFECT CUT! +3" : "GREAT CUT! +2", perfect ? "#ffd700" : o.color);
+          this.halves.push(
+            { x: o.x - 14, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -6, vy: -2, half: -1, life: 1 },
+            { x: o.x + 14, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 6, vy: -2, half: 1, life: 1 }
+          );
+        }
+      }
+
+      // 판정선 완전히 지나쳐 놓침 (MISS)
+      if (!o.dead && !o.cut && o.z > 1.08) {
         o.dead = true;
         combo = 0;
+        popup(o.x, o.y, "MISS", "#ff3366");
       }
     }
-    objs = objs.filter((o) => !o.dead);
+
+    objs = objs.filter((o) => !o.dead && o.z < 1.35);
     for (const h of this.halves) {
-      h.x += h.vx; h.y += h.vy; h.life -= 0.035;
+      h.x += h.vx; h.y += h.vy; h.vy += dt * 30; h.life -= 0.04;
     }
     this.halves = this.halves.filter((h) => h.life > 0);
   },
   draw() {
-    const lanes = this.getLanes();
-    const judgeY = H * 0.75;
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.25)"; ctx.lineWidth = 2;
-    for (const lx of lanes) {
-      ctx.beginPath(); ctx.moveTo(W / 2 + (lx - W / 2) * 0.15, 0); ctx.lineTo(lx, H); ctx.stroke();
-    }
+    const judgeY = H * 0.45 + (H * 0.32) * 0.94;
+
+    // 1. 3D 원근 네온 터널 레인 그리기
     ctx.save();
-    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.65)"; ctx.lineWidth = 4;
-    ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.moveTo(W * 0.1, judgeY); ctx.lineTo(W * 0.9, judgeY); ctx.stroke();
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.22)"; ctx.lineWidth = 2;
+    for (const lane of this.lanes) {
+      const farX = W / 2 + lane * (W * 0.22) * 0.08;
+      const nearX = W / 2 + lane * (W * 0.22) * 1.15;
+      ctx.beginPath();
+      ctx.moveTo(farX, H * 0.45 + (H * 0.32) * 0.08);
+      ctx.lineTo(nearX, H * 0.45 + (H * 0.32) * 1.15);
+      ctx.stroke();
+    }
+
+    // 2. 비트세이버 네온 판정 스트라이크 라인
+    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.75)";
+    ctx.lineWidth = 5; ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.moveTo(W * 0.08, judgeY); ctx.lineTo(W * 0.92, judgeY);
+    ctx.stroke();
     ctx.restore();
 
-    for (const o of objs) Art.drawBeatNote(o.x, o.y, o.r, o.dir, o.color, 0);
+    // 3. 3D 큐브 노트 렌더링 (Z축 깊이 순)
+    const sorted = [...objs].sort((a, b) => a.z - b.z);
+    for (const o of sorted) {
+      Art.drawBeatNote(o.x, o.y, o.r, o.dir, o.color, 0);
+    }
     for (const h of this.halves) {
       ctx.save(); ctx.globalAlpha = Math.max(h.life, 0);
       Art.drawBeatNote(h.x, h.y, h.r, h.dir, h.color, h.half);
       ctx.restore();
     }
-    topHud("리듬에 맞춰 네온 큐브를 양손으로 신나게 베어내세요!");
+
+    // 4. 플레이어 비트세이버 광선검(Saber Blade) 렌더링
+    pointers.forEach((p, i) => {
+      const isLeft = i === 0;
+      const col = isLeft ? "#00d2ff" : "#ff3377";
+      ctx.save();
+      ctx.strokeStyle = col; ctx.lineWidth = 10; ctx.lineCap = "round";
+      ctx.shadowColor = col; ctx.shadowBlur = 24;
+      // 손 위치에서 대각선 위로 뻗어나오는 광선검 블레이드
+      const bladeLen = 90;
+      const angle = isLeft ? -Math.PI * 0.35 : -Math.PI * 0.65;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + Math.cos(angle) * bladeLen, p.y + Math.sin(angle) * bladeLen);
+      ctx.stroke();
+      // 검 손잡이
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 5; ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    if (useMouse) {
+      ctx.save();
+      ctx.strokeStyle = "#00d2ff"; ctx.lineWidth = 9; ctx.shadowColor = "#00d2ff"; ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(mouse.x - 45, mouse.y - 75); ctx.stroke();
+      ctx.strokeStyle = "#ff3377"; ctx.shadowColor = "#ff3377";
+      ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(mouse.x + 45, mouse.y - 75); ctx.stroke();
+      ctx.restore();
+    }
+
+    topHud("리듬 박자에 맞춰 시원하게 스윙! 양손으로 베어내세요!");
   }
 };
 
-// ============================================================================
-// 2. 🔮 위저드 스펠 캐스터 (magic): 허공 마법진 궤적 매칭 제스처 게임
-// ============================================================================
 games.magic = {
   bg: "#100924", camAlpha: 0.35, manual: true,
   trail: "#b04dff",
@@ -2461,7 +2547,7 @@ games.keeper = {
 // 4. 🥊 스피드 펀치 백 (box): 양손 주먹 초고속 연타 피트니스 모드
 // ============================================================================
 games.box = {
-  bg: "#180a12", camAlpha: 0.45, manual: true,
+  bg: "#160714", camAlpha: 0.45, manual: true,
   trail: "#ff4b72",
   init() {
     this.tilt = 0;
@@ -2471,6 +2557,9 @@ games.box = {
     this.flash = 0;
     this.punches = 0;
     this.shake = 0;
+    this.targets = [];
+    this.beatTimer = 0;
+    this.beatInterval = 0.72; // 음악 BPM에 동기화된 리듬 비트 펀치 큐
   },
   update(dt) {
     this.shake = Math.max(0, this.shake - dt);
@@ -2482,55 +2571,105 @@ games.box = {
     const bw = 160, bh = Math.min(H * 0.52, 340);
     const cx = W / 2, cy = H * 0.48;
 
+    // 1. 리듬 펀치 비트 큐 생성 (음악 박자에 맞춰 샌드백으로 조여드는 타겟 링)
+    this.beatTimer += dt;
+    if (this.beatTimer >= this.beatInterval) {
+      this.beatTimer = 0;
+      const isLeft = Math.random() < 0.5;
+      this.targets.push({
+        t: 0, maxT: 0.85, isLeft,
+        text: isLeft ? "LEFT 🥊" : "RIGHT 🥊",
+        color: isLeft ? "#00d2ff" : "#ff4b72",
+        hit: false
+      });
+    }
+
+    // 2. 펀치 액션 판정 (타이밍 액션 + 자유 연타)
+    let punchOccurred = false;
+    let punchX = cx;
+
     if (useMouse) {
       this.mouseCool = Math.max(0, this.mouseCool - dt);
       if (mouse.down && this.mouseCool <= 0) {
-        if (Math.abs(mouse.x - cx) < bw * 0.8 && mouse.y > cy - bh / 2 && mouse.y < cy + bh / 2) {
-          this.mouseCool = 0.08;
-          this.punches++;
-          sfx.bagPunch(mouse.x, true);
-          this.tiltVel += (mouse.x < cx ? 1 : -1) * 0.4;
-          this.flash = 1;
-          this.shake = 0.12;
-          burst(mouse.x, mouse.y, "#ffeb3b", 22);
-          award(mouse.x, mouse.y, 2, "#ff4b72");
-          if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성!`, true);
-        }
+        this.mouseCool = 0.08;
+        punchOccurred = true;
+        punchX = mouse.x;
       }
     }
 
     pointers.forEach((p, i) => {
       this.hitCool[i] = Math.max(0, (this.hitCool[i] || 0) - dt);
-      const isPunching = p.punch || p.fist || p.speed > 10;
-      if (isPunching && this.hitCool[i] <= 0) {
-        if (Math.abs(p.x - cx) < bw * 0.8 + reach && p.y > cy - bh / 2 && p.y < cy + bh / 2) {
-          this.hitCool[i] = 0.09;
-          this.punches++;
-          const heavy = p.speed > 18 || p.punch;
-          sfx.bagPunch(p.x, heavy);
-          this.tiltVel += (p.x < cx ? 1 : -1) * (heavy ? 0.45 : 0.28);
-          this.flash = 1;
-          this.shake = 0.12;
-          burst(p.x, p.y, heavy ? "#ffeb3b" : "#ff4b72", heavy ? 22 : 14);
-          award(p.x, p.y, heavy ? 2 : 1, "#ff4b72");
-          if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성!`, true);
-        }
+      const isPunch = p.punch || p.fist || p.speed > 9.5;
+      if (isPunch && this.hitCool[i] <= 0) {
+        this.hitCool[i] = 0.09;
+        punchOccurred = true;
+        punchX = p.x;
       }
     });
+
+    if (punchOccurred) {
+      this.punches++;
+      // 리듬 타겟 타이밍 일치 검사 (타겟 링이 샌드백 중심에 맞춰지는 완벽한 순간)
+      const currentTarget = this.targets.find((tg) => !tg.hit && tg.t >= 0.65 && tg.t <= 1.0);
+      let perfect = false;
+
+      if (currentTarget) {
+        currentTarget.hit = true;
+        perfect = true;
+        award(cx, cy - 60, 3, "#ffd700");
+        popup(cx, cy - 80, "PERFECT PUNCH! 💥 +3", "#ffd700");
+      } else {
+        award(punchX, cy, 1, "#ff4b72");
+      }
+
+      sfx.bagPunch(punchX, perfect);
+      this.tiltVel += (punchX < cx ? 1 : -1) * (perfect ? 0.55 : 0.35);
+      this.flash = 1;
+      this.shake = perfect ? 0.18 : 0.1;
+      burst(cx, cy, perfect ? "#ffeb3b" : "#ff4b72", perfect ? 32 : 18);
+      if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성!`, true);
+    }
+
+    // 타겟 진행 및 소멸
+    for (const tg of this.targets) tg.t += dt / tg.maxT;
+    this.targets = this.targets.filter((tg) => tg.t <= 1.15);
   },
   draw() {
-    ctx.save();
-    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+    const cx = W / 2, cy = H * 0.48;
     const bw = 160, bh = Math.min(H * 0.52, 340);
-    Art.drawPunchBag(W / 2, H * 0.48, bw, bh, this.tilt, this.flash);
+
+    ctx.save();
+    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+
+    // 샌드백 본체 렌더링
+    Art.drawPunchBag(cx, cy, bw, bh, this.tilt, this.flash);
+
+    // 음악 박자에 맞춰 조여드는 리듬 펀치 링 & 큐 (비트 타이밍 액션)
+    for (const tg of this.targets) {
+      if (tg.hit) continue;
+      const scale = Math.max(0.2, 1.8 - tg.t * 0.8);
+      const alpha = Math.min(1, Math.max(0, 1 - Math.abs(tg.t - 0.85) * 2));
+      ctx.save();
+      ctx.strokeStyle = tg.color; ctx.lineWidth = 6;
+      ctx.shadowColor = tg.color; ctx.shadowBlur = 18;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 80 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 타겟 텍스트
+      ctx.font = "900 28px 'Rubik', sans-serif";
+      ctx.fillStyle = tg.color; ctx.textAlign = "center";
+      ctx.fillText(tg.text, cx, cy - 90 * scale);
+      ctx.restore();
+    }
     ctx.restore();
 
-    ctx.textAlign = "center"; ctx.font = "900 24px 'Rubik', sans-serif"; ctx.fillStyle = "#ffd166";
-    ctx.fillText(`TOTAL PUNCHES: ${this.punches}`, W / 2, H * 0.88);
-    topHud("양주먹으로 샌드백을 광속으로 연타하세요! 펀치!");
+    ctx.textAlign = "center"; ctx.font = "900 26px 'Rubik', sans-serif"; ctx.fillStyle = "#ffd166";
+    ctx.fillText(`TOTAL PUNCHES: ${this.punches}`, cx, H * 0.88);
+    topHud("리듬에 맞춰 양주먹을 앞으로 쭉! 뻗어 펀치를 날리세요!");
   }
 };
-
 function elapsed() { return GAME_SECONDS - timeLeft; }
 
 // ---------- 진행 ----------
