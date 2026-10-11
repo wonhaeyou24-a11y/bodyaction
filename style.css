@@ -1912,3 +1912,27 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 .t10-tabs button.active { background: var(--neon-gold); color: #3b2a00; border-color: transparent; }
 .t10-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); font-size: 0.85em; }
 .top10-list li.me .t10-name { color: #fff; }
+
+/* ------------------ 📷 카메라 세팅 안내 ------------------ */
+.guide-card { width: min(94vw, 520px); }
+.guide-step { text-align: left; }
+.guide-emoji { font-size: 2.4rem; text-align: center; }
+.guide-step h4 { margin: 4px 0 8px; font-family: var(--font-display); font-size: 1.1rem; color: #fff; text-align: center; }
+.guide-step ul { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.88rem; line-height: 1.45; }
+.guide-step li b { color: var(--neon-gold); }
+.guide-kind { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
+.guide-kind button { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.guide-kind button.active { background: var(--neon-cyan); color: #00263a; border-color: transparent; }
+#guideStart { width: 100%; margin-bottom: 8px; }
+.guide-preview { border-radius: 14px; overflow: hidden; border: 2px solid rgba(0, 210, 255, 0.5); margin-bottom: 8px; background: #000; max-height: 190px; display: flex; justify-content: center; }
+.guide-preview video { height: 190px; max-width: 100%; transform: scaleX(-1); object-fit: cover; }
+.guide-status { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); margin-bottom: 6px; font-size: 0.85rem; }
+.guide-status span { font-weight: 800; color: var(--text-dim); min-width: 2.2em; }
+.guide-status b { color: #fff; }
+.guide-status b[data-level="ok"] { color: #00e676; }
+.guide-status b[data-level="warn"], .guide-status b[data-level="far"], .guide-status b[data-level="close"], .guide-status b[data-level="partial"] { color: #ffd166; }
+.guide-status b[data-level="bad"] { color: #ff7a8a; }
+.guide-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0 4px; }
+.guide-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
+.guide-dots i.on { background: var(--neon-cyan); box-shadow: 0 0 8px var(--neon-cyan); }
+.guide-card .online-actions .primary { flex: 1; }

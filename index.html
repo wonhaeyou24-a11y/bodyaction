@@ -213,6 +213,7 @@
         </div>
         <div><b id="headerPlayerName">P1 Leo</b><small id="headerPlayerTitle">PARTY LEADER</small></div>
       </div>
+      <button id="btnSetupGuide" class="profile-switch" type="button" title="카메라 세팅 안내 (위치·밝기·인식 확인)" aria-label="카메라 세팅 안내">📷</button>
       <!-- 👨‍👩‍👧 가족 프로필 빠른 전환 -->
       <button id="btnProfileSwitch" class="profile-switch" type="button" title="플레이어 바꾸기 (가족 프로필)" aria-label="플레이어 바꾸기">🔄</button>
       <div id="profileMenu" class="profile-menu hidden" role="menu">
@@ -842,6 +843,59 @@
 <!-- 대결 중 상대 점수 (게임 화면 위에 작게) -->
 <div id="onlineHud" class="online-hud hidden">👤 <span id="ohName">상대</span> <b id="ohScore">0</b></div>
 
-<script type="module" src="main.js?v=20261012_0455"></script>
+<!-- 📷 첫 실행 안내(카메라 세팅): 위치/밝기 안내 + 손·몸이 잘 보이는지 확인 -->
+<div id="guideModal" class="online-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+  <div class="online-card guide-card">
+    <div class="online-head">
+      <h3 id="guideTitle">📷 카메라 세팅</h3>
+      <span class="beta-chip">처음 한 번만</span>
+      <button id="guideClose" class="online-x" aria-label="닫기">✕</button>
+    </div>
+
+    <section data-step="1" class="guide-step">
+      <div class="guide-emoji">📍</div>
+      <h4>1. 서는 곳 정하기</h4>
+      <ul>
+        <li>카메라(화면)에서 <b>1.5~2m</b> 떨어져 서세요. 손놀이는 팔을 뻗을 수 있는 거리면 돼요.</li>
+        <li>카메라가 <b>가슴~얼굴 높이</b>에 오면 가장 잘 보여요.</li>
+        <li>팔을 크게 휘둘러도 <b>부딪히는 물건이 없는지</b> 먼저 확인해 주세요. 아이는 어른과 함께 해요.</li>
+      </ul>
+    </section>
+
+    <section data-step="2" class="guide-step hidden">
+      <div class="guide-emoji">💡</div>
+      <h4>2. 밝게 만들기</h4>
+      <ul>
+        <li>방의 <b>불을 켜 주세요.</b> 어두우면 손과 몸을 잘 못 찾아요.</li>
+        <li><b>창문 빛이 내 뒤에서</b> 들어오면 얼굴이 어둡게 보여요. 창문을 등지지 않게 서세요.</li>
+        <li>손이 배경과 비슷한 색이면 인식이 약해질 수 있어요.</li>
+      </ul>
+    </section>
+
+    <section data-step="3" class="guide-step hidden">
+      <div class="guide-emoji">✅</div>
+      <h4>3. 잘 보이는지 확인</h4>
+      <div class="guide-kind">
+        <button type="button" data-kind="hand" class="active">✋ 손 확인</button>
+        <button type="button" data-kind="body">🧍 몸 확인 (전신)</button>
+      </div>
+      <button id="guideStart" class="online-btn primary" type="button">📷 카메라 켜서 확인하기</button>
+      <div id="guidePreviewWrap" class="guide-preview hidden"><video id="guideVideo" autoplay muted playsinline></video></div>
+      <canvas id="guideCanvas" class="hidden" width="32" height="24"></canvas>
+      <div class="guide-status"><span>밝기</span><b id="guideBright" data-level="none">카메라를 켜면 확인해요</b></div>
+      <div class="guide-status"><span>인식</span><b id="guideDetect" data-level="none">카메라를 켜면 확인해요</b></div>
+      <p class="online-note">카메라 영상은 이 기기 안에서만 쓰이고 밖으로 보내지 않아요. 카메라 없이 하려면 설정에서 ‘마우스 조작 모드’를 켜세요.</p>
+    </section>
+
+    <div id="guideDots" class="guide-dots"><i class="on"></i><i></i><i></i></div>
+    <div class="online-actions">
+      <button id="guidePrev" class="online-btn" type="button">◀ 이전</button>
+      <button id="guideSkip" class="online-btn" type="button">나중에</button>
+      <button id="guideNext" class="online-btn primary" type="button">다음 ▶</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js?v=20261012_0480"></script>
 </body>
 </html>

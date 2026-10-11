@@ -4,6 +4,7 @@ import { bus } from "./online/bus.js";
 import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js";
+import { initSetupGuide } from "./guide.js";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -5640,6 +5641,21 @@ try { profiles = new ProfileStore(localStorage, playerSettings); } catch { profi
 if (profiles) { const p = profiles.active; playerSettings.nickname = p.nickname; playerSettings.title = p.title; playerSettings.avatar = p.avatar; playerSettings.avatarId = p.avatarId; applyPlayerSettings(); }
 setupPlayerSettingsModalUI();
 setupProfileSwitcher();
+
+// 📷 첫 실행 안내(카메라 세팅): 위치/밝기 안내와 손·몸이 잘 보이는지 확인. 카메라와 인식 모델은 여기서 빌려줘요.
+const setupGuide = initSetupGuide({
+  startCamera: async (kind) => (await ensureVideo()) && (await ensureModel(kind === "body" ? "pose" : "hand")),
+  stopCamera,
+  getStream: () => video.srcObject,
+  detect: (kind) => {
+    try {
+      if (video.readyState < 2) return null;
+      if (kind === "body") return poseLandmarker?.detectForVideo(video, performance.now()).landmarks?.[0] ?? null;
+      return handLandmarker?.detectForVideo(video, performance.now()).landmarks ?? [];
+    } catch { return null; }
+  },
+});
+if (setupGuide?.shouldAutoOpen() && !playerSettings.mouseMode) setTimeout(() => setupGuide.open(), 900);   // 처음 한 번만 자동으로 보여 줌
 
 // 👥 온라인 대결(친구와 대결) 화면 연결. 이 한 줄을 지워도 혼자 하기는 그대로 동작해요.
 initOnline({
