@@ -2899,15 +2899,19 @@ games.box = {
   init() {
     this.tilt = 0;
     this.tiltVel = 0;
-    // 각 손의 샌드백 접촉 상태 관리 (wasInside, cooldown)
-    this.handStates = Array.from({ length: 4 }, () => ({ inside: false, cool: 0 }));
+    // 주먹별 펀치 궤도 FSM 상태 머신 (IDLE -> PUNCH -> RETRACT)
+    this.fistFSM = Array.from({ length: 4 }, () => ({
+      state: "IDLE",
+      lastSpeed: 0,
+      cool: 0
+    }));
     this.mouseCool = 0;
     this.flash = 0;
     this.punches = 0;
     this.shake = 0;
     this.targets = [];
     this.beatTimer = 0;
-    this.beatInterval = 0.72; // 음악 BPM 동기화 펀치 비트
+    this.beatInterval = 0.72; // 음악 비트 펀치 큐
   },
   update(dt) {
     this.shake = Math.max(0, this.shake - dt);
@@ -2918,85 +2922,109 @@ games.box = {
 
     const bw = 175, bh = Math.min(H * 0.52, 335);
     const cx = W / 2, cy = H * 0.48;
-    // 샌드백 실제 타격 바운딩 박스
-    const bagX1 = cx - bw * 0.5 - 20, bagX2 = cx + bw * 0.5 + 20;
-    const bagY1 = cy - bh * 0.5 - 20, bagY2 = cy + bh * 0.5 + 30;
 
-    // 1. 리듬 펀치 비트 큐 생성
+    // 1. 리듬 펀치 비트 큐 생성 (LEFT / RIGHT 펀치 유도)
     this.beatTimer += dt;
     if (this.beatTimer >= this.beatInterval) {
       this.beatTimer = 0;
       const isLeft = Math.random() < 0.5;
       this.targets.push({
         t: 0, maxT: 0.85, isLeft,
-        text: isLeft ? "LEFT 🥊" : "RIGHT 🥊",
+        text: isLeft ? "LEFT JAB 🥊" : "RIGHT STRAIGHT 🥊",
         color: isLeft ? "#00d2ff" : "#ff4b72",
         hit: false
       });
     }
 
-    // 2. 물리 펀치 액션 판정: 손을 가만히 두면 타격 0%!
-    // 실제 손을 샌드백을 향해 빠르게 휘두르거나(돌진 진입), 샌드백 안에서 강한 가속도 임팩트가 발생할 때만 인정!
+    // 2. 피트니스 섀도우 복싱 펀치 모션 엔진 (화면 샌드백 좌표 매칭 X -> 실제 주먹 궤도와 가속도 피크 인식 O!)
     let punchOccurred = false;
-    let punchX = cx;
+    let punchHandLeft = true;
+    let punchIntensity = 1.0;
 
+    // 마우스 모드: 클릭 또는 빠른 스와이프
     if (useMouse) {
       this.mouseCool = Math.max(0, this.mouseCool - dt);
-      const mouseInBag = mouse.x >= bagX1 && mouse.x <= bagX2 && mouse.y >= bagY1 && mouse.y <= bagY2;
-      if (mouse.down && mouseInBag && this.mouseCool <= 0) {
-        this.mouseCool = 0.14;
+      if (mouse.down && this.mouseCool <= 0) {
+        this.mouseCool = 0.15;
         punchOccurred = true;
-        punchX = mouse.x;
+        punchHandLeft = mouse.x < W / 2;
+        punchIntensity = 1.2;
       }
     }
 
+    // 웹캠 손인식: 양손 펀치 궤도 & 가속도 피크(Peak Acceleration) 판정
     pointers.forEach((p, i) => {
-      const st = this.handStates[i] ?? (this.handStates[i] = { inside: false, cool: 0 });
-      st.cool = Math.max(0, st.cool - dt);
+      const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = { state: "IDLE", lastSpeed: 0, cool: 0 });
+      fsm.cool = Math.max(0, fsm.cool - dt);
 
-      // 손이 샌드백 영역 안에 있는지 여부
-      const isInside = p.x >= bagX1 && p.x <= bagX2 && p.y >= bagY1 && p.y <= bagY2;
+      // 손의 위치에 따라 왼주먹 / 오른주먹 자동 구분
+      const isLeftFist = p.x < W / 2;
+      const spd = p.speed;
 
-      // 🥊 엄격한 물리 펀치 판정 규칙:
-      // A) 반드시 샌드백 영역(Hitbox) 내부여야 함.
-      // B) 손을 가만히 대고 있는 정지 상태(p.speed < 7.5)는 절대 타격 불가!
-      // C) 바깥에서 샌드백으로 빠르게 돌진 진입(!st.inside && isInside && p.speed > 8.0)
-      // D) 또는 샌드백 안에서 순간적으로 강하게 내지르는 펀치 임펄스(isInside && p.speed > 13.0)
-      const isDynamicPunch = isInside && (
-        (!st.inside && p.speed > 8.0) ||
-        (st.inside && (p.speed > 13.0 || p.punch))
-      );
-
-      if (isDynamicPunch && st.cool <= 0) {
-        st.cool = 0.16; // 타격 후 160ms 쿨다운 (손을 거둬들이거나 리듬감 유지 필요)
-        punchOccurred = true;
-        punchX = p.x;
+      // 🥊 상태 머신:
+      // 1) IDLE: 속도 < 7.0 (손을 들고 가만히 있거나 천천히 움직이면 타격 0% 절대 발생 안 함!)
+      // 2) PUNCH: 앞으로 주먹을 휙! 뻗는 급격한 가속도 피크 (속도 > 10.2) -> 단 1회 타격 발생!
+      // 3) RETRACT: 한 번 친 후 손을 다시 거둬들일 때까지 잠금 (속도가 6.5 이하로 떨어져야 다음 펀치 대기)
+      if (fsm.state === "IDLE") {
+        const isFistStrike = (spd > 10.2 && spd > fsm.lastSpeed * 1.3) || (p.punch && spd > 8.0);
+        if (isFistStrike && fsm.cool <= 0) {
+          fsm.state = "RETRACT";
+          fsm.cool = 0.14; // 최소 쿨다운
+          punchOccurred = true;
+          punchHandLeft = isLeftFist;
+          punchIntensity = Math.min(2.5, Math.max(1.0, spd / 9.0)); // 움직임 정도에 따른 펀치 세기
+        }
+      } else if (fsm.state === "RETRACT") {
+        if (spd < 6.5 && fsm.cool <= 0) {
+          fsm.state = "IDLE";
+        }
       }
 
-      st.inside = isInside;
+      fsm.lastSpeed = spd;
     });
 
+    // 3. 펀치 임팩트 발동 및 샌드백 반응
     if (punchOccurred) {
       this.punches++;
-      // 리듬 비트 타겟과 타이밍 일치 검사
-      const currentTarget = this.targets.find((tg) => !tg.hit && tg.t >= 0.65 && tg.t <= 1.0);
+
+      // 타이밍 리듬 비트 타겟과 일치 검사 (LEFT / RIGHT 손 일치 여부)
+      const currentTarget = this.targets.find((tg) => !tg.hit && tg.t >= 0.65 && tg.t <= 1.05 && tg.isLeft === punchHandLeft);
       let perfect = false;
 
       if (currentTarget) {
         currentTarget.hit = true;
         perfect = true;
-        award(cx, cy - 60, 3, "#ffd700");
-        popup(cx, cy - 80, "PERFECT PUNCH! 💥 +3", "#ffd700");
+        const pts = Math.round(3 * punchIntensity);
+        award(cx, cy - 60, pts, "#ffd700");
+        popup(cx, cy - 90, `PERFECT HIT!! 💥 +${pts}`, "#ffd700");
+        addShake(0.18, 14);
       } else {
-        award(punchX, cy, 1, "#ff4b72");
+        const pts = punchIntensity > 1.6 ? 2 : 1;
+        award(cx, cy, pts, punchHandLeft ? "#00d2ff" : "#ff4b72");
+        if (punchIntensity > 1.6) {
+          popup(cx, cy - 70, `HEAVY PUNCH!! 🥊 +2`, punchHandLeft ? "#00d2ff" : "#ff4b72");
+          addShake(0.12, 10);
+        }
       }
 
-      sfx.bagPunch(punchX, perfect);
-      this.tiltVel += (punchX < cx ? 1 : -1) * (perfect ? 0.55 : 0.35);
+      // 사운드: 피버 타임 시 피치 연속 상승 연타
+      if (this.punches >= 20 || isFeverTime) {
+        sfx.punchRush(this.punches);
+      } else {
+        sfx.bagPunch(cx, perfect);
+      }
+
+      // 샌드백 물리 틸트: 왼손 펀치는 오른쪽으로, 오른손 펀치는 왼쪽으로 꺾임!
+      const tiltDir = punchHandLeft ? 1 : -1;
+      this.tiltVel += tiltDir * (perfect ? 0.60 : 0.42) * punchIntensity;
       this.flash = 1;
-      this.shake = perfect ? 0.18 : 0.1;
-      burst(cx, cy, perfect ? "#ffeb3b" : "#ff4b72", perfect ? 32 : 18);
-      if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성!`, true);
+      this.shake = perfect ? 0.20 : 0.12;
+
+      // 샌드백 타격점에 화려한 파티클 버스트
+      const impactCol = punchHandLeft ? "#00d2ff" : "#ff4b72";
+      burst(cx + tiltDir * 20, cy, perfect ? "#ffd700" : impactCol, perfect ? 36 : 22);
+
+      if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성! 골든 피버 러시!`, true);
     }
 
     // 타겟 진행 및 소멸
@@ -3013,7 +3041,7 @@ games.box = {
     // 1. 샌드백 본체 렌더링
     Art.drawPunchBag(cx, cy, bw, bh, this.tilt, this.flash);
 
-    // 2. 리듬 펀치 링 & 비트 큐
+    // 2. 리듬 펀치 링 & 비트 큐 (LEFT / RIGHT 펀치 안내)
     for (const tg of this.targets) {
       if (tg.hit) continue;
       const scale = Math.max(0.2, 1.8 - tg.t * 0.8);
@@ -3023,19 +3051,19 @@ games.box = {
       ctx.shadowColor = tg.color; ctx.shadowBlur = 18;
       ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(cx, cy, 80 * scale, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 85 * scale, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.font = "900 28px 'Rubik', sans-serif";
       ctx.fillStyle = tg.color; ctx.textAlign = "center";
-      ctx.fillText(tg.text, cx, cy - 90 * scale);
+      ctx.fillText(tg.text, cx, cy - 95 * scale);
       ctx.restore();
     }
     ctx.restore();
 
-    // 3. 플레이어 복싱 글러브(Boxing Gloves) 실시간 렌더링
+    // 3. 플레이어 복싱 글러브 렌더링 (자신의 주먹 궤적을 실시간 확인)
     pointers.forEach((p, i) => {
-      const isLeft = i % 2 === 0;
+      const isLeft = p.x < W / 2;
       const col = isLeft ? "#00d2ff" : "#ff4b72";
       ctx.save();
       ctx.font = "46px sans-serif";
@@ -3059,9 +3087,10 @@ games.box = {
 
     ctx.textAlign = "center"; ctx.font = "900 26px 'Rubik', sans-serif"; ctx.fillStyle = "#ffd166";
     ctx.fillText(`TOTAL PUNCHES: ${this.punches}`, cx, H * 0.88);
-    topHud("양주먹으로 샌드백을 힘차게 쳐보세요! (가만히 대고 있으면 타격되지 않아요)");
+    topHud("🥊 카메라 앞에서 양주먹을 앞으로 슉! 뻗어 펀치를 날리세요! (가만히 있으면 타격되지 않아요)");
   }
 };
+
 function elapsed() { return GAME_SECONDS - timeLeft; }
 
 // ---------- 진행 ----------
