@@ -1927,40 +1927,94 @@ const Art = {
     } catch {}
   },
 
-  // 11. 스피드 펀치 백 (가죽 샌드백 + 체인 + 물리 반동)
+  // 11. 🌟 Stitch 프로급 3D 네온 메탈릭 스피드 샌드백 (체인 마운트 + 물리 텐션 + 홀로그램 타겟팅)
   drawPunchBag(cx, cy, w, h, tilt = 0, flash = 0) {
     try {
       ctx.save();
       ctx.translate(cx, cy - h / 2);
       ctx.rotate(tilt);
 
-      // 천장 체인
-      ctx.strokeStyle = "#888888"; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(-w * 0.3, 0); ctx.lineTo(-w * 0.1, -H * 0.2);
-      ctx.moveTo(w * 0.3, 0); ctx.lineTo(w * 0.1, -H * 0.2); ctx.stroke();
+      // 1. 천장 상단 크롬 서스펜션 행거 & 체인
+      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 4; ctx.lineCap = "round";
+      ctx.beginPath();
+      // 좌측 체인
+      ctx.moveTo(-w * 0.28, 4); ctx.lineTo(-w * 0.12, -H * 0.25);
+      // 우측 체인
+      ctx.moveTo(w * 0.28, 4); ctx.lineTo(w * 0.12, -H * 0.25);
+      ctx.stroke();
 
-      // 샌드백 본체
-      const bg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+      // 메탈 D링 조인트
+      ctx.fillStyle = "#cbd5e1";
+      ctx.beginPath(); ctx.arc(-w * 0.28, 4, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(w * 0.28, 4, 6, 0, Math.PI * 2); ctx.fill();
+
+      // 2. 상단 카본 메탈 캡 (마운트 리드)
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath(); ctx.roundRect(-w * 0.38, 0, w * 0.76, 16, 6); ctx.fill();
+      ctx.strokeStyle = "#475569"; ctx.lineWidth = 2; ctx.stroke();
+
+      // 3. 샌드백 3D 실린더 바디 렌더링 (원통형 가죽 & 네온 코팅)
+      const grad = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
       if (flash > 0) {
-        bg.addColorStop(0, "#ff99aa"); bg.addColorStop(0.5, "#ffffff"); bg.addColorStop(1, "#ff99aa");
+        grad.addColorStop(0, "#ff4b72");
+        grad.addColorStop(0.3, "#ffffff");
+        grad.addColorStop(0.7, "#ffd700");
+        grad.addColorStop(1, "#ff4b72");
       } else {
-        bg.addColorStop(0, "#851428"); bg.addColorStop(0.35, "#d82444"); bg.addColorStop(0.7, "#ff4b72"); bg.addColorStop(1, "#520c18");
+        grad.addColorStop(0, "#4a0410");
+        grad.addColorStop(0.2, "#80081d");
+        grad.addColorStop(0.55, "#d81e3e");
+        grad.addColorStop(0.8, "#ff3358");
+        grad.addColorStop(0.92, "#80081d");
+        grad.addColorStop(1, "#38030b");
       }
-      ctx.fillStyle = bg;
-      ctx.shadowColor = flash > 0 ? "#ff0055" : "rgba(0,0,0,0.6)"; ctx.shadowBlur = 18;
-      ctx.beginPath(); ctx.roundRect(-w / 2, 0, w, h, [16, 16, w / 2, w / 2]); ctx.fill();
-      ctx.lineWidth = 3; ctx.strokeStyle = "#400812"; ctx.stroke();
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(-w / 2, 14, w, h - 14, [12, 12, w / 2, w / 2]);
+      ctx.fill();
 
-      // 가죽 스티치 띠
-      ctx.fillStyle = "#220409";
-      ctx.fillRect(-w / 2, h * 0.25, w, 14);
-      ctx.fillRect(-w / 2, h * 0.7, w, 14);
+      // 외곽 2-Pass 고선명 림 스트로크
+      ctx.strokeStyle = flash > 0 ? "#ffd700" : "#ff2a4b";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
 
-      // 타격 타겟 마크
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, h * 0.48, w * 0.28, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-w * 0.2, h * 0.48); ctx.lineTo(w * 0.2, h * 0.48);
-      ctx.moveTo(0, h * 0.48 - w * 0.2); ctx.lineTo(0, h * 0.48 + w * 0.2); ctx.stroke();
+      // 4. 네온 스티치 밴드 (상/중/하 사이버 가죽 림)
+      const bandYList = [h * 0.22, h * 0.76];
+      bandYList.forEach((by) => {
+        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+        ctx.fillRect(-w / 2 + 2, by, w - 4, 12);
+        // 네온 스티치 라인
+        ctx.strokeStyle = flash > 0 ? "#ffd700" : "#ff7800";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(-w / 2 + 4, by + 6); ctx.lineTo(w / 2 - 4, by + 6); ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      // 5. 중앙 홀로그램 십자선 타겟팅 스위트스팟 (Cyber Target Reticle)
+      const targetY = h * 0.48;
+      // 외곽 네온 링
+      ctx.strokeStyle = flash > 0 ? "rgba(255, 215, 0, 0.95)" : "rgba(0, 210, 255, 0.85)";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.arc(0, targetY, w * 0.28, 0, Math.PI * 2); ctx.stroke();
+
+      // 내부 정밀 십자선 및 센터 코어
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)"; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.2, targetY); ctx.lineTo(w * 0.2, targetY);
+      ctx.moveTo(0, targetY - w * 0.2); ctx.lineTo(0, targetY + w * 0.2);
+      ctx.stroke();
+
+      // 중심 펄스 닷
+      ctx.fillStyle = flash > 0 ? "#ffd700" : "#00d2ff";
+      ctx.beginPath(); ctx.arc(0, targetY, 7, 0, Math.PI * 2); ctx.fill();
+
+      // 6. 브랜드 아케이드 뱃지 (KABOOM BOXING)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.font = "900 11px 'Rubik', sans-serif";
+      ctx.textAlign = "center";
+      ctx.letterSpacing = "2px";
+      ctx.fillText("KINETIC BOXING", 0, h * 0.34);
 
       ctx.restore();
     } catch {}
@@ -2469,11 +2523,10 @@ games.pose = {
 };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const heartsText = (n, max = 3) => "❤️".repeat(Math.max(n, 0)) + "🖤".repeat(max - Math.max(n, 0));
-function topHud(text, yy = H * 0.3) {                     // 화면 위쪽 안내 문구 (처음 몇 초만)
-  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `800 ${Math.max(14, Math.min(W * 0.036, H * 0.045))}px sans-serif`;
-  ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.fillStyle = "#ffd166";
-  ctx.strokeText(text, W / 2, yy); ctx.fillText(text, W / 2, yy);
+const heartsText = (n, max = 3) => "";
+function topHud() {
+  // 화면 중앙을 가리는 캔버스 텍스트 전면 제거 -> Stitch DOM #hudGuideBanner로 일원화
+  return;
 }
 
 // 🧱 벽돌깨기: 손을 좌우로 움직여 판을 옮기고, 공을 튕겨 벽돌을 깨요. 공을 놓치면 하트가 줄어요
@@ -3805,8 +3858,6 @@ games.box = {
       ctx.font = "46px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.shadowColor = col;
-      ctx.shadowBlur = 20;
       ctx.fillText("🥊", p.x, p.y);
       ctx.restore();
     });
@@ -3816,14 +3867,9 @@ games.box = {
       ctx.font = "46px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.shadowColor = "#ff4b72"; ctx.shadowBlur = 20;
       ctx.fillText("🥊", mouse.x, mouse.y);
       ctx.restore();
     }
-
-    ctx.textAlign = "center"; ctx.font = "900 26px 'Rubik', sans-serif"; ctx.fillStyle = "#ffd166";
-    ctx.fillText(`TOTAL PUNCHES: ${this.punches}`, cx, H * 0.88);
-    topHud("🥊 카메라 앞에서 양주먹을 앞으로 슉! 뻗어 펀치를 날리세요! (가만히 있으면 타격되지 않아요)");
   }
 };
 
@@ -3929,38 +3975,65 @@ for (const [m, src] of Object.entries(STAGE_SRCS)) {
   STAGE_IMAGES[m] = img;
 }
 
-function drawBackground(color, camAlpha = 0.42) {
+function drawBackground(color, camAlpha = 0.20) {
   if (!mode) { ctx.clearRect(0, 0, W, H); return; } // 메뉴에서는 투명 처리
 
-  // 1. 깊이감 있는 딥 다크 사이버 아케이드 베이스 (정적 캐릭터 그림 전면 제거로 타겟 시인성 100% 확보)
-  ctx.fillStyle = color || "#0a061a";
+  // 1. 깊이감 있는 딥 다크 사이버 아케이드 베이스 (#0c0618)
+  ctx.fillStyle = "#0c0618";
   ctx.fillRect(-24, -24, W + 48, H + 48);
 
-  // 2. 가볍고 세련된 원근감 사이버 그리드 바닥 (비트세이버 / 아케이드 무대 감성, 0ms 부하)
+  // 2. 게임별 전용 아케이드 무대 그래픽 렌더링 (방 안 풍경 대신 게임 스테이지가 전면에 오도록 연출)
   ctx.save();
-  ctx.strokeStyle = "rgba(0, 210, 255, 0.12)";
-  ctx.lineWidth = 1.5;
-  const horizon = H * 0.72;
-  // 가로 라인
-  for (let i = 0; i < 6; i++) {
-    const y = horizon + Math.pow(i / 5, 2) * (H - horizon);
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-  // 세로 투시선 (소실점으로 모이는 원근 라인)
-  const cx = W / 2;
-  for (let k = -5; k <= 5; k++) {
-    const bx = cx + k * (W * 0.12);
-    ctx.beginPath(); ctx.moveTo(cx + k * 8, horizon); ctx.lineTo(bx, H); ctx.stroke();
+  if (mode === "box" || mode === "kungfu") {
+    // 🥊 네온 복싱 링 아레나: 상단 스포트라이트 원뿔 광선 + 네온 링 로프 + 원근감 캔버스 매트
+    const spotGrad = ctx.createRadialGradient(W / 2, 0, 10, W / 2, H * 0.5, W * 0.45);
+    spotGrad.addColorStop(0, "rgba(255, 75, 114, 0.22)");
+    spotGrad.addColorStop(0.6, "rgba(255, 120, 0, 0.08)");
+    spotGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = spotGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // 복싱 링 네온 로프 (좌우 3선)
+    ctx.strokeStyle = "rgba(255, 42, 75, 0.35)"; ctx.lineWidth = 3;
+    const ropeHeights = [H * 0.45, H * 0.60, H * 0.75];
+    ropeHeights.forEach((ry) => {
+      ctx.beginPath(); ctx.moveTo(0, ry - 40); ctx.lineTo(W * 0.35, ry); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W, ry - 40); ctx.lineTo(W * 0.65, ry); ctx.stroke();
+    });
+
+    // 바닥 복싱 링 매트 그리드
+    const horizon = H * 0.72;
+    ctx.strokeStyle = "rgba(255, 75, 114, 0.15)"; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) {
+      const y = horizon + Math.pow(i / 4, 1.8) * (H - horizon);
+      ctx.beginPath(); ctx.moveTo(W * 0.1, y); ctx.lineTo(W * 0.9, y); ctx.stroke();
+    }
+  } else if (mode === "beat") {
+    // 🕺 비트세이버 소실점 레이저 터널
+    const horizonY = H * 0.52;
+    const cx = W / 2;
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.22)"; ctx.lineWidth = 2;
+    for (let k = -4; k <= 4; k++) {
+      ctx.beginPath(); ctx.moveTo(cx + k * 12, horizonY); ctx.lineTo(cx + k * (W * 0.14), H); ctx.stroke();
+    }
+  } else {
+    // 기본 사이버 그리드 바닥
+    const horizon = H * 0.70;
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.14)"; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) {
+      const y = horizon + Math.pow(i / 4, 2) * (H - horizon);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
   }
   ctx.restore();
 
-  // 3. 실시간 플레이어 웹캠 비디오 (거울 모드로 자연스러운 미러링 합성 - 시야 방해 없는 반투명 실루엣)
+  // 3. 실시간 플레이어 웹캠 비디오 (방 안 잡동사니 간섭 차단 -> 은은한 네온 실루엣 0.18 알파로 아바타처럼 합성)
   if (!useMouse && video && video.readyState >= 2) {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save();
     ctx.translate(W, 0); ctx.scale(-1, 1);
-    ctx.globalAlpha = camAlpha ?? 0.38;
+    ctx.globalAlpha = 0.18; // 방 가구와 벽지 노출을 최소화하고 플레이어 움직임만 신비롭게 비춤
     try {
       ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
     } catch {}
@@ -4050,11 +4123,6 @@ function frame(now) {
     drawFx();
     drawCombo();
     if (g && !g.noCursor) drawTrails(g.trail ?? "#fff");
-    if (!useMouse && camInfo && mode) {
-      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "700 20px sans-serif";
-      ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(W / 2 - 260, H - 52, 520, 36);
-      ctx.fillStyle = camOk ? "#80ed99" : "#ffd166"; ctx.fillText(camInfo, W / 2, H - 27);
-    }
   } else {
     // 메인 게임 선택 화면에서는 캔버스를 완전히 비워 어떠한 모션 잔상/인식 포인트도 미표시
     ctx.clearRect(0, 0, W, H);
