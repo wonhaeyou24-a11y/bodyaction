@@ -230,6 +230,62 @@ body.playing .bg-ambience { display: none; }
 .stat-label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
 .stat-val { display: block; font-family: var(--font-display); font-size: clamp(1rem, 3.2vw, 1.25rem); font-weight: 800; color: #fff; }
 
+/* 🏅 점수 순위표 TOP 10: 넓은 화면은 왼쪽(등급·점수) / 오른쪽(순위표), 좁은 화면은 위아래로 */
+#result.result-modal { width: min(94vw, 860px); }
+.result-body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; align-items: stretch; }
+.result-main .result-stats-grid { margin-bottom: 0; }
+.top10-wrap { background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; }
+.top10-title { font-family: var(--font-display); font-weight: 900; font-size: 0.95rem; color: var(--neon-gold); text-align: center; margin-bottom: 8px; letter-spacing: 0.04em; }
+.top10-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.top10-list li { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); font-weight: 800; font-size: 0.9rem; border: 1px solid transparent; }
+.top10-list li.empty { opacity: 0.35; }
+.t10-rank { min-width: 2em; text-align: center; font-family: var(--font-display); color: var(--text-dim); }
+.t10-score { margin-left: auto; font-family: var(--font-display); color: #fff; }
+.top10-list li.me { background: linear-gradient(90deg, rgba(255, 0, 119, 0.35), rgba(255, 187, 0, 0.35)); border-color: #ffd54a; box-shadow: 0 0 14px rgba(255, 200, 0, 0.5); }
+.t10-new { font-style: normal; font-size: 0.65rem; font-weight: 900; background: #ff0077; color: #fff; padding: 1px 6px; border-radius: 999px; }
+/* 🏅 순위표 연출: 내 점수가 제자리에 쾅 박히고, 아래 순위는 밀려 내려옴. 1등이면 왕관 + 색종이 */
+.top10-wrap { position: relative; overflow: hidden; }
+.top10-list li { position: relative; }
+.top10-list li.push { animation: rowPush 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.top10-list li.me { z-index: 2; overflow: hidden; font-size: 1.08em; animation: meSlam 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both, meGlow 1s ease-in-out 0.85s infinite alternate; }
+.top10-list li.me::before { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%); transform: translateX(-120%); animation: meShine 1.7s ease-in-out 0.9s infinite; pointer-events: none; }
+.top10-list li.me .t10-rank { font-size: 1.3em; color: #ffd700; text-shadow: 0 0 12px #ffd700; }
+.top10-list li.me .t10-score { color: #fff; text-shadow: 0 0 12px rgba(255, 255, 255, 0.8); }
+.top10-list li.me.first { background: linear-gradient(90deg, #ff0077, #ffbb00); border-color: #fff; }
+.t10-new { animation: newBlink 0.6s ease-in-out infinite alternate; }
+.top10-wrap.champion { border-color: #ffd700; box-shadow: 0 0 30px rgba(255, 215, 0, 0.55), inset 0 0 24px rgba(255, 215, 0, 0.15); }
+.t10-confetti { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.t10-confetti i { position: absolute; top: -12%; font-style: normal; font-size: 1.1rem; animation: confettiFall 2.2s linear infinite; }
+@keyframes rowPush { 0% { transform: translateY(-115%); opacity: 0.2; } 100% { transform: none; opacity: 1; } }
+@keyframes meSlam { 0% { transform: scale(2.4) translateY(-34px); opacity: 0; } 60% { transform: scale(0.95); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes meGlow { 0% { box-shadow: 0 0 10px rgba(255, 200, 0, 0.4); } 100% { box-shadow: 0 0 26px rgba(255, 200, 0, 0.95), 0 0 44px rgba(255, 0, 119, 0.5); } }
+@keyframes meShine { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(120%); } }
+@keyframes newBlink { 0% { opacity: 0.6; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1.1); } }
+@keyframes confettiFall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(560%) rotate(360deg); opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) {            /* 번쩍임/움직임에 민감한 사람을 위해 */
+  .top10-list li.push, .top10-list li.me, .top10-list li.me::before, .t10-new, .t10-confetti i { animation: none; }
+  .t10-confetti { display: none; }
+}
+@media (max-width: 760px), (max-height: 700px) {      /* 낮거나 좁은 화면: 스크롤 없이 한 화면에 들어가게 촘촘하게 */
+  #result.result-modal { padding: 14px 14px; }
+  .result-header { margin-bottom: 4px; }
+  .result-trophy { font-size: 2.2rem; }
+  .result-title-group h2 { font-size: 1.3rem; }
+  .rank-container { margin: 4px 0 8px; }
+  .rank-stamp { font-size: 2.8rem; padding: 2px 20px; }
+  .result-score-wrap { margin: 6px 0 8px; padding: 6px; }
+  .score-rolling { font-size: 2rem; }
+  .result-stats-grid { gap: 6px; }
+  .stat-card { padding: 6px 4px; }
+  .top10-wrap { padding: 8px 10px; }
+  .top10-list li { padding: 3px 8px; font-size: 0.8rem; }
+  .action-btn { padding: 10px 14px; }
+}
+@media (max-width: 760px) {                           /* 좁은 화면: 등급·점수 위, 순위표 아래 (순위표는 5줄 2열) */
+  .result-body { grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
+  .top10-list { grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, auto); gap: 3px 8px; }
+}
+
 /* 다시하기 / 처음으로 액션 버튼 */
 .result-actions { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
 .action-btn { display: flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: 20px; padding: 14px 18px; font-family: var(--font-display); font-size: 1.05rem; font-weight: 900; cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -1758,3 +1814,7 @@ body.tv-fullscreen-mode .hub {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+
+/* 순위표 점수가 두 줄로 꺾이지 않게 */
+.t10-score, .t10-rank, .t10-new { white-space: nowrap; }
+@media (max-width: 760px) { .top10-list li.me { font-size: 1em; gap: 6px; } .t10-new { font-size: 0.55rem; padding: 1px 4px; } }

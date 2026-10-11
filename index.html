@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261012_0025">
+<link rel="stylesheet" href="style.css?v=20261012_0340">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -220,8 +220,8 @@
     <!-- Stitch 원본 서브 네비게이션: 카테고리 필터 칩 & 룸 핀 -->
     <nav class="chips" aria-label="게임 종류">
       <div class="filter-group">
-        <button class="tab active" data-tab="all">⭐ 전체 게임 (15)</button>
-        <button class="tab" data-tab="hand">👋 손놀이 (10)</button>
+        <button class="tab active" data-tab="all">⭐ 전체 게임 (13)</button>
+        <button class="tab" data-tab="hand">👋 손놀이 (8)</button>
         <button class="tab" data-tab="body">🏃 몸놀이 (5)</button>
       </div>
       <div class="room-pin-wrap">
@@ -299,23 +299,6 @@
         </div>
       </article>
 
-      <!-- [제외됨] 두더지 팡
-      <article class="card" style="--accent:#fbb500">
-        <div class="card-img">
-          <img src="assets/mole.jpg" alt="구멍에서 튀어나오는 두더지" loading="lazy">
-          <span class="chip chip-gold">🔨 반응속도</span>
-          <span class="stars">★☆☆</span>
-          <span class="host">🐹 두더지 몰리</span>
-        </div>
-        <div class="card-body">
-          <h3>두더지 팡</h3>
-          <p>쏙 올라오는 두더지를 번개같이 잡아요. 황금 토끼는 보너스!</p>
-          <div class="best-bar"><span>🏆 BEST</span><b data-best="mole">0점</b></div>
-          <button class="mode play-btn gold" data-mode="mole">▶ PLAY NOW</button>
-        </div>
-      </article>
-      -->
-
       <article class="card" style="--accent:#8c7cff">
         <div class="card-img">
           <img src="assets/space.jpg" alt="유성을 막는 우주 로봇 조종사" loading="lazy">
@@ -345,23 +328,6 @@
           <button class="mode play-btn teal" data-mode="brick">▶ PLAY NOW</button>
         </div>
       </article>
-
-      <!-- [제외됨] 물방울 파이프
-      <article class="card" style="--accent:#3aa0ff">
-        <div class="card-img">
-          <img src="assets/leak.jpg" alt="새는 파이프를 막는 수달" loading="lazy">
-          <span class="chip chip-blue">💧 손으로 막기</span>
-          <span class="stars">★★☆</span>
-          <span class="host">🦦 수달 오티</span>
-        </div>
-        <div class="card-body">
-          <h3>물방울 파이프</h3>
-          <p>구멍에서 물이 솟구쳐요! 손으로 꾹 눌러 막고 물이 차는 걸 막아요.</p>
-          <div class="best-bar"><span>🏆 BEST</span><b data-best="leak">0점</b></div>
-          <button class="mode play-btn blue" data-mode="leak">▶ PLAY NOW</button>
-        </div>
-      </article>
-      -->
 
       <article class="card" style="--accent:#ff4d5e">
         <div class="card-img">
@@ -407,23 +373,6 @@
           <button class="mode play-btn pink" data-mode="versus">▶ PLAY NOW</button>
         </div>
       </article>
-
-      <!-- [제외됨] 위저드 스펠 캐스터
-      <article class="card" style="--accent:#b04dff">
-        <div class="card-img">
-          <img src="assets/draw.jpg" alt="허공에 마법진을 그리는 마법사" loading="lazy">
-          <span class="chip chip-violet">✨ 마법진 궤적</span>
-          <span class="stars">★★★</span>
-          <span class="host">🧙‍♂️ 아케인 위저드</span>
-        </div>
-        <div class="card-body">
-          <h3>위저드 스펠 캐스터</h3>
-          <p>손끝으로 허공에 번개, 쉴드, 파이어볼 마법진을 그려 주문을 시전해요!</p>
-          <div class="best-bar"><span>🏆 BEST</span><b data-best="magic">0점</b></div>
-          <button class="mode play-btn violet" data-mode="magic">▶ PLAY NOW</button>
-        </div>
-      </article>
-      -->
 
       <article class="card" style="--accent:#ff4b72">
         <div class="card-img">
@@ -541,6 +490,8 @@
     </div>
   </div>
 
+  <div class="result-body">
+  <div class="result-main">
   <!-- 대형 아케이드 랭크 스탬프 -->
   <div class="rank-container">
     <div id="resultRank" class="rank-stamp rank-s">S+</div>
@@ -569,6 +520,15 @@
       <b id="resultGradeText" class="stat-val">MASTER</b>
     </div>
   </div>
+  </div><!-- /result-main -->
+
+  <!-- 🏅 이 게임의 점수 순위표 (1등~10등) -->
+  <div id="resultTop10" class="top10-wrap hidden">
+    <div id="t10Confetti" class="t10-confetti" aria-hidden="true"></div>
+    <div class="top10-title">🏅 <span id="top10Game">게임</span> TOP 10</div>
+    <ol id="top10List" class="top10-list"></ol>
+  </div>
+  </div><!-- /result-body -->
 
   <!-- 조작 버튼: 다시 하기 / 처음으로 -->
   <div class="result-actions">
@@ -678,8 +638,8 @@
             <img src="assets/ninja.jpg" alt="수염 사범">
             <span>🐱 닌자 캣</span>
           </div>
-          <div class="avatar-option-card" data-avatar="assets/box.jpg" data-avatar-id="boxer">
-            <img src="assets/box.jpg" alt="메카 복서">
+          <div class="avatar-option-card" data-avatar="assets/kungfu.jpg" data-avatar-id="boxer">
+            <img src="assets/kungfu.jpg" alt="메카 복서">
             <span>🥊 메카 복서</span>
           </div>
           <div class="avatar-option-card" data-avatar="assets/space.jpg" data-avatar-id="pilot">
@@ -801,6 +761,6 @@
   </div>
 </div>
 
-<script type="module" src="main.js?v=20261012_0116"></script>
+<script type="module" src="main.js?v=20261012_0340"></script>
 </body>
 </html>

@@ -4,7 +4,8 @@ import { FilesetResolver, HandLandmarker, PoseLandmarker }
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-const GAME_SECONDS = 60;
+// 한 판 시간(초). 주소에 ?seconds=8 처럼 붙이면 짧게 테스트할 수 있음 (60초보다 길게는 안 됨)
+const GAME_SECONDS = Math.min(60, Math.max(5, Number(new URLSearchParams(location.search).get("seconds")) || 60));
 
 const $ = (id) => document.getElementById(id);
 const video = $("video"), canvas = $("stage"), ctx = canvas.getContext("2d");
@@ -59,7 +60,7 @@ function loadPlayerSettings() {
           playerSettings.title = parsed.title.slice(0, 30);
         }
         if (typeof parsed.avatar === "string" && (parsed.avatar.startsWith("assets/") || parsed.avatar.startsWith("data:image/"))) {
-          playerSettings.avatar = parsed.avatar;
+          playerSettings.avatar = parsed.avatar === "assets/box.jpg" ? "assets/kungfu.jpg" : parsed.avatar;
           playerSettings.avatarId = parsed.avatarId || "leo";
         }
         if (["adult", "child"].includes(parsed.heightMode)) {
@@ -284,18 +285,15 @@ function speak(text, force = false) {
 const INTRO = {
   balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
   ninja: "과일을 날카롭게 베어내세요! 폭탄은 조심하세요!",
-  mole: "구멍에서 튀어나오는 두더지를 빠르게 잡으세요!",
   space: "지구를 향해 쏟아지는 유성을 막아내세요!",
   draw: "허공에 멋진 그림을 그려 보세요!",
   dodge: "온몸을 움직여 날아오는 돌을 피하고 동전을 모으세요!",
   brick: "손으로 공을 튕겨 벽돌을 모두 깨뜨리세요!",
-  leak: "물이 새어 나오는 구멍을 손으로 꼭 막으세요!",
   runner: "점프하고 숙이며 장애물을 피하는 달리기 게임입니다!",
   kungfu: "다가오는 악당들을 주먹으로 빠르게 물리치세요!",
   pose: "화면에 나오는 포즈를 온몸으로 똑같이 따라 하세요!",
   versus: "2인 대결 게임! 풍선을 먼저 터뜨리는 사람이 승리합니다!",
   beat: "음악에 맞춰 날아오는 네온 큐브를 온몸으로 시원하게 베어내세요!",
-  magic: "손끝으로 마법진을 그리세요! 원은 방어막, 브이는 번개, 세모는 파이어!",
   keeper: "골대를 향해 날아오는 공을 온몸과 손으로 막아내세요!",
   box: "샌드백을 향해 양주먹으로 신나게 펀치를 연타하세요!",
 };
@@ -455,18 +453,15 @@ let lastBeatTrackIdx = -1;
 const BGM = {
   balloon: { bpm: 112, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.65 },
   ninja:   { bpm: 124, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "square", drums: "taiko", vol: 0.70 },
-  mole:    { bpm: 120, root: 329.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
   space:   { bpm: 92, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone", vol: 0.65 },
   draw:    { bpm: 76, root: 196, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "sine", drums: "none", vol: 0.5 },
   dodge:   { bpm: 132, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 3, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
   pose:    { bpm: 116, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 0], wave: "triangle", drums: "pop", vol: 0.70 },
   brick:   { bpm: 118, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 7, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
-  leak:    { bpm: 104, root: 246.94, scale: [0, 2, 4, 7, 9], prog: [0, 5, 3, 5], wave: "sine", drums: "pop", vol: 0.65 },
   runner:  { bpm: 138, root: 220, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
   kungfu:  { bpm: 128, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.70 },
   versus:  { bpm: 130, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sawtooth", drums: "pop", vol: 0.65 },
   beat:    { ...BEAT_TRACKS[0] },
-  magic:   { bpm: 98, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 7, 9, 5], wave: "sine", drums: "none", vol: 0.5 },
   keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
   box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.70 },
 };
@@ -1759,91 +1754,6 @@ const Art = {
     } catch {}
   },
 
-  // 3. 입체적인 두더지 & 황금 토끼 마스코트 렌더러
-  drawMole(cx, cy, r, age, life, hit, isRabbit) {
-    try {
-      const now = performance.now() * 0.003;
-      // 흙 구멍 및 잔디 림
-      ctx.save();
-      // 흙 구멍 내부 그림자
-      ctx.fillStyle = "rgba(10, 5, 2, 0.85)";
-      ctx.beginPath(); ctx.ellipse(cx, cy, r * 1.15, r * 0.42, 0, 0, Math.PI * 2); ctx.fill();
-      // 잔디 림 하이라이트
-      ctx.strokeStyle = "#40916c"; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.ellipse(cx, cy + 3, r * 1.18, r * 0.44, 0, 0.2, Math.PI - 0.2); ctx.stroke();
-
-      // 클리핑: 구멍 밖으로만 머리가 나오도록
-      ctx.beginPath(); ctx.rect(cx - r * 2, cy - r * 3.2, r * 4, r * 3.25); ctx.clip();
-
-      const t = Math.min(age / 0.16, 1, (life - age) / 0.16);
-      const my = cy - r * 0.95 * Math.max(t, 0) + r * 0.35;
-
-      if (isRabbit) {
-        // 🐰 보너스 황금 토끼 캐릭터
-        // 긴 귀
-        ctx.fillStyle = "#fff8e7"; ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(cx - r * 0.32, my - r * 0.75, r * 0.18, r * 0.48, -0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(cx + r * 0.32, my - r * 0.75, r * 0.18, r * 0.48, 0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // 핑크 안쪽 귀
-        ctx.fillStyle = "#ffb0c9";
-        ctx.beginPath(); ctx.ellipse(cx - r * 0.32, my - r * 0.75, r * 0.09, r * 0.32, -0.15, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(cx + r * 0.32, my - r * 0.75, r * 0.09, r * 0.32, 0.15, 0, Math.PI * 2); ctx.fill();
-        // 얼굴
-        ctx.fillStyle = "#fffdf7";
-        ctx.beginPath(); ctx.arc(cx, my, r * 0.65, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      } else {
-        // 🐹 귀여운 두더지 캐릭터
-        // 몸체 / 머리
-        const rg = ctx.createRadialGradient(cx - r * 0.2, my - r * 0.2, r * 0.1, cx, my, r * 0.7);
-        rg.addColorStop(0, "#d4a373"); rg.addColorStop(1, "#8d5b32");
-        ctx.fillStyle = rg;
-        ctx.beginPath(); ctx.arc(cx, my, r * 0.65, 0, Math.PI * 2); ctx.fill();
-
-        // 탐험가 안전모 모자 (노란 헬멧)
-        ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#b38600"; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.ellipse(cx, my - r * 0.45, r * 0.55, r * 0.32, 0, Math.PI, 0); ctx.fill(); ctx.stroke();
-        // 헬멧 림
-        ctx.beginPath(); ctx.roundRect(cx - r * 0.65, my - r * 0.48, r * 1.3, r * 0.14, 4); ctx.fill(); ctx.stroke();
-      }
-
-      // 눈 / 표정
-      if (hit) {
-        // 맞았을 때: 뱅글뱅글 @ @ 회전 눈
-        ctx.strokeStyle = "#d90429"; ctx.lineWidth = 3;
-        [-r * 0.22, r * 0.22].forEach((ox) => {
-          ctx.beginPath();
-          for (let th = 0; th < Math.PI * 4; th += 0.3) {
-            const rad = 2 + th * 2.2;
-            const px = cx + ox + Math.cos(th + now * 8) * rad, py = my - r * 0.08 + Math.sin(th + now * 8) * rad;
-            if (th === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          }
-          ctx.stroke();
-        });
-      } else {
-        // 생생한 눈동자
-        ctx.fillStyle = "#221439";
-        ctx.beginPath(); ctx.arc(cx - r * 0.22, my - r * 0.08, r * 0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + r * 0.22, my - r * 0.08, r * 0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(cx - r * 0.24, my - r * 0.11, r * 0.04, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + r * 0.2, my - r * 0.11, r * 0.04, 0, Math.PI * 2); ctx.fill();
-      }
-
-      // 동그란 코와 수염
-      ctx.fillStyle = isRabbit ? "#ff70a6" : "#4a2810";
-      ctx.beginPath(); ctx.ellipse(cx, my + r * 0.1, r * 0.12, r * 0.08, 0, 0, Math.PI * 2); ctx.fill();
-
-      // 수염
-      ctx.strokeStyle = "rgba(0,0,0,0.55)"; ctx.lineWidth = 2;
-      [-1, 1].forEach((dir) => {
-        ctx.beginPath(); ctx.moveTo(cx + dir * r * 0.2, my + r * 0.1); ctx.lineTo(cx + dir * r * 0.55, my + r * 0.05); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx + dir * r * 0.2, my + r * 0.15); ctx.lineTo(cx + dir * r * 0.52, my + r * 0.25); ctx.stroke();
-      });
-
-      ctx.restore();
-    } catch {}
-  },
-
   // 4. 불타는 코즈믹 유성 렌더러
   drawMeteor(c, c0, r, o) {
     try {
@@ -2341,30 +2251,6 @@ const Art = {
     } catch {}
   },
 
-  // 9. 위저드 마법진 & 룬 이펙트
-  drawMagicRune(pts, type = "rune", glowCol = "#b04dff") {
-    try {
-      if (!pts || pts.length < 2) return;
-      ctx.save();
-      ctx.strokeStyle = glowCol; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.lineJoin = "round";
-      ctx.shadowColor = glowCol; ctx.shadowBlur = 24;
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.stroke();
-
-      // 궤적 중심 백색 코어
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.shadowBlur = 0;
-      ctx.stroke();
-
-      // 끝점 스파크
-      const last = pts[pts.length - 1];
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(last.x, last.y, 8, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    } catch {}
-  },
-
   // 10. 3D 축구 골대 & 축구공 (모션 키퍼)
   drawSoccerField(goalW, goalH, lives) {
     try {
@@ -2624,53 +2510,6 @@ const games = {
   },
 };
 let halves = [];
-
-// 🐹 두더지 잡기: 3x3 구멍에서 두더지가 올라옴. 웨이브별 스피드업 및 피버 보너스
-function holeCenter(i) {
-  const col = i % 3, row = (i / 3) | 0;
-  return { x: W * (0.2 + col * 0.3), y: H * (0.34 + row * 0.26) };
-}
-games.mole = {
-  bg: "#26183d",
-  spawn() {
-    const free = [...Array(9).keys()].filter((i) => !objs.some((o) => o.hole === i));
-    if (!free.length) return;
-    const rabbitChance = isFeverTime ? 0.45 : (currentWave === 2 ? 0.22 : 0.12);
-    objs.push({
-      hole: free[(Math.random() * free.length) | 0],
-      age: 0,
-      life: Math.max(0.65, (1.5 - elapsed() * 0.012) * (isFeverTime ? 0.75 : 1)),
-      isRabbit: Math.random() < rabbitChance
-    });
-  },
-  interval: () => Math.max(0.32, 0.85 - elapsed() * 0.008),
-  update(dt) {
-    const r = Math.min(W, H) * 0.09;
-    for (const o of objs) {
-      o.age += dt;
-      if (o.hit) continue;
-      const c = holeCenter(o.hole);
-      for (const p of pointers) {
-        if (segHitsCircle(p.px, p.py, p.x, p.y, c.x, c.y - r, r + 20)) {
-          o.hit = true; o.age = o.life - 0.25;
-          const bonus = o.isRabbit;
-          burst(c.x, c.y - r, bonus ? "#fbb500" : "#ffb0c9", 22);
-          award(c.x, c.y - r * 2, bonus ? 3 : 1);
-          sfx.whack(c.x, bonus);
-        }
-      }
-    }
-    objs = objs.filter((o) => o.age < o.life);
-  },
-  draw() {
-    const r = Math.min(W, H) * 0.09;
-    for (let i = 0; i < 9; i++) {
-      const c = holeCenter(i), o = objs.find((m) => m.hole === i);
-      Art.drawMole(c.x, c.y, r, o ? o.age : 0, o ? o.life : 1, o ? o.hit : false, o ? o.isRabbit : false);
-    }
-  },
-  trail: "#fbb500",
-};
 
 // ☄️ 유성 막기: 화면 한가운데(먼 곳)에서 우리 쪽으로 점점 커지며 날아옴. 부딪히면 방어막이 깨짐
 let shield = 5, flash = 0, stars = null;
@@ -3091,55 +2930,6 @@ games.brick = {
     Art.drawBrickPaddle(this.px, py, pw, b);
     ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif"; ctx.fillStyle = "#fff"; ctx.fillText(heartsText(this.lives), W / 2, 104);
     if (this.t < 7) topHud("손을 좌우로 움직여 공을 튕겨요!", H * 0.6);
-  },
-};
-
-// 💧 물 새는 곳 막기: 구멍이 생기면 손으로 가리고 잠깐 기다리면 막혀요. 물이 가득 차면 끝!
-games.leak = {
-  bg: "#0b3d5c", camAlpha: 0.5, manual: true,
-  hr() { return Math.min(W, H) * 0.075; },
-  init() { this.holes = []; this.water = 0.05; this.spawnT = 0.8; this.said = false; this.warned = false; this.lost = false; this.t = 0; this.total = 0; },
-  result() { return this.lost ? " · 물이 가득 찼어요 🌊" : " · 끝까지 막았어요! 🎉"; },
-  update(dt) {
-    const e = elapsed(), r = this.hr(); this.t += dt;
-    this.spawnT -= dt;
-    if (this.spawnT <= 0) {
-      this.spawnT = Math.max(1.1, 2.8 - e * 0.028);
-      if (this.holes.length < Math.min(6, 2 + Math.floor(e / 12))) {
-        const h = { x: r * 1.5 + Math.random() * (W - 3 * r), y: H * 0.2 + Math.random() * H * 0.62, prog: 0, cover: false, spray: 0 };
-        this.holes.push(h);
-        const t = ac().currentTime; noise(t, 0.35, 0.2, 1800, panOf(h.x)); tone(180, t, 0.25, "sine", 0.15, 90, panOf(h.x));
-        if (!this.said) { this.said = true; speak("구멍이 생겼어요! 손으로 막아요!"); }
-      }
-    }
-    let leaking = 0;
-    for (const h of this.holes) {
-      h.cover = pointers.some((p) => Math.hypot(p.x - h.x, p.y - h.y) < r + reach + 10);
-      if (h.cover) h.prog += dt / 1.1; else { h.prog = Math.max(0, h.prog - dt / 4); leaking++; }
-      h.spray -= dt; if (!h.cover && h.spray <= 0) { h.spray = 0.06; burst(h.x, h.y, "#9fdcff", 2); }
-      if (h.prog >= 1) { h.done = true; this.total++; award(h.x, h.y, 1, "#9fdcff"); sfx.pop(h.x, true); burst(h.x, h.y, "#6ee7ff", 18); }
-    }
-    this.holes = this.holes.filter((h) => !h.done);
-    this.water = clamp(this.water + (leaking * 0.011 * (1 + e * 0.008) - (leaking === 0 ? 0.025 : 0)) * dt, 0, 1);
-    if (this.water > 0.6 && !this.warned) { this.warned = true; speak("물이 차오르고 있어요!"); }
-    if (this.water < 0.4) this.warned = false;
-    if (this.water >= 0.92) { this.lost = true; endGame(); }
-  },
-  draw() {
-    if (!this.holes) return;
-    const top = H * (1 - this.water), r = this.hr();
-    ctx.save(); ctx.fillStyle = "rgba(40,150,255,.45)"; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, top);
-    for (let x = 0; x <= W; x += 20) ctx.lineTo(x, top + Math.sin(x * 0.02 + this.t * 3) * 6);
-    ctx.lineTo(W, H); ctx.closePath(); ctx.fill(); ctx.restore();
-    for (const h of this.holes) {
-      ctx.fillStyle = "#050a10"; ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, 7); ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 3;
-      for (let k = 0; k < 6; k++) { const a = k * 1.05 + 0.3; ctx.beginPath(); ctx.moveTo(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r); ctx.lineTo(h.x + Math.cos(a) * r * 1.5, h.y + Math.sin(a) * r * 1.5); ctx.stroke(); }
-      ctx.strokeStyle = h.cover ? "#80ed99" : "#ff6b6b"; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(h.x, h.y, r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(h.prog, 0.02)); ctx.stroke();
-    }
-    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "800 22px sans-serif"; ctx.fillStyle = "#fff";
-    ctx.fillText(`💧 물 높이 ${Math.round(this.water * 100)}%`, W / 2, 104);
-    if (this.t < 7) topHud("구멍을 손으로 가리고 잠깐 기다려요!");
   },
 };
 
@@ -3720,94 +3510,6 @@ games.versus = {
 };
 
 // ============================================================================
-// 🔮 경량 $1 제스처 궤적 매칭 엔진 (Template Matching Engine)
-// ============================================================================
-const GestureMatcher = {
-  templates: {
-    circle: (() => {
-      const pts = [];
-      for (let i = 0; i < 32; i++) {
-        const a = (i / 32) * Math.PI * 2;
-        pts.push({ x: 50 + Math.cos(a) * 40, y: 50 + Math.sin(a) * 40 });
-      }
-      return pts;
-    })(),
-    v: (() => {
-      const pts = [];
-      for (let i = 0; i < 16; i++) pts.push({ x: 15 + i * 2.2, y: 20 + i * 4.8 });
-      for (let i = 0; i < 16; i++) pts.push({ x: 50 + i * 2.2, y: 92 - i * 4.8 });
-      return pts;
-    })(),
-    triangle: (() => {
-      const pts = [];
-      for (let i = 0; i < 10; i++) pts.push({ x: 50 + i * 3.5, y: 15 + i * 7.5 });
-      for (let i = 0; i < 11; i++) pts.push({ x: 85 - i * 7, y: 90 });
-      for (let i = 0; i < 11; i++) pts.push({ x: 15 + i * 3.5, y: 90 - i * 7.5 });
-      return pts;
-    })(),
-  },
-
-  resample(points, n = 32) {
-    if (points.length < 2) return points;
-    let totalLen = 0;
-    for (let i = 1; i < points.length; i++) {
-      totalLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-    }
-    if (totalLen <= 0.001) return Array(n).fill({ ...points[0] });
-    const I = totalLen / (n - 1);
-    let D = 0;
-    const newPts = [{ x: points[0].x, y: points[0].y }];
-    for (let i = 1; i < points.length; i++) {
-      const d = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-      if (D + d >= I) {
-        const qx = points[i - 1].x + ((I - D) / d) * (points[i].x - points[i - 1].x);
-        const qy = points[i - 1].y + ((I - D) / d) * (points[i].y - points[i - 1].y);
-        newPts.push({ x: qx, y: qy });
-        points.splice(i, 0, { x: qx, y: qy });
-        D = 0;
-      } else D += d;
-    }
-    while (newPts.length < n) newPts.push({ ...points[points.length - 1] });
-    return newPts.slice(0, n);
-  },
-
-  normalize(points) {
-    if (points.length < 2) return points;
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const p of points) {
-      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-    }
-    const w = Math.max(maxX - minX, 10), h = Math.max(maxY - minY, 10);
-    return points.map((p) => ({
-      x: ((p.x - minX) / w) * 100,
-      y: ((p.y - minY) / h) * 100
-    }));
-  },
-
-  match(points) {
-    if (points.length < 6) return null;
-    const resampled = this.resample([...points], 32);
-    const normalized = this.normalize(resampled);
-
-    let bestDist = Infinity, bestName = null;
-    for (const [name, tmpl] of Object.entries(this.templates)) {
-      let d = 0;
-      for (let i = 0; i < 32; i++) {
-        d += Math.hypot(normalized[i].x - tmpl[i].x, normalized[i].y - tmpl[i].y);
-      }
-      d /= 32;
-      if (d < bestDist) {
-        bestDist = d;
-        bestName = name;
-      }
-    }
-    const score = Math.max(0, 1 - bestDist / 48);
-    return score >= 0.42 ? { name: bestName, score } : null;
-  }
-};
-
-// ============================================================================
 // 1. 🎵 네온 노트 슬래시 (beat): 비트세이버 정통 게임플레이 디자인 (Body Motion & Parity Flow)
 // ============================================================================
 games.beat = {
@@ -4363,111 +4065,6 @@ games.beat = {
 
     ctx.restore(); // screenShake restore
     bodyHint();
-  }
-};
-
-games.magic = {
-  bg: "#100924", camAlpha: 0.35, manual: true,
-  trail: "#b04dff",
-  init() {
-    this.stroke = [];
-    this.idleTimer = 0;
-    this.lastSpell = "";
-    this.spellFx = [];
-    this.target = { x: W / 2, y: H * 0.32, hp: 100, maxHp: 100, hitFlash: 0 };
-    this.monsterType = 0;
-  },
-  update(dt) {
-    this.target.x = W / 2;
-    this.target.y = H * 0.32;
-    this.target.hitFlash = Math.max(0, this.target.hitFlash - dt * 3);
-    const p = pointers[0];
-    const isDrawing = p && (useMouse ? mouse.down : (!p.fist && p.speed > 1.5));
-    if (isDrawing) {
-      this.stroke.push({ x: p.x, y: p.y });
-      if (this.stroke.length > 80) this.stroke.shift();
-      this.idleTimer = 0.35;
-    } else {
-      this.idleTimer -= dt;
-      if (this.idleTimer <= 0 && this.stroke.length >= 8) {
-        const res = GestureMatcher.match(this.stroke);
-        if (res) {
-          const type = res.name;
-          const tx = this.target.x, ty = this.target.y;
-          sfx.spell(tx, type);
-
-          // NotebookLM 스펠 체이닝(Spell Chaining): 이전 주문과 연계 시 위력 2배 증폭!
-          const isChained = this.prevType && this.prevType !== type;
-          const chainMult = isChained ? 1.8 : 1.0;
-          this.prevType = type;
-
-          if (type === "v" || type === "lightning") {
-            this.lastSpell = isChained ? "⚡ CHAINED LIGHTNING STORM! x2" : "⚡ LIGHTNING BOLT!";
-            this.target.hp -= Math.round(35 * chainMult);
-            burst(tx, ty, "#ffeb3b", isChained ? 45 : 35);
-            award(tx, ty - 60, isChained ? 10 : 5, "#ffeb3b");
-          } else if (type === "triangle") {
-            this.lastSpell = isChained ? "🔥 GIGA FIREBALL CHAIN! x2" : "🔥 FIREBALL EXPLOSION!";
-            this.target.hp -= Math.round(40 * chainMult);
-            burst(tx, ty, "#ff5500", isChained ? 50 : 40);
-            award(tx, ty - 60, isChained ? 12 : 6, "#ff5500");
-          } else {
-            this.lastSpell = isChained ? "🛡️ DIVINE ARCANE BARRIER! x2" : "🛡️ ARCANE SHIELD!";
-            this.target.hp -= Math.round(25 * chainMult);
-            burst(tx, ty, "#00d2ff", isChained ? 40 : 30);
-            award(tx, ty - 60, isChained ? 8 : 4, "#00d2ff");
-          }
-
-          if (isChained) {
-            popup(tx, ty - 130, "🔥 SPELL CHAIN x2 BONUS!!", "#ff0077");
-            addShake(0.2, 16);
-          }
-
-          this.target.hitFlash = 1;
-          this.spellFx.push({ text: this.lastSpell, life: 1.2, x: tx, y: ty - 100 });
-          if (this.target.hp <= 0) {
-            popup(tx, ty, "MONSTER DEFEATED!", "#ffd700");
-            sfx.levelUp();
-            this.monsterType = (this.monsterType + 1) % 3;
-            this.target.maxHp += 30;
-            this.target.hp = this.target.maxHp;
-            award(tx, ty, 15, "#ffd700");
-            speak("몬스터 처치! 다음 몬스터 등장!", true);
-          }
-        }
-        this.stroke = [];
-      }
-    }
-    for (const f of this.spellFx) f.life -= dt * 0.9;
-    this.spellFx = this.spellFx.filter((f) => f.life > 0);
-  },
-  draw() {
-    const tx = this.target.x, ty = this.target.y;
-    ctx.save();
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.font = `${80 + Math.sin(performance.now() * 0.005) * 8}px serif`;
-    const emojis = ["👾", "🐉", "👹"];
-    ctx.fillText(emojis[this.monsterType] ?? "👾", tx, ty);
-    const bw = 240, bh = 14;
-    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.beginPath(); ctx.roundRect(tx - bw / 2, ty + 60, bw, bh, 6); ctx.fill();
-    const hpRate = Math.max(0, this.target.hp / this.target.maxHp);
-    ctx.fillStyle = hpRate > 0.4 ? "#ff3366" : "#ff0000";
-    ctx.beginPath(); ctx.roundRect(tx - bw / 2 + 2, ty + 62, (bw - 4) * hpRate, bh - 4, 4); ctx.fill();
-    ctx.font = "800 16px 'Rubik', sans-serif"; ctx.fillStyle = "#fff";
-    ctx.fillText(`BOSS HP: ${Math.max(0, Math.ceil(this.target.hp))}`, tx, ty + 95);
-    ctx.restore();
-
-    Art.drawMagicRune(this.stroke, "magic", "#b04dff");
-
-    for (const f of this.spellFx) {
-      ctx.save();
-      ctx.globalAlpha = Math.max(f.life, 0);
-      ctx.font = "900 36px 'Rubik', sans-serif";
-      ctx.fillStyle = "#ffeb3b"; ctx.shadowColor = "#ffeb3b"; ctx.shadowBlur = 20;
-      ctx.textAlign = "center"; ctx.fillText(f.text, f.x, f.y - (1 - f.life) * 40);
-      ctx.restore();
-    }
-    topHud("허공에 원(방어), V(번개), 세모(불꽃) 마법진을 그리세요!");
   }
 };
 
@@ -5083,6 +4680,65 @@ function animateScoreRoll(targetScore) {
   requestAnimationFrame(tickRoll);
 }
 
+// 🏅 게임별 등급 기준 [B, A, S, S+, SSS] 이상이면 해당 등급 (그보다 낮으면 C)
+// 게임마다 점수 크기가 크게 달라서(포즈 ~100점대, 풍선 ~수천 점, 비트 ~수만 점) 따로 정함.
+// 기준은 "처음 해봄 / 보통 / 잘함 / 아주 잘함 / 거의 완벽" 플레이어를 점수 규칙대로 시뮬레이션해서 계산한 추정치예요.
+// 실제로 해 보고 너무 쉽거나 어려우면 이 숫자만 고치면 됩니다.
+const RANK_THRESHOLDS = {
+  balloon: [780, 1400, 2000, 2400, 3000],
+  ninja:   [1400, 2100, 2700, 3200, 3800],
+  space:   [26, 68, 230, 560, 920],
+  kungfu:  [13, 30, 81, 210, 470],
+  brick:   [9, 25, 55, 110, 360],
+  dodge:   [30, 54, 86, 110, 130],
+  pose:    [31, 50, 77, 100, 140],
+  runner:  [400, 900, 1300, 1600, 1850],
+  keeper:  [68, 210, 580, 980, 1400],
+  box:     [640, 1300, 1800, 2200, 2800],
+  beat:    [25000, 47000, 93000, 150000, 240000],
+};
+const RANK_DEFAULT = [35, 70, 120, 180, 260];   // 기준이 없는 게임용 기본값 (예전 기준)
+
+// 🏅 게임별 점수 순위표 (1등~10등). 이번 점수를 넣고 정렬해서 저장하고, 몇 등인지 알려 줌
+async function recordTop10(modeId, sc) {
+  const key = "top10-" + modeId;
+  let list = await SecureStore.loadCheckpoint(key, null);
+  if (!Array.isArray(list)) {
+    const oldBest = +(await SecureStore.loadCheckpoint("best-" + modeId, 0)) || 0;   // 예전 최고 기록은 순위표로 옮김
+    list = oldBest > 0 ? [oldBest] : [];
+  }
+  list = list.map(Number).filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => b - a).slice(0, 10);
+  let myIdx = -1;
+  if (sc > 0) {
+    let i = list.findIndex((v) => v < sc);            // 같은 점수면 먼저 세운 기록이 위
+    if (i < 0) i = list.length;
+    list.splice(i, 0, sc);
+    myIdx = i;
+    if (list.length > 10) { list.length = 10; if (myIdx >= 10) myIdx = -1; }
+    await SecureStore.saveCheckpoint(key, list);
+  }
+  return { list, myIdx };
+}
+function renderTop10(modeId, list, myIdx) {
+  const wrap = $("resultTop10"), ol = $("top10List");
+  if (!wrap || !ol) return;
+  const name = document.querySelector(`.mode[data-mode="${modeId}"]`)?.closest(".card")?.querySelector("h3")?.textContent?.trim() || "";
+  $("top10Game").textContent = name;
+  const medals = ["🥇", "🥈", "🥉"];
+  // 내 점수가 들어간 자리에서 "쾅!" 하고 박히고, 그 아래 순위들은 한 칸씩 밀려 내려오는 연출 (숫자만 들어가므로 안전)
+  ol.innerHTML = Array.from({ length: 10 }, (_, i) => {
+    const v = list[i], me = i === myIdx;
+    const cls = [me ? (i === 0 ? "me first" : "me") : "", myIdx >= 0 && i > myIdx ? "push" : "", v == null ? "empty" : ""].filter(Boolean).join(" ");
+    const delay = myIdx >= 0 && i > myIdx ? ` style="animation-delay:${0.1 + (i - myIdx) * 0.05}s"` : "";
+    return `<li class="${cls}"${delay}><span class="t10-rank">${me && i === 0 ? "👑" : (medals[i] ?? i + 1)}</span><span class="t10-score">${v == null ? "-" : Number(v).toLocaleString() + "점"}</span>${me ? '<em class="t10-new">NEW</em>' : ""}</li>`;
+  }).join("");
+  // 1등이면 순위표 전체가 금빛으로 빛나고 색종이가 쏟아짐
+  const conf = $("t10Confetti");
+  wrap.classList.toggle("champion", myIdx === 0);
+  if (conf) conf.innerHTML = myIdx === 0 ? Array.from({ length: 16 }, (_, k) => `<i style="left:${(k * 6.4 + (k % 3) * 2).toFixed(1)}%;animation-delay:${((k * 0.17) % 1.6).toFixed(2)}s">${["🎉", "✨", "🎊", "⭐"][k % 4]}</i>`).join("") : "";
+  wrap.classList.remove("hidden");
+}
+
 function endGame() {
   playing = false;
   stopRealTrackAudio();
@@ -5102,6 +4758,7 @@ function endGame() {
     $("finalBest").textContent = `🔵 ${a}점 vs 🔴 ${b}점`;
     $("resultCombo").textContent = "-";
     $("resultGradeText").textContent = a === b ? "TIE" : "WINNER";
+    $("resultTop10")?.classList.add("hidden");       // 2인 대결은 순위표 없음
     $("newRecordBadge")?.classList.add("hidden");
     $("result").classList.remove("hidden");
     sfx.stamp(); sfx.fanfare();
@@ -5111,18 +4768,26 @@ function endGame() {
 
   // 2. 1인 아케이드 모드 등급 산정 (SSS, S+, S, A, B, C)
   let rank = "C", rankClass = "c", rankLabel = "KEEP PRACTICING!", gradeTitle = "BEGINNER";
-  if (score >= 260) { rank = "SSS"; rankClass = "sss"; rankLabel = "UNSTOPPABLE LEGEND! 🌟"; gradeTitle = "LEGEND"; }
-  else if (score >= 180) { rank = "S+"; rankClass = "s"; rankLabel = "SUPERIOR PERFORMANCE! 🔥"; gradeTitle = "MASTER"; }
-  else if (score >= 120) { rank = "S"; rankClass = "s"; rankLabel = "SPECTACULAR PLAY! 💎"; gradeTitle = "EXPERT"; }
-  else if (score >= 70) { rank = "A"; rankClass = "a"; rankLabel = "GREAT PERFORMANCE! ⚡"; gradeTitle = "PRO"; }
-  else if (score >= 35) { rank = "B"; rankClass = "b"; rankLabel = "GOOD EFFORT! 👏"; gradeTitle = "AMATEUR"; }
+  const [tB, tA, tS, tSp, tSSS] = RANK_THRESHOLDS[mode] ?? RANK_DEFAULT;   // 게임마다 점수 크기가 달라서 게임별 기준 사용
+  if (score >= tSSS) { rank = "SSS"; rankClass = "sss"; rankLabel = "UNSTOPPABLE LEGEND! 🌟"; gradeTitle = "LEGEND"; }
+  else if (score >= tSp) { rank = "S+"; rankClass = "s"; rankLabel = "SUPERIOR PERFORMANCE! 🔥"; gradeTitle = "MASTER"; }
+  else if (score >= tS) { rank = "S"; rankClass = "s"; rankLabel = "SPECTACULAR PLAY! 💎"; gradeTitle = "EXPERT"; }
+  else if (score >= tA) { rank = "A"; rankClass = "a"; rankLabel = "GREAT PERFORMANCE! ⚡"; gradeTitle = "PRO"; }
+  else if (score >= tB) { rank = "B"; rankClass = "b"; rankLabel = "GOOD EFFORT! 👏"; gradeTitle = "AMATEUR"; }
 
-  const key = "best-" + mode;
-  SecureStore.loadCheckpoint(key, 0).then((savedBest) => {
+  const key = "best-" + mode, modeId = mode;
+  SecureStore.loadCheckpoint(key, 0).then(async (savedBest) => {
     const curBest = +savedBest || 0;
     const isNewRecord = score > curBest && score > 0;
     const best = Math.max(score, curBest);
     SecureStore.saveCheckpoint(key, best);
+
+    // 🏅 TOP 10 순위표 기록 & 표시 (이번 판이 몇 등인지 NEW 표시)
+    const top = await recordTop10(modeId, score);
+    if (mode !== modeId) return;                     // 순위표 저장 중에 메뉴로 나갔으면 결과 화면은 띄우지 않음
+    renderTop10(modeId, top.list, top.myIdx);
+    // 순위 발표 음성: 숫자 차이 같은 설명 없이 짧고 임팩트 있게
+    const placeSay = score <= 0 ? "다시 도전!" : top.myIdx === 0 ? "1등! 새로운 최고 기록!" : top.myIdx > 0 ? `${top.myIdx + 1}등!` : "아쉽게 순위권 밖!";
 
     // 랭크 스탬프 & 라벨
     $("resultRank").textContent = rank;
@@ -5150,8 +4815,9 @@ function endGame() {
     // 점수 롤링 카운트업 실행
     animateScoreRoll(score);
 
-    speak(isNewRecord ? "새로운 최고 기록 달성! 축하합니다!" : `${rank} 등급 클리어!`, true);
-  }).catch(() => {
+    speak(placeSay || (isNewRecord ? "새로운 최고 기록 달성! 축하합니다!" : `${rank} 등급 클리어!`), true);
+  }).catch((err) => {
+    console.error("결과 화면 표시 중 오류:", err);     // 조용히 삼키지 않고 원인을 남김
     $("finalScore").textContent = score + "점";
     $("result").classList.remove("hidden");
   });
@@ -5161,6 +4827,7 @@ function toMenu() {
   stopTrackPreview?.();
   closeBeatTrackSelector?.();
   if (mode) games[mode].exit?.();
+  stopCamera();
   playing = false; mode = null; objs = [];
   isReadyTime = false; readyTimeLeft = 0; readyStartTime = 0;
   pointers.length = 0; trails.forEach((t) => (t.length = 0)); lastHands = []; body = null;
@@ -5189,6 +4856,11 @@ async function showBest() {
 }
 
 let vision = null;
+// 메뉴로 나가면 카메라를 완전히 끔 (웹캠 불이 계속 켜져 있지 않게). 다음 게임을 고르면 다시 켬
+function stopCamera() {
+  try { video.srcObject?.getTracks().forEach((t) => t.stop()); } catch {}
+  video.srcObject = null; lastBodyTime = -1;
+}
 async function ensureVideo() {
   if (video.srcObject) return true;
   $("status").textContent = "카메라를 켜는 중… (처음엔 조금 걸려요)";
@@ -5197,7 +4869,7 @@ async function ensureVideo() {
     video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 30 }, facingMode: "user" } });
     await video.play();
     // 카메라 및 AI 추론 파이프라인 일원화 (렌더 루프와의 중복 경합 완전 차단)
-    vision = await FilesetResolver.forVisionTasks(WASM);
+    vision ??= await FilesetResolver.forVisionTasks(WASM);
     return true;
   } catch (e) {
     console.error(e);
@@ -5248,6 +4920,8 @@ let previewStopTimer = null;
 let isPreviewing = false;
 let currentPreviewTrackId = null;
 let previewAudio = null;
+
+const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function stopTrackPreview() {
   if (previewStopTimer) {
@@ -5393,11 +5067,11 @@ function openBeatTrackSelector() {
         <div class="track-card-top">
           <div class="track-card-badge-row">
             <span class="track-genre-badge" style="background: ${track.tagColor}26; color: ${track.tagColor}; border: 1px solid ${track.tagColor}4d;">
-              ${track.genre}
+              ${escapeHtml(track.genre)}
             </span>
             ${isRealAudio ? `<span style="font-size: 10px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 6px;">🎧 실제 음원</span>` : ""}
           </div>
-          <div class="track-card-title">${track.title}</div>
+          <div class="track-card-title">${escapeHtml(track.title)}</div>
         </div>
         <div class="track-card-meta">
           <span class="track-bpm-tag">🎵 ${track.bpm} BPM</span>
@@ -5447,8 +5121,9 @@ function closeBeatTrackSelector() {
 }
 
 // 모달 이벤트 바인딩
-$("beatModalClose")?.addEventListener("click", closeBeatTrackSelector);
-$("beatModalCancel")?.addEventListener("click", closeBeatTrackSelector);
+// 곡 선택을 취소하면 켜 둔 카메라도 끔 (시작할 때는 closeBeatTrackSelector만 호출하므로 카메라 유지)
+$("beatModalClose")?.addEventListener("click", () => { closeBeatTrackSelector(); stopCamera(); });
+$("beatModalCancel")?.addEventListener("click", () => { closeBeatTrackSelector(); stopCamera(); });
 $("beatModalStart")?.addEventListener("click", () => {
   closeBeatTrackSelector();
   games.beat.chosenTrackId = selectedBeatTrackId;
@@ -5636,7 +5311,7 @@ for (const [id, set, key] of [["optSound", (v) => (soundOn = v), "sound"], ["opt
 }
 // 메뉴: 전체 / 손놀이 / 몸놀이 탭 (마지막으로 본 탭을 기억)
 const TAB_HINT = {
-  all: "⭐ 15종의 모든 모션 액션 아케이드 파티 게임을 자유롭게 플레이하세요!",
+  all: "⭐ 13종의 모든 모션 액션 아케이드 파티 게임을 자유롭게 플레이하세요!",
   hand: "👋 손놀이: 카메라 앞에서 손으로 화면을 건드려 보세요. 영상은 이 기기 밖으로 나가지 않아요.",
   body: "🏃 몸놀이: 머리부터 발끝까지 보이게 한두 걸음 뒤로 물러서 주세요. 영상은 이 기기 밖으로 나가지 않아요.",
 };
