@@ -2075,27 +2075,26 @@ games.versus = {
 // 🔮 경량 $1 제스처 궤적 매칭 엔진 (Template Matching Engine)
 // ============================================================================
 const GestureMatcher = {
-  // 기준 마법진 템플릿 점군 (32개 점 정규화)
   templates: {
     circle: (() => {
       const pts = [];
       for (let i = 0; i < 32; i++) {
         const a = (i / 32) * Math.PI * 2;
-        pts.push({ x: 50 + Math.cos(a) * 45, y: 50 + Math.sin(a) * 45 });
+        pts.push({ x: 50 + Math.cos(a) * 40, y: 50 + Math.sin(a) * 40 });
       }
       return pts;
     })(),
     v: (() => {
       const pts = [];
-      for (let i = 0; i < 16; i++) pts.push({ x: 10 + i * 2.5, y: 15 + i * 5 });
-      for (let i = 0; i < 16; i++) pts.push({ x: 50 + i * 2.5, y: 95 - i * 5 });
+      for (let i = 0; i < 16; i++) pts.push({ x: 15 + i * 2.2, y: 20 + i * 4.8 });
+      for (let i = 0; i < 16; i++) pts.push({ x: 50 + i * 2.2, y: 92 - i * 4.8 });
       return pts;
     })(),
     triangle: (() => {
       const pts = [];
-      for (let i = 0; i < 10; i++) pts.push({ x: 50 + i * 4, y: 15 + i * 7.5 });
-      for (let i = 0; i < 11; i++) pts.push({ x: 90 - i * 8, y: 90 });
-      for (let i = 0; i < 11; i++) pts.push({ x: 10 + i * 4, y: 90 - i * 7.5 });
+      for (let i = 0; i < 10; i++) pts.push({ x: 50 + i * 3.5, y: 15 + i * 7.5 });
+      for (let i = 0; i < 11; i++) pts.push({ x: 85 - i * 7, y: 90 });
+      for (let i = 0; i < 11; i++) pts.push({ x: 15 + i * 3.5, y: 90 - i * 7.5 });
       return pts;
     })(),
   },
@@ -2106,6 +2105,7 @@ const GestureMatcher = {
     for (let i = 1; i < points.length; i++) {
       totalLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
     }
+    if (totalLen <= 0.001) return Array(n).fill({ ...points[0] });
     const I = totalLen / (n - 1);
     let D = 0;
     const newPts = [{ x: points[0].x, y: points[0].y }];
@@ -2130,7 +2130,7 @@ const GestureMatcher = {
       minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
       minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
     }
-    const w = Math.max(maxX - minX, 1), h = Math.max(maxY - minY, 1);
+    const w = Math.max(maxX - minX, 10), h = Math.max(maxY - minY, 10);
     return points.map((p) => ({
       x: ((p.x - minX) / w) * 100,
       y: ((p.y - minY) / h) * 100
@@ -2138,7 +2138,7 @@ const GestureMatcher = {
   },
 
   match(points) {
-    if (points.length < 8) return null;
+    if (points.length < 6) return null;
     const resampled = this.resample([...points], 32);
     const normalized = this.normalize(resampled);
 
@@ -2154,9 +2154,8 @@ const GestureMatcher = {
         bestName = name;
       }
     }
-    // 유사도 판정 (평균 오차 32px 이하)
-    const score = Math.max(0, 1 - bestDist / 38);
-    return score >= 0.58 ? { name: bestName, score } : null;
+    const score = Math.max(0, 1 - bestDist / 48);
+    return score >= 0.42 ? { name: bestName, score } : null;
   }
 };
 
@@ -2168,70 +2167,76 @@ games.beat = {
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
     this.halves = [];
-    this.lanes = [W * 0.3, W * 0.5, W * 0.7];
     this.dirs = ["up", "down", "left", "right", "any"];
   },
+  getLanes() {
+    return [W * 0.25, W * 0.5, W * 0.75];
+  },
   spawn() {
-    const laneX = this.lanes[(Math.random() * this.lanes.length) | 0];
+    const lanes = this.getLanes();
+    const laneX = lanes[(Math.random() * lanes.length) | 0];
     const isLeft = laneX < W * 0.5;
     const dir = this.dirs[(Math.random() * this.dirs.length) | 0];
-    const speedMult = currentWave === 3 ? 1.45 : currentWave === 2 ? 1.2 : 1.0;
+    const speedMult = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.15 : 1.0;
     objs.push({
-      x: laneX + (Math.random() - 0.5) * 40,
-      y: -60,
+      x: laneX + (Math.random() - 0.5) * 30,
+      y: -50,
       r: 44,
-      vy: (4.8 + Math.random() * 2.2) * (H / 800) * speedMult,
+      vy: (4.2 + Math.random() * 2.0) * (H / 800) * speedMult,
       dir,
       color: isLeft ? "#00d2ff" : "#ff3377",
       isLeft,
       dead: false
     });
   },
-  interval: () => Math.max(0.28, 0.75 - elapsed() * 0.007),
+  interval: () => Math.max(0.3, 0.75 - elapsed() * 0.007),
   update(dt) {
     for (const o of objs) o.y += o.vy * dt * 60;
-    // 슬래시 판정: 판정선 부근(H * 0.75)에서 빠른 휘두름 감지
     for (const p of pointers) {
-      if (p.speed < 10) continue;
+      if (p.speed < 6) continue;
       for (const o of objs) {
         if (o.dead || !segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 35)) continue;
-        // 슬라이스 방향 검사
-        let dirMatch = o.dir === "any";
-        if (o.dir === "up") dirMatch = (p.y - p.py) < -6;
-        else if (o.dir === "down") dirMatch = (p.y - p.py) > 6;
-        else if (o.dir === "left") dirMatch = (p.x - p.px) < -6;
-        else if (o.dir === "right") dirMatch = (p.x - p.px) > 6;
+        let perfect = o.dir === "any";
+        if (o.dir === "up") perfect = (p.y - p.py) < -4;
+        else if (o.dir === "down") perfect = (p.y - p.py) > 4;
+        else if (o.dir === "left") perfect = (p.x - p.px) < -4;
+        else if (o.dir === "right") perfect = (p.x - p.px) > 4;
 
-        if (dirMatch) {
-          o.dead = true;
-          sfx.saber(o.x, o.isLeft);
-          burst(o.x, o.y, o.color, 24);
-          award(o.x, o.y, 2, o.color);
-          this.halves.push(
-            { x: o.x - 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -4, vy: o.vy * 0.5, half: -1, life: 1 },
-            { x: o.x + 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 4, vy: o.vy * 0.5, half: 1, life: 1 }
-          );
-        }
+        o.dead = true;
+        sfx.saber(o.x, o.isLeft);
+        burst(o.x, o.y, o.color, perfect ? 28 : 16);
+        const pts = perfect ? 3 : 1;
+        award(o.x, o.y, pts, perfect ? "#ffd700" : o.color);
+        popup(o.x, o.y - 30, perfect ? "PERFECT! +3" : "GOOD! +1", perfect ? "#ffd700" : o.color);
+        this.halves.push(
+          { x: o.x - 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -5, vy: o.vy * 0.4, half: -1, life: 1 },
+          { x: o.x + 12, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 5, vy: o.vy * 0.4, half: 1, life: 1 }
+        );
       }
     }
-    objs = objs.filter((o) => !o.dead && o.y < H + 100);
+    for (const o of objs) {
+      if (!o.dead && o.y > H + 50) {
+        o.dead = true;
+        combo = 0;
+      }
+    }
+    objs = objs.filter((o) => !o.dead);
     for (const h of this.halves) {
       h.x += h.vx; h.y += h.vy; h.life -= 0.035;
     }
     this.halves = this.halves.filter((h) => h.life > 0);
   },
   draw() {
-    // 사이버펑크 네온 비트 그리드
+    const lanes = this.getLanes();
     const judgeY = H * 0.75;
     ctx.strokeStyle = "rgba(0, 210, 255, 0.25)"; ctx.lineWidth = 2;
-    for (const lx of this.lanes) {
-      ctx.beginPath(); ctx.moveTo(W / 2 + (lx - W / 2) * 0.1, 0); ctx.lineTo(lx, H); ctx.stroke();
+    for (const lx of lanes) {
+      ctx.beginPath(); ctx.moveTo(W / 2 + (lx - W / 2) * 0.15, 0); ctx.lineTo(lx, H); ctx.stroke();
     }
-    // 네온 판정선
     ctx.save();
-    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.6)"; ctx.lineWidth = 4;
+    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.65)"; ctx.lineWidth = 4;
     ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.moveTo(W * 0.15, judgeY); ctx.lineTo(W * 0.85, judgeY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W * 0.1, judgeY); ctx.lineTo(W * 0.9, judgeY); ctx.stroke();
     ctx.restore();
 
     for (const o of objs) Art.drawBeatNote(o.x, o.y, o.r, o.dir, o.color, 0);
@@ -2240,6 +2245,7 @@ games.beat = {
       Art.drawBeatNote(h.x, h.y, h.r, h.dir, h.color, h.half);
       ctx.restore();
     }
+    topHud("리듬에 맞춰 네온 큐브를 양손으로 신나게 베어내세요!");
   }
 };
 
@@ -2247,7 +2253,7 @@ games.beat = {
 // 2. 🔮 위저드 스펠 캐스터 (magic): 허공 마법진 궤적 매칭 제스처 게임
 // ============================================================================
 games.magic = {
-  bg: "#100924", camAlpha: 0.35,
+  bg: "#100924", camAlpha: 0.35, manual: true,
   trail: "#b04dff",
   init() {
     this.stroke = [];
@@ -2258,22 +2264,24 @@ games.magic = {
     this.monsterType = 0;
   },
   update(dt) {
+    this.target.x = W / 2;
+    this.target.y = H * 0.32;
     this.target.hitFlash = Math.max(0, this.target.hitFlash - dt * 3);
     const p = pointers[0];
-    if (p && !p.fist && p.speed > 2) {
+    const isDrawing = p && (useMouse ? mouse.down : (!p.fist && p.speed > 1.5));
+    if (isDrawing) {
       this.stroke.push({ x: p.x, y: p.y });
-      if (this.stroke.length > 70) this.stroke.shift();
-      this.idleTimer = 0.28;
+      if (this.stroke.length > 80) this.stroke.shift();
+      this.idleTimer = 0.35;
     } else {
       this.idleTimer -= dt;
-      if (this.idleTimer <= 0 && this.stroke.length >= 10) {
-        // 제스처 매칭 검사
+      if (this.idleTimer <= 0 && this.stroke.length >= 8) {
         const res = GestureMatcher.match(this.stroke);
         if (res) {
           const type = res.name;
           const tx = this.target.x, ty = this.target.y;
           sfx.spell(tx, type);
-          if (type === "lightning") {
+          if (type === "v" || type === "lightning") {
             this.lastSpell = "⚡ LIGHTNING BOLT!";
             this.target.hp -= 35;
             burst(tx, ty, "#ffeb3b", 35);
@@ -2283,7 +2291,7 @@ games.magic = {
             this.target.hp -= 40;
             burst(tx, ty, "#ff5500", 40);
             award(tx, ty - 60, 6, "#ff5500");
-          } else { // circle
+          } else {
             this.lastSpell = "🛡️ ARCANE SHIELD!";
             this.target.hp -= 25;
             burst(tx, ty, "#00d2ff", 30);
@@ -2298,6 +2306,7 @@ games.magic = {
             this.target.maxHp += 30;
             this.target.hp = this.target.maxHp;
             award(tx, ty, 15, "#ffd700");
+            speak("몬스터 처치! 다음 몬스터 등장!", true);
           }
         }
         this.stroke = [];
@@ -2307,14 +2316,12 @@ games.magic = {
     this.spellFx = this.spellFx.filter((f) => f.life > 0);
   },
   draw() {
-    // 몬스터 렌더링
     const tx = this.target.x, ty = this.target.y;
     ctx.save();
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.font = `${80 + Math.sin(performance.now() * 0.005) * 8}px serif`;
     const emojis = ["👾", "🐉", "👹"];
     ctx.fillText(emojis[this.monsterType] ?? "👾", tx, ty);
-    // 몬스터 체력 게이지
     const bw = 240, bh = 14;
     ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.beginPath(); ctx.roundRect(tx - bw / 2, ty + 60, bw, bh, 6); ctx.fill();
     const hpRate = Math.max(0, this.target.hp / this.target.maxHp);
@@ -2324,10 +2331,8 @@ games.magic = {
     ctx.fillText(`BOSS HP: ${Math.max(0, Math.ceil(this.target.hp))}`, tx, ty + 95);
     ctx.restore();
 
-    // 마법진 궤적
     Art.drawMagicRune(this.stroke, "magic", "#b04dff");
 
-    // 스펠 텍스트
     for (const f of this.spellFx) {
       ctx.save();
       ctx.globalAlpha = Math.max(f.life, 0);
@@ -2353,50 +2358,56 @@ games.keeper = {
     this.flash = 0;
   },
   spawn() {
-    const speed = (0.28 + elapsed() * 0.005) * (currentWave === 3 ? 1.4 : currentWave === 2 ? 1.2 : 1.0);
+    this.goalW = Math.min(W * 0.72, 700);
+    this.goalH = H * 0.65;
+    const speed = (0.22 + elapsed() * 0.004) * (currentWave === 3 ? 1.3 : currentWave === 2 ? 1.15 : 1.0);
     const gx = W / 2 - this.goalW / 2;
-    const targetX = gx + 50 + Math.random() * (this.goalW - 100);
+    const targetX = gx + 60 + Math.random() * (this.goalW - 120);
     const targetY = H * 0.15 + 40 + Math.random() * (this.goalH - 80);
     objs.push({
       z: 0.05, speed, targetX, targetY,
       x: W / 2, y: H * 0.45,
-      rot: 0, r: 16, dead: false, saved: false
+      rot: 0, r: 18, dead: false, saved: false
     });
   },
-  interval: () => Math.max(0.42, 1.1 - elapsed() * 0.01),
+  interval: () => Math.max(0.48, 1.2 - elapsed() * 0.01),
   update(dt) {
     this.flash = Math.max(0, this.flash - dt * 2);
     for (const b of objs) {
-      b.z += b.speed * dt * (0.8 + b.z * 1.6);
+      b.z += b.speed * dt * (0.8 + b.z * 1.4);
       b.x = W / 2 + (b.targetX - W / 2) * b.z;
       b.y = H * 0.45 + (b.targetY - H * 0.45) * b.z;
-      b.r = 16 + b.z * 46;
+      b.r = 16 + b.z * 50;
       b.rot += 0.08;
 
-      // 슈퍼 세이브 판정 (공이 다가왔을 때 z >= 0.8)
-      if (!b.dead && !b.saved && b.z >= 0.78 && b.z <= 1.05) {
-        // 손 또는 전신 관절과 충돌 확인
+      if (!b.dead && !b.saved && b.z >= 0.75 && b.z <= 1.05) {
         let blocked = false;
         for (const p of pointers) {
-          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + 35 + reach) { blocked = true; break; }
+          if (Math.hypot(p.x - b.x, p.y - b.y) < b.r + 75 + reach) { blocked = true; break; }
         }
-        if (!blocked && body) {
-          for (let i = 0; i < body.length; i++) {
-            const pt = body[i];
-            if (pt && pt.v > 0.4 && Math.hypot(pt.x - b.x, pt.y - b.y) < b.r + 28) { blocked = true; break; }
+        if (useMouse && Math.hypot(mouse.x - b.x, mouse.y - b.y) < b.r + 75 + reach) {
+          blocked = true;
+        }
+        const skel = getBody();
+        if (!blocked && skel) {
+          const checkIds = [15, 16, 17, 18, 19, 20, 13, 14, 0, 11, 12];
+          for (const idx of checkIds) {
+            const pt = skel[idx];
+            if (pt && (pt.v ?? 1) > 0.35 && Math.hypot(pt.x - b.x, pt.y - b.y) < b.r + 55 + reach) {
+              blocked = true; break;
+            }
           }
         }
         if (blocked) {
           b.saved = true;
           this.saves++;
           sfx.gksave(b.x);
-          burst(b.x, b.y, "#22c55e", 28);
+          burst(b.x, b.y, "#22c55e", 30);
           award(b.x, b.y, 3, "#22c55e");
           popup(b.x, b.y - 40, "SUPER SAVE! 🧤", "#22c55e");
         }
       }
 
-      // 골인 실점 판정
       if (!b.dead && !b.saved && b.z >= 1.05) {
         b.dead = true;
         this.lives--;
@@ -2411,7 +2422,25 @@ games.keeper = {
   },
   draw() {
     Art.drawSoccerField(this.goalW, this.goalH, this.lives);
-    if (!useMouse) drawSkeleton(getBody(), "rgba(34, 197, 94, 0.85)", 0.55);
+    const skel = getBody();
+    if (!useMouse && skel) {
+      drawSkeleton(skel, "rgba(34, 197, 94, 0.85)", 0.55);
+      [15, 16].forEach((idx) => {
+        const pt = skel[idx];
+        if (pt && (pt.v ?? 1) > 0.35) {
+          ctx.save();
+          ctx.font = "40px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("🧤", pt.x, pt.y);
+          ctx.restore();
+        }
+      });
+    }
+    if (useMouse) {
+      ctx.save();
+      ctx.font = "44px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🧤", mouse.x, mouse.y);
+      ctx.restore();
+    }
     for (const b of objs) {
       if (b.saved) {
         ctx.save(); ctx.globalAlpha = 0.6;
@@ -2422,7 +2451,7 @@ games.keeper = {
       }
     }
     ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif";
-    ctx.fillStyle = "#fff"; ctx.fillText(heartsText(this.lives), W / 2, 104);
+    ctx.fillStyle = "#fff"; ctx.fillText(heartsText(this.lives, 5), W / 2, 104);
     if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
     bodyHint();
   }
@@ -2432,12 +2461,13 @@ games.keeper = {
 // 4. 🥊 스피드 펀치 백 (box): 양손 주먹 초고속 연타 피트니스 모드
 // ============================================================================
 games.box = {
-  bg: "#180a12", camAlpha: 0.45,
+  bg: "#180a12", camAlpha: 0.45, manual: true,
   trail: "#ff4b72",
   init() {
     this.tilt = 0;
     this.tiltVel = 0;
     this.hitCool = [0, 0];
+    this.mouseCool = 0;
     this.flash = 0;
     this.punches = 0;
     this.shake = 0;
@@ -2445,22 +2475,38 @@ games.box = {
   update(dt) {
     this.shake = Math.max(0, this.shake - dt);
     this.flash = Math.max(0, this.flash - dt * 2.5);
-    // 샌드백 물리 진동 (스프링 감쇠)
     this.tiltVel -= this.tilt * 45 * dt;
     this.tiltVel *= 0.93;
     this.tilt += this.tiltVel * dt;
 
-    const bw = 150, bh = Math.min(H * 0.52, 340);
+    const bw = 160, bh = Math.min(H * 0.52, 340);
     const cx = W / 2, cy = H * 0.48;
+
+    if (useMouse) {
+      this.mouseCool = Math.max(0, this.mouseCool - dt);
+      if (mouse.down && this.mouseCool <= 0) {
+        if (Math.abs(mouse.x - cx) < bw * 0.8 && mouse.y > cy - bh / 2 && mouse.y < cy + bh / 2) {
+          this.mouseCool = 0.08;
+          this.punches++;
+          sfx.bagPunch(mouse.x, true);
+          this.tiltVel += (mouse.x < cx ? 1 : -1) * 0.4;
+          this.flash = 1;
+          this.shake = 0.12;
+          burst(mouse.x, mouse.y, "#ffeb3b", 22);
+          award(mouse.x, mouse.y, 2, "#ff4b72");
+          if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성!`, true);
+        }
+      }
+    }
 
     pointers.forEach((p, i) => {
       this.hitCool[i] = Math.max(0, (this.hitCool[i] || 0) - dt);
-      const isPunching = p.punch || p.fist || p.speed > 16;
+      const isPunching = p.punch || p.fist || p.speed > 10;
       if (isPunching && this.hitCool[i] <= 0) {
-        if (Math.abs(p.x - cx) < bw * 0.65 + reach && p.y > cy - bh / 2 && p.y < cy + bh / 2) {
-          this.hitCool[i] = 0.11; // 110ms 쿨다운 디바운스
+        if (Math.abs(p.x - cx) < bw * 0.8 + reach && p.y > cy - bh / 2 && p.y < cy + bh / 2) {
+          this.hitCool[i] = 0.09;
           this.punches++;
-          const heavy = p.speed > 24;
+          const heavy = p.speed > 18 || p.punch;
           sfx.bagPunch(p.x, heavy);
           this.tiltVel += (p.x < cx ? 1 : -1) * (heavy ? 0.45 : 0.28);
           this.flash = 1;
@@ -2475,7 +2521,7 @@ games.box = {
   draw() {
     ctx.save();
     if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
-    const bw = 150, bh = Math.min(H * 0.52, 340);
+    const bw = 160, bh = Math.min(H * 0.52, 340);
     Art.drawPunchBag(W / 2, H * 0.48, bw, bh, this.tilt, this.flash);
     ctx.restore();
 
@@ -2485,7 +2531,7 @@ games.box = {
   }
 };
 
-const elapsed = () => GAME_SECONDS - timeLeft;
+function elapsed() { return GAME_SECONDS - timeLeft; }
 
 // ---------- 진행 ----------
 let warned10 = false;
