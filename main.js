@@ -2160,21 +2160,26 @@ const GestureMatcher = {
 };
 
 // ============================================================================
-// 1. 🎵 네온 노트 슬래시 (beat): 양손 속도/방향 감지 리듬 액션 게임
+// 1. 🎵 네온 노트 슬래시 (beat): 전신 모션 액션 비트세이버 (Body Pose 기반)
 // ============================================================================
 games.beat = {
-  bg: "#080416", camAlpha: 0.35,
+  body: true, bg: "#080416", camAlpha: 0.38,
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
   init() {
     this.halves = [];
-    this.lanes = [-1.5, -0.5, 0.5, 1.5]; // 4개 3D 레인
+    this.lanes = [-1.5, -0.5, 0.5, 1.5]; // 4개 3D 네온 레인
     this.dirs = ["down", "up", "left", "right", "any"];
     this.lastSwingT = [0, 0];
-    this.spawnAcc = 0;
+    this.prevWrist = [{ x: W * 0.35, y: H * 0.6 }, { x: W * 0.65, y: H * 0.6 }];
+    this.sabers = [
+      { base: { x: W * 0.35, y: H * 0.6 }, tip: { x: W * 0.3, y: H * 0.4 } },
+      { base: { x: W * 0.65, y: H * 0.6 }, tip: { x: W * 0.7, y: H * 0.4 } }
+    ];
+    this.swingPower = [0, 0];
   },
   spawn() {
     const lane = this.lanes[(Math.random() * this.lanes.length) | 0];
-    const isLeft = lane < 0; // 왼쪽 2개 레인은 왼손 파랑, 오른쪽은 오른손 분홍
+    const isLeft = lane < 0; // 왼쪽 레인은 왼팔 파랑(0), 오른쪽 레인은 오른팔 분홍(1)
     const dir = this.dirs[(Math.random() * this.dirs.length) | 0];
     const speed = (0.34 + elapsed() * 0.005) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
     objs.push({
@@ -2187,25 +2192,78 @@ games.beat = {
   update(dt) {
     const judgeZ = 0.94; // 비트세이버 타격 최적 판정선
     const now = performance.now();
-
-    // 1. 플레이어 스윙 액션 감지 (어디서든 속도/가속도 피크가 발생하면 스윙 인정!)
     const swing = [false, false];
     const swingDir = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
 
-    pointers.forEach((p, i) => {
-      // 8px 이상 빠른 스윙이거나 마우스 클릭 스윙
-      const isFast = p.speed > 7.5 || (useMouse && mouse.down && p.speed > 3);
-      if (isFast && now - this.lastSwingT[i] > 110) {
-        swing[i] = true;
-        this.lastSwingT[i] = now;
-        swingDir[i] = { x: p.x - p.px, y: p.y - p.py };
-      }
-    });
+    // 1. 전신 포즈 인식 (MediaPipe Pose 33개 관절) 양팔 세이버 & 스윙 가속도 감지
+    const skel = getBody();
 
-    if (useMouse && mouse.down && now - this.lastSwingT[0] > 110) {
-      swing[0] = true;
-      this.lastSwingT[0] = now;
-      swingDir[0] = { x: mouse.x - (pointers[0]?.px ?? mouse.x), y: mouse.y - (pointers[0]?.py ?? mouse.y) };
+    if (!useMouse && skel) {
+      // 왼팔: 어깨(11), 팔꿈치(13), 손목(15) / 오른팔: 어깨(12), 팔꿈치(14), 손목(16)
+      const armIndices = [
+        { shoulder: 11, elbow: 13, wrist: 15 },
+        { shoulder: 12, elbow: 14, wrist: 16 }
+      ];
+
+      armIndices.forEach((arm, i) => {
+        const wPt = skel[arm.wrist];
+        const ePt = skel[arm.elbow];
+
+        if (wPt && (wPt.v ?? 1) > 0.3) {
+          const prev = this.prevWrist[i];
+          const vx = wPt.x - prev.x;
+          const vy = wPt.y - prev.y;
+          const spd = Math.hypot(vx, vy);
+
+          // 손목 이전 위치 업데이트
+          this.prevWrist[i] = { x: wPt.x, y: wPt.y };
+          this.swingPower[i] = Math.max(0, this.swingPower[i] - dt * 4) + spd * 0.15;
+
+          // 팔꿈치 -> 손목 방향 벡터로 광선검 검신(Blade) 길이 약 140px 연장
+          let dirX = vx, dirY = vy;
+          if (ePt && (ePt.v ?? 1) > 0.3) {
+            dirX = wPt.x - ePt.x;
+            dirY = wPt.y - ePt.y;
+          }
+          const len = Math.hypot(dirX, dirY) || 1;
+          const nx = (dirX / len) || (i === 0 ? -0.5 : 0.5);
+          const ny = (dirY / len) || -0.86;
+          const bladeLen = 145 + Math.min(this.swingPower[i] * 6, 40);
+
+          this.sabers[i] = {
+            base: { x: wPt.x, y: wPt.y },
+            tip: { x: wPt.x + nx * bladeLen, y: wPt.y + ny * bladeLen }
+          };
+
+          // 전신 스윙 감지 (손목 가속도 8.5px 이상 또는 강한 스윙)
+          if (spd > 8.5 && now - this.lastSwingT[i] > 110) {
+            swing[i] = true;
+            this.lastSwingT[i] = now;
+            swingDir[i] = { x: vx, y: vy };
+          }
+        }
+      });
+    }
+
+    // 마우스 모드 호환 지원 (마우스 클릭 또는 빠른 이동 시 양팔 스윙)
+    if (useMouse) {
+      const prevM = this.prevWrist[0];
+      const mx = mouse.x, my = mouse.y;
+      const mSpd = Math.hypot(mx - prevM.x, my - prevM.y);
+      this.prevWrist[0] = { x: mx, y: my };
+      this.prevWrist[1] = { x: mx, y: my };
+
+      this.sabers[0] = { base: { x: mx - 25, y: my + 20 }, tip: { x: mx - 70, y: my - 100 } };
+      this.sabers[1] = { base: { x: mx + 25, y: my + 20 }, tip: { x: mx + 70, y: my - 100 } };
+
+      const isMouseSwing = (mouse.down && mSpd > 3) || mSpd > 12;
+      if (isMouseSwing && now - this.lastSwingT[0] > 110) {
+        swing[0] = true;
+        swing[1] = true;
+        this.lastSwingT[0] = now;
+        swingDir[0] = { x: mx - prevM.x, y: my - prevM.y };
+        swingDir[1] = { x: mx - prevM.x, y: my - prevM.y };
+      }
     }
 
     // 2. 노트 전진 및 판정
@@ -2213,46 +2271,48 @@ games.beat = {
       o.z += o.speed * dt * (0.8 + o.z * 1.5);
       o.x = W / 2 + o.lane * (W * 0.22) * o.z;
       o.y = H * 0.45 + (H * 0.32) * o.z;
-      o.r = 16 + o.z * 48;
+      o.r = 16 + o.z * 52;
 
-      // 비트세이버 판정 윈도우 (z: 0.82 ~ 1.08)
+      // 비트세이버 타격 판정 윈도우 (z: 0.80 ~ 1.08)
       if (!o.dead && !o.cut && o.z >= 0.80 && o.z <= 1.08) {
         let isHit = false;
         let perfect = false;
+        const handIdx = o.isLeft ? 0 : 1;
 
-        // A. 타이밍 모션 액션 판정: 해당 손 색상(또는 단일 포인터)의 스윙 감지
-        const targetHandIdx = o.isLeft ? 0 : (pointers.length > 1 ? 1 : 0);
-        if (swing[targetHandIdx] || swing[0] || (pointers.length > 1 && swing[1])) {
+        // A. 몸 모션액션 타이밍 스윙 판정: 해당 손(왼팔/오른팔)을 비트에 맞춰 크게 휘둘렀을 때
+        if (swing[handIdx] || (useMouse && (swing[0] || swing[1]))) {
           isHit = true;
-          const sDir = swingDir[targetHandIdx] || swingDir[0];
-          // 스윙 방향 일치도 검사
+          const sDir = swingDir[handIdx];
+          // 베는 방향 일치도 검사
           if (o.dir === "any") perfect = true;
-          else if (o.dir === "down" && sDir.y > 3) perfect = true;
-          else if (o.dir === "up" && sDir.y < -3) perfect = true;
-          else if (o.dir === "left" && sDir.x < -3) perfect = true;
-          else if (o.dir === "right" && sDir.x > 3) perfect = true;
-          else perfect = Math.abs(o.z - judgeZ) < 0.06; // 타이밍이 극도로 정확하면 퍼펙트
+          else if (o.dir === "down" && sDir.y > 2.5) perfect = true;
+          else if (o.dir === "up" && sDir.y < -2.5) perfect = true;
+          else if (o.dir === "left" && sDir.x < -2.5) perfect = true;
+          else if (o.dir === "right" && sDir.x > 2.5) perfect = true;
+          else perfect = Math.abs(o.z - judgeZ) < 0.07; // 음악 타이밍이 정확하면 퍼펙트
         }
 
-        // B. 직접 슬래시 충돌 판정 (포인터 궤적이 노트와 교차)
+        // B. 광선검 검신(Blade Line) 직접 충돌 판정
         if (!isHit) {
-          for (const p of pointers) {
-            if (segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 35)) {
-              isHit = true; perfect = true; break;
-            }
+          const saber = this.sabers[handIdx] || this.sabers[0];
+          if (saber && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 35)) {
+            isHit = true;
+            perfect = true;
           }
         }
 
+        // 충돌 성공 시 타격 연출
         if (isHit) {
-          o.dead = true; o.cut = true;
+          o.dead = true;
+          o.cut = true;
           sfx.saber(o.x, o.isLeft);
-          burst(o.x, o.y, o.color, perfect ? 32 : 18);
+          burst(o.x, o.y, o.color, perfect ? 34 : 20);
           const pts = perfect ? 3 : 2;
           award(o.x, o.y, pts, perfect ? "#ffd700" : o.color);
-          popup(o.x, o.y - 40, perfect ? "PERFECT CUT! +3" : "GREAT CUT! +2", perfect ? "#ffd700" : o.color);
+          popup(o.x, o.y - 40, perfect ? "PERFECT SLICE!! ⚡ +3" : "GREAT CUT! +2", perfect ? "#ffd700" : o.color);
           this.halves.push(
-            { x: o.x - 14, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -6, vy: -2, half: -1, life: 1 },
-            { x: o.x + 14, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 6, vy: -2, half: 1, life: 1 }
+            { x: o.x - 16, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: -7, vy: -3, half: -1, life: 1 },
+            { x: o.x + 16, y: o.y, r: o.r, dir: o.dir, color: o.color, vx: 7, vy: -3, half: 1, life: 1 }
           );
         }
       }
@@ -2267,7 +2327,7 @@ games.beat = {
 
     objs = objs.filter((o) => !o.dead && o.z < 1.35);
     for (const h of this.halves) {
-      h.x += h.vx; h.y += h.vy; h.vy += dt * 30; h.life -= 0.04;
+      h.x += h.vx; h.y += h.vy; h.vy += dt * 32; h.life -= 0.04;
     }
     this.halves = this.halves.filter((h) => h.life > 0);
   },
@@ -2276,7 +2336,7 @@ games.beat = {
 
     // 1. 3D 원근 네온 터널 레인 그리기
     ctx.save();
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.22)"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.25)"; ctx.lineWidth = 2;
     for (const lane of this.lanes) {
       const farX = W / 2 + lane * (W * 0.22) * 0.08;
       const nearX = W / 2 + lane * (W * 0.22) * 1.15;
@@ -2287,10 +2347,10 @@ games.beat = {
     }
 
     // 2. 비트세이버 네온 판정 스트라이크 라인
-    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.75)";
-    ctx.lineWidth = 5; ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 20;
+    ctx.strokeStyle = isFeverTime ? "#ff0055" : "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 6; ctx.shadowColor = isFeverTime ? "#ff0055" : "#00d2ff"; ctx.shadowBlur = 24;
     ctx.beginPath();
-    ctx.moveTo(W * 0.08, judgeY); ctx.lineTo(W * 0.92, judgeY);
+    ctx.moveTo(W * 0.06, judgeY); ctx.lineTo(W * 0.94, judgeY);
     ctx.stroke();
     ctx.restore();
 
@@ -2305,36 +2365,49 @@ games.beat = {
       ctx.restore();
     }
 
-    // 4. 플레이어 비트세이버 광선검(Saber Blade) 렌더링
-    pointers.forEach((p, i) => {
-      const isLeft = i === 0;
-      const col = isLeft ? "#00d2ff" : "#ff3377";
+    // 4. 전신 포즈 스켈레톤 (몸 모션 액션 비주얼)
+    const skel = getBody();
+    if (!useMouse && skel) {
+      drawSkeleton(skel, "rgba(0, 210, 255, 0.45)", 0.6);
+    }
+
+    // 5. 비트세이버 양팔 듀얼 광선검 (Saber Blade) 렌더링
+    const saberCols = ["#00d2ff", "#ff3377"]; // 왼팔 파랑, 오른팔 분홍
+    this.sabers.forEach((s, i) => {
+      if (!s || !s.base || !s.tip) return;
+      const col = saberCols[i];
       ctx.save();
-      ctx.strokeStyle = col; ctx.lineWidth = 10; ctx.lineCap = "round";
-      ctx.shadowColor = col; ctx.shadowBlur = 24;
-      // 손 위치에서 대각선 위로 뻗어나오는 광선검 블레이드
-      const bladeLen = 90;
-      const angle = isLeft ? -Math.PI * 0.35 : -Math.PI * 0.65;
+
+      // 외부 네온 글로우
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 14;
+      ctx.lineCap = "round";
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 28;
       ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x + Math.cos(angle) * bladeLen, p.y + Math.sin(angle) * bladeLen);
+      ctx.moveTo(s.base.x, s.base.y);
+      ctx.lineTo(s.tip.x, s.tip.y);
       ctx.stroke();
-      // 검 손잡이
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 5; ctx.shadowBlur = 6;
+
+      // 내부 순백 코어 블레이드
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 6;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(s.base.x, s.base.y);
+      ctx.lineTo(s.tip.x, s.tip.y);
       ctx.stroke();
+
+      // 검 손잡이(Hilt)
+      ctx.fillStyle = "#333344";
+      ctx.beginPath();
+      ctx.arc(s.base.x, s.base.y, 8, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     });
 
-    if (useMouse) {
-      ctx.save();
-      ctx.strokeStyle = "#00d2ff"; ctx.lineWidth = 9; ctx.shadowColor = "#00d2ff"; ctx.shadowBlur = 20;
-      ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(mouse.x - 45, mouse.y - 75); ctx.stroke();
-      ctx.strokeStyle = "#ff3377"; ctx.shadowColor = "#ff3377";
-      ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(mouse.x + 45, mouse.y - 75); ctx.stroke();
-      ctx.restore();
-    }
-
-    topHud("리듬 박자에 맞춰 시원하게 스윙! 양손으로 베어내세요!");
+    topHud("🕺 온몸으로 역동적인 슬래시! 음악 타이밍에 맞춰 양팔을 시원하게 휘두르세요!");
+    bodyHint();
   }
 };
 
