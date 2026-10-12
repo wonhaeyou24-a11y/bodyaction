@@ -5358,15 +5358,6 @@ function drawReadyCountdown(t, isBodyGame) {
     if (pointers[1]) rHandA = { x: pointers[1].x, y: pointers[1].y };
   }
 
-  // 10초를 5단계(각 2초)로 분할하여 화면 밖에서 파츠가 날아와 결합
-  // 1단계: 10초~8초 (하체 부스터/부츠 결합)
-  // 2단계: 8초~6초 (흉부 아머 & 아크 리액터 코어 결합)
-  // 3단계: 6초~4초 (양손 건틀렛 & 무기 결합)
-  // 4단계: 4초~2초 (등 뒤 날개/제트팩 전개)
-  // 5단계: 2초~0초 (헬멧 바이저 안착 & 안광 점등 & 전신 완료)
-  let stepText = "⚡ STEP 1: 하체 부스터 드라이브 합체 중...";
-  let stepColor = "#ffb800";
-
   const flyPart = (fromX, fromY, toX, toY, phaseFrac, drawFn) => {
     const p = Math.min(1, Math.max(0, phaseFrac));
     const ease = Math.pow(p, 3); // 급가속하여 착 달라붙음
