@@ -1311,23 +1311,23 @@ const GAME_HUD_META = {
   },
   box: {
     theme: "kungfu",
-    badge: "SPEED PUNCH ARENA",
-    title: "SPEED PUNCHING BAG",
-    sub: "BOXING TRAINING",
-    guideIcon: "🥊",
-    guideMain: "STRIKE THE BAG IN RAPID SUCCESSION!",
-    guideSub: "리듬에 맞춰 샌드백을 양손으로 연속 타격하세요!",
-    leftName: "LEFT FIST VELOCITY",
-    rightName: "RIGHT FIST VELOCITY",
+    badge: "FITNESS PUNCH & KICK 60 FPS",
+    title: "SPEED PUNCH & KICK BAG",
+    sub: "FULL-BODY COMBAT TRAINING",
+    guideIcon: "🥋",
+    guideMain: "STRIKE WITH RAPID PUNCHES & POWERFUL KICKS!",
+    guideSub: "양손 주먹 연타와 강력한 발차기(하이킥/파워킥)로 샌드백을 날려버리세요!",
+    leftName: "FIST VELOCITY",
+    rightName: "KICK POWER",
     leftUnit: "KM/H",
-    rightUnit: "KM/H",
-    leftDesc: "RAPID JAB",
-    rightDesc: "POWER HOOK",
-    odTitle: "🥊 ULTRA BOXING RUSH (100연타 러시)",
+    rightUnit: "PSI",
+    leftDesc: "RAPID JAB & HOOK",
+    rightDesc: "HIGH & MIDDLE KICK",
+    odTitle: "🥋 FULL-BODY COMBAT RUSH (전신 타격 러시)",
     getMetrics: (g) => [
-      { label: "PUNCHES", val: score },
-      { label: "CADENCE", val: `${Math.min(180, 90 + combo * 4)}/M` },
-      { label: "FORCE", val: `${Math.min(300, 120 + score * 3)}PSI` }
+      { label: "STRIKES", val: score },
+      { label: "KICKS", val: g?.kicks ?? 0 },
+      { label: "FORCE", val: `${Math.min(350, 120 + score * 3)}PSI` }
     ]
   },
   space: {
@@ -1458,19 +1458,19 @@ const GAME_HUD_META = {
   },
   baseball: {
     theme: "space",
-    badge: "CYBER SLUGGER 60 FPS",
+    badge: "DUAL VIEWPORT & CUSTOM BATTER",
     title: "NEON SLAM BASEBALL",
-    sub: "HOME RUN DERBY",
+    sub: "3D STADIUM & MOTION MIRROR",
     guideIcon: "⚾",
-    guideMain: "SWING THE ENERGY BAT & HIT HOME RUNS!",
-    guideSub: "홈플레이트로 날아오는 마구를 배트로 타이밍 맞춰 힘차게 휘두르세요!",
+    guideMain: "SWING THE BAT & WATCH YOUR CUSTOM BATTER HIT!",
+    guideSub: "좌측 타석의 커스튬 타자와 내 움직임이 100% 동기화! 온몸으로 시원하게 휘두르세요!",
     leftName: "BAT SPEED",
     rightName: "LAUNCH DISTANCE",
     leftUnit: "KM/H",
     rightUnit: "M",
     leftDesc: "ANGULAR VELOCITY",
     rightDesc: "PROJECTED FLIGHT",
-    odTitle: "🔥 GRAND SLAM FEVER (만루 홈런 피버)",
+    odTitle: "🚀 GRAND SLAM FEVER (만루 홈런 피버)",
     getMetrics: (g) => [
       { label: "HITS", val: g?.hits ?? 0 },
       { label: "HOMERUN", val: g?.homeRuns ?? 0 },
@@ -4727,9 +4727,10 @@ games.keeper = {
 };
 
 // ============================================================================
-// 4. 🥊 스피드 펀치 백 (box): 양손 주먹 초고속 연타 피트니스 모드
+// 4. 🥊 🥋 스피드 펀치 & 킥 복싱 백 (box): 양손 주먹 + 전신 발차기 온몸 타격 액션 모드
 // ============================================================================
 games.box = {
+  body: true, // 🥋 온몸 게임 전환: 전신 관절(포즈 33개 관절) 추적 활성화
   bg: "#160714", camAlpha: 0.45, manual: true,
   trail: "#ff4b72",
   init() {
@@ -4737,13 +4738,21 @@ games.box = {
     this.tiltVel = 0;
     // 주먹별 펀치 궤도 FSM 상태 머신 (IDLE -> PUNCH -> RETRACT)
     this.fistFSM = Array.from({ length: 4 }, () => newPunchState());
+    // 양발 킥 전용 FSM 상태 머신 (0: 왼발, 1: 오른발)
+    this.kickFSM = [newPunchState(), newPunchState()];
+    this.prevAnkles = [
+      { x: 0, y: 0, vy: 0, spd: 0 },
+      { x: 0, y: 0, vy: 0, spd: 0 }
+    ];
+    this.recentKicks = []; // 발차기 타격 이펙트 링 목록
     this.mouseCool = 0;
     this.flash = 0;
     this.punches = 0;
+    this.kicks = 0;
     this.shake = 0;
     this.targets = [];
     this.beatTimer = 0;
-    this.beatInterval = 0.72; // 음악 비트 펀치 큐
+    this.beatInterval = 0.70; // 음악 비트 타격 큐
   },
   update(dt) {
     this.shake = Math.max(0, this.shake - dt);
@@ -4755,88 +4764,191 @@ games.box = {
     const bw = 175, bh = Math.min(H * 0.52, 335);
     const cx = W / 2, cy = H * 0.48;
 
-    // 1. 리듬 펀치 비트 큐 생성 (LEFT / RIGHT 펀치 유도)
+    // 1. 리듬 타격 비트 큐 생성 (LEFT / RIGHT 펀치 & 킥 유도)
     this.beatTimer += dt;
     if (this.beatTimer >= this.beatInterval) {
       this.beatTimer = 0;
       const isLeft = Math.random() < 0.5;
+      const isKickTarget = Math.random() < 0.35; // 35% 확률로 강력한 킥 타겟 등장!
+      let targetText = "";
+      if (isKickTarget) {
+        targetText = isLeft ? "LEFT KICK! 🥋" : "RIGHT KICK! 🥋";
+      } else {
+        targetText = isLeft ? "LEFT JAB 🥊" : "RIGHT STRAIGHT 🥊";
+      }
       this.targets.push({
-        t: 0, maxT: 0.85, isLeft,
-        text: isLeft ? "LEFT JAB 🥊" : "RIGHT STRAIGHT 🥊",
-        color: isLeft ? "#00d2ff" : "#ff4b72",
+        t: 0, maxT: 0.85, isLeft, isKick: isKickTarget,
+        text: targetText,
+        color: isKickTarget ? "#ffd700" : (isLeft ? "#00d2ff" : "#ff4b72"),
         hit: false
       });
     }
 
-    // 2. 피트니스 섀도우 복싱 펀치 모션 엔진 (화면 샌드백 좌표 매칭 X -> 실제 주먹 궤도와 가속도 피크 인식 O!)
-    let punchOccurred = false;
-    let punchHandLeft = true;
-    let punchIntensity = 1.0;
+    // 2. 피트니스 섀도우 복싱 펀치 & 킥 모션 엔진
+    let strikeOccurred = false;
+    let strikeSideLeft = true;
+    let strikeIntensity = 1.0;
+    let isKickStrike = false;
+    let kickLabel = "POWER KICK";
+    let strikeX = cx, strikeY = cy;
 
-    // 마우스 모드: 클릭 또는 빠른 스와이프
+    // 마우스 모드: 클릭 또는 빠른 스와이프 (우클릭 또는 하단 클릭 시 킥 시뮬레이션)
     if (useMouse) {
       this.mouseCool = Math.max(0, this.mouseCool - dt);
       if (mouse.down && this.mouseCool <= 0) {
         this.mouseCool = 0.15;
-        punchOccurred = true;
-        punchHandLeft = mouse.x < W / 2;
-        punchIntensity = 1.2;
+        strikeOccurred = true;
+        strikeSideLeft = mouse.x < W / 2;
+        const isMouseKick = mouse.y > H * 0.65;
+        if (isMouseKick) {
+          isKickStrike = true;
+          kickLabel = mouse.y < H * 0.45 ? "HIGH KICK" : "POWER KICK";
+          strikeIntensity = 2.0;
+        } else {
+          strikeIntensity = 1.2;
+        }
+        strikeX = mouse.x; strikeY = mouse.y;
       }
     }
 
     // 웹캠 손인식: 양손 펀치 궤도 & 가속도 피크(Peak Acceleration) 판정
     pointers.forEach((p, i) => {
       const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = newPunchState());
-      // 손의 위치에 따라 왼주먹 / 오른주먹 자동 구분
       const isLeftFist = p.x < W / 2;
-      // 🥊 펀치 판정(punch.js): 초당 속도가 화면 크기 기준으로 충분히 빠른 상태가 2프레임 이어질 때만 펀치, 펀치 뒤 0.2초는 쉼
-      // (예전엔 "한 프레임에 6.5픽셀"이라 카메라 잡음/위치 튐 한 번에도 연타가 나왔어요)
       const hit = stepPunch(fsm, p.vps ?? p.speed * 60, !!p.punch, dt, Math.min(W, H));
-      if (hit.strike) { punchOccurred = true; punchHandLeft = isLeftFist; punchIntensity = hit.intensity; }
+      if (hit.strike) {
+        strikeOccurred = true;
+        strikeSideLeft = isLeftFist;
+        strikeIntensity = hit.intensity;
+        isKickStrike = false;
+        strikeX = p.x; strikeY = p.y;
+      }
     });
 
-    // 3. 펀치 임팩트 발동 및 샌드백 반응
-    if (punchOccurred) {
-      this.punches++;
+    // 🥋 [핵심 추가] 웹캠 전신 포즈 인식: 양발 발차기(로우킥 / 미들킥 / 하이킥) 궤도 & 급상승 가속도 판정
+    const skel = getBody();
+    if (!useMouse && skel) {
+      const legs = [
+        { ankle: 27, knee: 25, heel: 29, foot: 31, isLeft: true },
+        { ankle: 28, knee: 26, heel: 30, foot: 32, isLeft: false }
+      ];
 
-      // 타이밍 리듬 비트 타겟과 일치 검사 (LEFT / RIGHT 손 일치 여부)
-      const currentTarget = this.targets.find((tg) => !tg.hit && tg.t >= 0.65 && tg.t <= 1.05 && tg.isLeft === punchHandLeft);
+      legs.forEach((leg, idx) => {
+        const ank = skel[leg.ankle];
+        const knee = skel[leg.knee];
+        const prev = this.prevAnkles[idx];
+
+        if (ank && (ank.v ?? 1) > 0.22) {
+          const dtClamped = Math.max(dt, 0.016);
+          const vx = (ank.x - prev.x) / dtClamped;
+          const vy = (ank.y - prev.y) / dtClamped;
+          const kickSpd = Math.hypot(vx, vy);
+
+          this.prevAnkles[idx] = { x: ank.x, y: ank.y, vy, spd: kickSpd };
+
+          // 발차기 감지 조건:
+          // 1) 발목이 순간적으로 강하게 솟구치거나 (vy < -280)
+          // 2) 발목의 속도가 기준치 이상으로 폭발적일 때 (kickSpd > 380)
+          // 3) 발의 위치가 무릎 위로 올라오거나 샌드백 반경 내에 진입
+          const fsm = this.kickFSM[idx] ?? (this.kickFSM[idx] = newPunchState());
+          const isKickingMotion = vy < -240 || kickSpd > 350;
+          const kickHit = stepPunch(fsm, kickSpd, isKickingMotion, dt, Math.min(W, H));
+
+          // 샌드백과의 근접성 및 모션 방향 검사
+          const distToBag = Math.abs(ank.x - cx);
+          const isNearBag = distToBag < bw * 1.3 && ank.y < (cy + bh * 0.65);
+
+          if ((kickHit.strike || (isKickingMotion && isNearBag)) && fsm.state === "punch") {
+            strikeOccurred = true;
+            strikeSideLeft = leg.isLeft;
+            isKickStrike = true;
+            strikeX = ank.x; strikeY = ank.y;
+
+            // 차올린 높이에 따라 하이킥 / 파워킥 세분화 판정
+            if (ank.y < cy) {
+              kickLabel = "HIGH KICK";
+              strikeIntensity = Math.max(2.4, kickHit.intensity * 1.8);
+            } else {
+              kickLabel = "POWER KICK";
+              strikeIntensity = Math.max(1.9, kickHit.intensity * 1.4);
+            }
+
+            // 시각적 발차기 잔상 등록
+            this.recentKicks.push({
+              x: ank.x, y: ank.y,
+              t: 0.45,
+              label: kickLabel,
+              color: leg.isLeft ? "#00d2ff" : "#ff4b72"
+            });
+          }
+        }
+      });
+    }
+
+    // 3. 타격(펀치 or 킥) 임팩트 발동 및 샌드백 물리 반응
+    if (strikeOccurred) {
+      this.punches++;
+      if (isKickStrike) this.kicks++;
+
+      // 타이밍 리듬 비트 타겟과 일치 검사 (LEFT / RIGHT & 펀치/킥 일치 여부)
+      const currentTarget = this.targets.find(
+        (tg) => !tg.hit && tg.t >= 0.65 && tg.t <= 1.05 && tg.isLeft === strikeSideLeft
+      );
       let perfect = false;
 
       if (currentTarget) {
         currentTarget.hit = true;
         perfect = true;
-        const pts = Math.round(3 * punchIntensity);
+        const pts = Math.round(isKickStrike ? 4 * strikeIntensity : 3 * strikeIntensity);
         award(cx, cy - 60, pts, "#ffd700");
-        popup(cx, cy - 90, `PERFECT HIT!! 💥 +${pts}`, "#ffd700");
-        addShake(0.08, 5); // 화면 점등 및 여백 노출 없는 부드러운 햅틱
+        const hitMsg = isKickStrike ? `PERFECT ${kickLabel}!! ⚡ +${pts}` : `PERFECT HIT!! 💥 +${pts}`;
+        popup(cx, cy - 90, hitMsg, "#ffd700");
+        addShake(isKickStrike ? 0.16 : 0.08, isKickStrike ? 9 : 5);
       } else {
-        const pts = punchIntensity > 1.6 ? 2 : 1;
-        award(cx, cy, pts, punchHandLeft ? "#00d2ff" : "#ff4b72");
-        if (punchIntensity > 1.6) {
-          popup(cx, cy - 70, `HEAVY PUNCH!! 🥊 +2`, punchHandLeft ? "#00d2ff" : "#ff4b72");
-          addShake(0.06, 4);
+        if (isKickStrike) {
+          const pts = Math.round(2 * strikeIntensity);
+          award(cx, cy - 30, pts, "#ffd166");
+          popup(cx, cy - 75, `⚡ ${kickLabel}!! 🥋 +${pts}`, "#ffd166");
+          addShake(0.12, 7);
+        } else {
+          const pts = strikeIntensity > 1.6 ? 2 : 1;
+          award(cx, cy, pts, strikeSideLeft ? "#00d2ff" : "#ff4b72");
+          if (strikeIntensity > 1.6) {
+            popup(cx, cy - 70, `HEAVY PUNCH!! 🥊 +2`, strikeSideLeft ? "#00d2ff" : "#ff4b72");
+            addShake(0.06, 4);
+          }
         }
       }
 
-      // 사운드: 피버 타임 시 피치 연속 상승 연타
-      if (this.punches >= 20 || isFeverTime) {
+      // 사운드: 발차기는 묵직한 중저음 베이스 타격음 동시 재생
+      if (isKickStrike) {
+        sfx.hitHeavy(cx);
+        sfx.bagPunch(cx, perfect);
+      } else if (this.punches >= 20 || isFeverTime) {
         sfx.punchRush(this.punches);
       } else {
         sfx.bagPunch(cx, perfect);
       }
 
-      // 샌드백 물리 틸트: 왼손 펀치는 오른쪽으로, 오른손 펀치는 왼쪽으로 꺾임!
-      const tiltDir = punchHandLeft ? 1 : -1;
-      this.tiltVel += tiltDir * (perfect ? 0.55 : 0.38) * punchIntensity;
-      if (this.flash < 0.3) this.flash = 0.8;                     // 번쩍임은 연달아 다시 켜지지 않게 (깜박임 방지)
-      this.shake = perfect ? 0.12 : (punchIntensity > 1.6 ? 0.08 : 0);   // 센 펀치만 흔들림
+      // 샌드백 물리 틸트: 발차기는 펀치 대비 1.7배 더 묵직하게 회전!
+      const tiltDir = strikeSideLeft ? 1 : -1;
+      const kickTiltMult = isKickStrike ? 1.7 : 1.0;
+      this.tiltVel += tiltDir * (perfect ? 0.58 : 0.40) * strikeIntensity * kickTiltMult;
+      if (this.flash < 0.3) this.flash = isKickStrike ? 0.95 : 0.8;
+      this.shake = isKickStrike ? 0.14 : (perfect ? 0.12 : (strikeIntensity > 1.6 ? 0.08 : 0));
 
-      // 샌드백 타격점에 화려한 파티클 버스트
-      const impactCol = punchHandLeft ? "#00d2ff" : "#ff4b72";
-      burst(cx + tiltDir * 20, cy, perfect ? "#ffd700" : impactCol, perfect ? 32 : 18);
+      // 샌드백 타격점에 화려한 파티클 버스트 (발차기는 대량의 황금 불꽃 버스트)
+      const impactCol = isKickStrike ? "#ffd166" : (strikeSideLeft ? "#00d2ff" : "#ff4b72");
+      burst(cx + tiltDir * 24, cy + (isKickStrike ? 40 : 0), perfect ? "#ffd700" : impactCol, isKickStrike ? 40 : (perfect ? 32 : 18));
 
-      if (this.punches % 20 === 0) speak(`${this.punches} 연타 달성! 골든 피버 러시!`, true);
+      if (this.punches % 20 === 0) speak(`${this.punches} 타격 달성! 불타오르는 콤보 러시!`, true);
+    }
+
+    // 발차기 이펙트 링 갱신
+    for (let i = this.recentKicks.length - 1; i >= 0; i--) {
+      const rk = this.recentKicks[i];
+      rk.t -= dt;
+      if (rk.t <= 0) this.recentKicks.splice(i, 1);
     }
 
     // 타겟 진행 및 소멸
@@ -4853,17 +4965,19 @@ games.box = {
     // 1. 샌드백 본체 렌더링
     Art.drawPunchBag(cx, cy, bw, bh, this.tilt, this.flash);
 
-    // 2. 리듬 펀치 링 & 비트 큐 (LEFT / RIGHT 펀치 안내)
+    // 2. 리듬 타격 링 & 비트 큐 (LEFT / RIGHT 펀치 & 킥 안내)
     for (const tg of this.targets) {
       if (tg.hit) continue;
       const scale = Math.max(0.2, 1.8 - tg.t * 0.8);
       const alpha = Math.min(1, Math.max(0, 1 - Math.abs(tg.t - 0.85) * 2));
       ctx.save();
-      ctx.strokeStyle = tg.color; ctx.lineWidth = 6;
-      ctx.shadowColor = tg.color; ctx.shadowBlur = 18;
+      ctx.strokeStyle = tg.color;
+      ctx.lineWidth = tg.isKick ? 8 : 6;
+      ctx.shadowColor = tg.color;
+      ctx.shadowBlur = tg.isKick ? 24 : 18;
       ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(cx, cy, 85 * scale, 0, Math.PI * 2);
+      ctx.arc(cx, cy, (tg.isKick ? 95 : 85) * scale, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.font = "900 28px 'Rubik', sans-serif";
@@ -4873,10 +4987,25 @@ games.box = {
     }
     ctx.restore();
 
-    // 3. 플레이어 복싱 글러브 렌더링 (자신의 주먹 궤적을 실시간 확인)
+    // 3. 발차기 타격 궤적 & 이펙트 링 렌더링
+    this.recentKicks.forEach((rk) => {
+      const alpha = Math.max(0, rk.t / 0.45);
+      const rad = (1 - alpha) * 110 + 30;
+      ctx.save();
+      ctx.strokeStyle = rk.color;
+      ctx.lineWidth = 6 * alpha;
+      ctx.shadowColor = rk.color;
+      ctx.shadowBlur = 20;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(rk.x, rk.y, rad, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // 4. 플레이어 복싱 글러브 렌더링 (자신의 주먹 궤적 실시간 확인)
     pointers.forEach((p, i) => {
       const isLeft = p.x < W / 2;
-      const col = isLeft ? "#00d2ff" : "#ff4b72";
       ctx.save();
       ctx.font = "46px sans-serif";
       ctx.textAlign = "center";
@@ -4885,21 +5014,49 @@ games.box = {
       ctx.restore();
     });
 
+    // 5. 🥋 발목/발끝 킥 트래커 렌더링 (발의 실시간 위치 및 킥 마크 표시)
+    const skel = getBody();
+    if (!useMouse && skel) {
+      [27, 28].forEach((ankIdx) => {
+        const ank = skel[ankIdx];
+        if (ank && (ank.v ?? 1) > 0.22) {
+          const isLeft = ankIdx === 27;
+          const col = isLeft ? "#00d2ff" : "#ff4b72";
+          ctx.save();
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 3.5;
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(ank.x, ank.y, 24, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.font = "26px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("🥋", ank.x, ank.y);
+          ctx.restore();
+        }
+      });
+    }
+
     if (useMouse) {
       ctx.save();
       ctx.font = "46px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("🥊", mouse.x, mouse.y);
+      ctx.fillText(mouse.y > H * 0.65 ? "🥋" : "🥊", mouse.x, mouse.y);
       ctx.restore();
     }
   }
 };
 
 // ============================================================================
-// ⚾ 네온 슬램 야구 (NEON SLAM BASEBALL) - 3D 홈런 더비 배팅 엔진
+// ============================================================================
+// ⚾ 네온 슬램 야구 (NEON SLAM BASEBALL) - 듀얼 분할 화면 & 커스튬 타자 캐릭터 엔진
 // ============================================================================
 games.baseball = {
+  body: true, // 🧍 온몸 피트니스 배팅 모드: 전신 포즈 인식 활성화
   bg: "#07111e",
   camAlpha: 0.35,
   trail: "#00d2ff",
@@ -4915,12 +5072,13 @@ games.baseball = {
     this.flightBalls = []; // 홈런/안타로 장외로 날아가는 타구 목록
     this.flash = 0;
     this.stadiumCheer = 0;
-    this.outfieldLights = Array.from({ length: 8 }, (_, i) => ({
-      x: W * (0.12 + i * 0.11), y: H * 0.32, color: i % 2 === 0 ? "#00d2ff" : "#ffd166"
-    }));
+    this.swingTrail = []; // 배트 스윙 궤적 네온 잔상
+
+    // 듀얼 분할 기준 좌표: 화면 너비의 60%를 좌측 야구장, 40%를 우측 웹캠 모션 뷰로 분할
+    this.fieldRatio = 0.60;
   },
   spawn() {
-    // 투구 스폰: 시간 경과 및 웨이브 단계에 따라 구속/구종 다양화
+    const fieldW = Math.floor(W * this.fieldRatio);
     const waveMult = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.15 : 1.0;
     const baseSpd = 0.30 + elapsed() * 0.005;
     const speed = baseSpd * waveMult;
@@ -4928,10 +5086,12 @@ games.baseball = {
     // 0: 직구(Fastball), 1: 슬라이더(Slider), 2: 커브(Curve), 3: 체인지업(Changeup), 4: 골든파이어볼(Fever)
     const pitchType = isFeverTime ? "fire" : ["fast", "curve", "slider", "change"][(Math.random() * 4) | 0];
 
-    const moundX = W * 0.5 + (Math.random() - 0.5) * 30;
+    // 투구는 좌측 경기장의 중앙 마운드에서 홈플레이트로 날아옴
+    const fieldCx = fieldW * 0.52;
+    const moundX = fieldCx + (Math.random() - 0.5) * 26;
     const moundY = H * 0.40;
-    const plateX = W * 0.5 + (Math.random() - 0.5) * 140;
-    const plateY = H * 0.76 + (Math.random() - 0.5) * 60;
+    const plateX = fieldCx + (Math.random() - 0.5) * 90;
+    const plateY = H * 0.76 + (Math.random() - 0.5) * 45;
 
     objs.push({
       z: 0.05,
@@ -4955,63 +5115,74 @@ games.baseball = {
     this.swingTimer = Math.max(0, this.swingTimer - dt);
     if (this.swingTimer <= 0) this.isSwinging = false;
 
-    // 1. 배트 위치 및 스윙 가속도 산출
-    let hx = W * 0.5, hy = H * 0.78;
+    const fieldW = Math.floor(W * this.fieldRatio);
+    const fieldCx = fieldW * 0.52;
+    const plateX = fieldCx;
+    const plateY = H * 0.76;
+
+    // 1. 플레이어 모션 인식: 상체 & 양팔 배팅 폼 및 스윙 가속도 산출
     let curSpeed = 0;
     let swingImpulse = false;
+    const skel = getBody();
 
     if (useMouse) {
-      hx = mouse.x; hy = mouse.y;
       curSpeed = mouse.speed || (mouse.down ? 25 : 0);
       if (mouse.down && !this.isSwinging) {
         swingImpulse = true;
         this.isSwinging = true;
-        this.swingTimer = 0.22;
-        this.batSpeed = Math.floor(100 + Math.random() * 45);
+        this.swingTimer = 0.25;
+        this.batSpeed = Math.floor(105 + Math.random() * 45);
       }
-    } else if (pointers.length > 0) {
-      if (pointers.length >= 2) {
-        // 양손 그립: 두 손의 중점을 그립 위치로 사용
-        const p1 = pointers[0], p2 = pointers[1];
-        hx = (p1.x + p2.x) / 2;
-        hy = (p1.y + p2.y) / 2;
-        curSpeed = Math.max(p1.speed, p2.speed);
-        const dx = p2.x - p1.x, dy = p2.y - p1.y;
-        if (Math.hypot(dx, dy) > 20) {
-          this.batAngle = Math.atan2(dy, dx);
-        }
-      } else {
-        hx = pointers[0].x;
-        hy = pointers[0].y;
-        curSpeed = pointers[0].speed;
+    } else if (skel && (skel[15] || skel[16])) {
+      // 🧍 몸 게임 포즈 기반: 손목(15, 16) 및 팔꿈치(13, 14) 가속도 판정
+      const leftWrist = skel[15], rightWrist = skel[16];
+      let maxWristSpeed = 0;
+
+      if (leftWrist && (leftWrist.v ?? 1) > 0.25) {
+        const p0 = pointers.find((p) => p.x === leftWrist.x) || pointers[0];
+        maxWristSpeed = Math.max(maxWristSpeed, p0?.vps ?? (p0?.speed ? p0.speed * 60 : 0));
+      }
+      if (rightWrist && (rightWrist.v ?? 1) > 0.25) {
+        const p1 = pointers.find((p) => p.x === rightWrist.x) || pointers[1] || pointers[0];
+        maxWristSpeed = Math.max(maxWristSpeed, p1?.vps ?? (p1?.speed ? p1.speed * 60 : 0));
       }
 
-      // 손 이동 속도 피크 또는 펀치 가속도 감지 시 스윙 발동!
-      const swingThreshold = 13.0;
+      curSpeed = maxWristSpeed || (pointers[0] ? pointers[0].speed * 45 : 0);
+
+      // 손 이동 속도 피크 또는 스윙 제스처 감지 시 스윙 발동!
+      const swingThreshold = 320.0;
       if (curSpeed > swingThreshold && !this.isSwinging) {
         swingImpulse = true;
         this.isSwinging = true;
+        this.swingTimer = 0.26;
+        this.batSpeed = Math.min(170, Math.floor(85 + (curSpeed / 500) * 85));
+      }
+    } else if (pointers.length > 0) {
+      curSpeed = pointers[0].vps ?? (pointers[0].speed * 60);
+      if (curSpeed > 280 && !this.isSwinging) {
+        swingImpulse = true;
+        this.isSwinging = true;
         this.swingTimer = 0.25;
-        this.batSpeed = Math.min(165, Math.floor(80 + curSpeed * 3.8));
+        this.batSpeed = Math.min(160, Math.floor(80 + curSpeed * 0.18));
       }
     }
 
     if (swingImpulse) {
-      sfx.batSwing(hx);
-      addShake(0.05, 4);
+      sfx.batSwing(fieldCx);
+      addShake(0.06, 5);
     }
 
     // 2. 날아오는 투구 3D 물리 업데이트 및 타격 판정
-    const batHitX = hx, batHitY = hy;
-    const batReach = 85 + reach;
+    const batHitX = plateX, batHitY = plateY - 12;
+    const batReach = 90 + reach;
 
     for (const b of objs) {
       if (b.dead || b.hit) continue;
 
       let curveOffset = 0;
-      if (b.type === "slider") curveOffset = Math.sin(b.z * Math.PI) * 75;
-      else if (b.type === "curve") curveOffset = -Math.sin(b.z * Math.PI) * 75;
-      else if (b.type === "change") curveOffset = Math.sin(b.z * Math.PI * 2) * 25;
+      if (b.type === "slider") curveOffset = Math.sin(b.z * Math.PI) * 55;
+      else if (b.type === "curve") curveOffset = -Math.sin(b.z * Math.PI) * 55;
+      else if (b.type === "change") curveOffset = Math.sin(b.z * Math.PI * 2) * 20;
 
       const spdFactor = b.type === "fast" ? 1.25 : b.type === "change" ? 0.85 : 1.0;
       b.z += b.speed * spdFactor * dt * (0.8 + b.z * 1.5);
@@ -5033,26 +5204,26 @@ games.baseball = {
           const centerAccuracy = 1 - Math.min(1, dist / (batReach + b.r));
           const hitPower = timingAccuracy * 0.6 + centerAccuracy * 0.4;
 
-          if (hitPower > 0.62 || b.type === "fire") {
+          if (hitPower > 0.60 || b.type === "fire") {
             // 🚀 PERFECT HOME RUN!!
             this.homeRuns++;
-            const launchDist = Math.floor(125 + hitPower * 35 + (this.batSpeed - 80) * 0.35);
+            const launchDist = Math.floor(130 + hitPower * 40 + (this.batSpeed - 80) * 0.38);
             this.maxDist = Math.max(this.maxDist, launchDist);
-            const pts = b.type === "fire" ? 250 : 150;
+            const pts = b.type === "fire" ? 250 : 160;
             award(b.x, b.y, pts, "#00d2ff");
             sfx.homeRun(b.x);
-            burst(b.x, b.y, "#00d2ff", 40);
-            burst(b.x, b.y, "#ffd166", 25);
+            burst(b.x, b.y, "#00d2ff", 42);
+            burst(b.x, b.y, "#ffd166", 28);
             popup(b.x, b.y - 70, `🚀 HOME RUN!! ${launchDist}m`, "#00d2ff");
             triggerWaveBanner("🚀 HOME RUN!", `${launchDist}M 장외 홈런!`, false);
-            this.stadiumCheer = 1.2;
+            this.stadiumCheer = 1.3;
             this.flash = 1.0;
-            addShake(0.22, 14);
+            addShake(0.24, 15);
 
             this.flightBalls.push({
               x: b.x, y: b.y,
-              vx: (b.x - W * 0.5) * 1.5,
-              vy: -750 - hitPower * 250,
+              vx: (b.x - fieldCx) * 1.8 - 40,
+              vy: -780 - hitPower * 260,
               r: b.r,
               color: "#00d2ff",
               dist: launchDist,
@@ -5060,17 +5231,17 @@ games.baseball = {
             });
           } else if (hitPower > 0.35) {
             // ⚡ GREAT HIT! (안타)
-            const pts = 80;
+            const pts = 85;
             award(b.x, b.y, pts, "#ffd166");
             sfx.hitHeavy(b.x);
-            burst(b.x, b.y, "#ffd166", 20);
+            burst(b.x, b.y, "#ffd166", 22);
             popup(b.x, b.y - 45, "GREAT HIT! ⚡", "#ffd166");
             addShake(0.10, 6);
 
             this.flightBalls.push({
               x: b.x, y: b.y,
-              vx: (b.x - W * 0.5) * 2.5,
-              vy: -480,
+              vx: (b.x - fieldCx) * 2.6 - 20,
+              vy: -500,
               r: b.r * 0.8,
               color: "#ffd166",
               dist: Math.floor(75 + hitPower * 35),
@@ -5078,7 +5249,7 @@ games.baseball = {
             });
           } else {
             // ⚾ FOUL BALL (파울)
-            award(b.x, b.y, 20, "#94a3b8");
+            award(b.x, b.y, 25, "#94a3b8");
             sfx.chip(b.x);
             popup(b.x, b.y - 35, "FOUL 💨", "#94a3b8");
           }
@@ -5108,36 +5279,61 @@ games.baseball = {
     }
   },
   draw() {
-    const cx = W * 0.5, cy = H * 0.76;
+    const fieldW = Math.floor(W * this.fieldRatio);
+    const camW = W - fieldW;
+    const camX = fieldW;
 
+    // ========================================================================
+    // 🏟️ [VIEWPORT 1] 좌측: 3D 야구 경기장 & 커스튬 장착 타자 캐릭터
+    // ========================================================================
     ctx.save();
-    const fenceGrad = ctx.createLinearGradient(0, H * 0.25, 0, H * 0.55);
-    fenceGrad.addColorStop(0, "rgba(0, 210, 255, 0.08)");
+    ctx.beginPath();
+    ctx.rect(0, 0, fieldW, H);
+    ctx.clip(); // 좌측 화면으로 렌더링 영역 제한
+
+    const cx = fieldW * 0.52, cy = H * 0.76;
+
+    // 1. 경기장 그라운드 & 조명
+    const stadiumBg = ctx.createLinearGradient(0, 0, 0, H);
+    stadiumBg.addColorStop(0, "#06101e");
+    stadiumBg.addColorStop(0.45, "#0b203a");
+    stadiumBg.addColorStop(1, "#0d281e");
+    ctx.fillStyle = stadiumBg;
+    ctx.fillRect(0, 0, fieldW, H);
+
+    // 외야 펜스 & 네온 라이트
+    const fenceGrad = ctx.createLinearGradient(0, H * 0.22, 0, H * 0.50);
+    fenceGrad.addColorStop(0, "rgba(0, 210, 255, 0.12)");
     fenceGrad.addColorStop(1, "rgba(7, 17, 30, 0)");
     ctx.fillStyle = fenceGrad;
-    ctx.fillRect(0, H * 0.25, W, H * 0.35);
+    ctx.fillRect(0, H * 0.22, fieldW, H * 0.30);
 
-    this.outfieldLights.forEach((lt) => {
-      ctx.fillStyle = lt.color;
-      ctx.shadowColor = lt.color;
+    for (let i = 0; i < 6; i++) {
+      const lx = fieldW * (0.12 + i * 0.15);
+      const ly = H * 0.32;
+      const col = i % 2 === 0 ? "#00d2ff" : "#ffd166";
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
       ctx.shadowBlur = this.stadiumCheer > 0 ? 30 : 12;
       ctx.beginPath();
-      ctx.arc(lt.x, lt.y, this.stadiumCheer > 0 ? 8 : 5, 0, Math.PI * 2);
+      ctx.arc(lx, ly, this.stadiumCheer > 0 ? 8 : 5, 0, Math.PI * 2);
       ctx.fill();
-    });
+    }
 
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
+    // 야구장 내야 다이아몬드 라인
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.45)";
     ctx.lineWidth = 2.5;
     ctx.shadowColor = "#00d2ff";
     ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.moveTo(cx, H * 0.40);
-    ctx.lineTo(cx + W * 0.28, H * 0.62);
+    ctx.lineTo(cx + fieldW * 0.32, H * 0.62);
     ctx.lineTo(cx, cy);
-    ctx.lineTo(cx - W * 0.28, H * 0.62);
+    ctx.lineTo(cx - fieldW * 0.32, H * 0.62);
     ctx.closePath();
     ctx.stroke();
 
+    // 1루, 2루, 3루 베이스
     const drawBase = (bx, by) => {
       ctx.save();
       ctx.translate(bx, by);
@@ -5145,41 +5341,45 @@ games.baseball = {
       ctx.fillStyle = "#ffffff";
       ctx.shadowColor = "#00d2ff";
       ctx.shadowBlur = 10;
-      ctx.fillRect(-9, -9, 18, 18);
+      ctx.fillRect(-8, -8, 16, 16);
       ctx.restore();
     };
-    drawBase(cx + W * 0.28, H * 0.62);
-    drawBase(cx - W * 0.28, H * 0.62);
+    drawBase(cx + fieldW * 0.32, H * 0.62);
+    drawBase(cx - fieldW * 0.32, H * 0.62);
     drawBase(cx, H * 0.40);
 
+    // 투수 마운드
     ctx.strokeStyle = "rgba(255, 209, 102, 0.6)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(cx, H * 0.42, 38, 16, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, H * 0.42, 34, 15, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    // 홈플레이트
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.shadowColor = "#ffffff";
     ctx.shadowBlur = 15;
     ctx.beginPath();
-    ctx.moveTo(cx, cy + 22);
-    ctx.lineTo(cx - 24, cy - 6);
-    ctx.lineTo(cx - 24, cy - 20);
-    ctx.lineTo(cx + 24, cy - 20);
-    ctx.lineTo(cx + 24, cy - 6);
+    ctx.moveTo(cx, cy + 20);
+    ctx.lineTo(cx - 22, cy - 5);
+    ctx.lineTo(cx - 22, cy - 18);
+    ctx.lineTo(cx + 22, cy - 18);
+    ctx.lineTo(cx + 22, cy - 5);
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.35)";
+    // 좌/우 타자 배터 박스
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
     ctx.lineWidth = 2;
-    ctx.strokeRect(cx - 80, cy - 36, 42, 75);
-    ctx.strokeRect(cx + 38, cy - 36, 42, 75);
+    ctx.strokeRect(cx - 72, cy - 35, 38, 70); // 좌타석 (플레이어 타자 위치)
+    ctx.strokeRect(cx + 34, cy - 35, 38, 70);
 
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.25)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(cx - 60, cy - 130, 120, 110);
-    ctx.restore();
+    // 스트라이크 존 가이드
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.28)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cx - 50, cy - 125, 100, 95);
 
+    // 2. 투구(야구공) 렌더링
     for (const b of objs) {
       if (b.dead || b.hit) continue;
 
@@ -5214,6 +5414,7 @@ games.baseball = {
       ctx.restore();
     }
 
+    // 3. 장외로 날아가는 타구(홈런/안타) 렌더링
     this.flightBalls.forEach((fb) => {
       ctx.save();
       ctx.fillStyle = fb.color;
@@ -5225,67 +5426,375 @@ games.baseball = {
       ctx.restore();
     });
 
-    let batX = cx, batY = cy;
-    if (useMouse) {
-      batX = mouse.x; batY = mouse.y;
-    } else if (pointers.length > 0) {
-      batX = pointers[0].x; batY = pointers[0].y;
-    }
+    // ========================================================================
+    // 👤 [핵심 기능] 내 움직임에 의해 방망이를 휘두르는 타자 아바타 & 커스튬 100% 장착
+    // ========================================================================
+    const batterX = cx - 52;
+    const batterY = cy;
+    this.drawBatterWithCostumes(ctx, batterX, batterY);
 
-    ctx.save();
-    ctx.translate(batX, batY);
-
-    const swingAngle = this.isSwinging
-      ? -Math.PI * 0.8 + (1 - this.swingTimer / 0.25) * Math.PI * 1.1
-      : -Math.PI * 0.35;
-    ctx.rotate(swingAngle);
-
-    const batLen = 130 + (reach > 0 ? reach * 0.8 : 0);
-    const batGrad = ctx.createLinearGradient(0, 0, batLen, 0);
-    batGrad.addColorStop(0, "#ffffff");
-    batGrad.addColorStop(0.3, "#00d2ff");
-    batGrad.addColorStop(1, "#ffd166");
-
-    ctx.fillStyle = batGrad;
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = this.isSwinging ? 35 : 16;
-
-    ctx.beginPath();
-    ctx.moveTo(0, -5);
-    ctx.lineTo(35, -5);
-    ctx.lineTo(batLen - 15, -16);
-    ctx.arc(batLen - 15, 0, 16, -Math.PI / 2, Math.PI / 2);
-    ctx.lineTo(35, 5);
-    ctx.lineTo(0, 5);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(-4, 0, 7, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    if (this.isSwinging) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(0, 210, 255, 0.75)";
-      ctx.shadowColor = "#00d2ff";
-      ctx.shadowBlur = 24;
-      ctx.lineWidth = 14;
-      ctx.beginPath();
-      ctx.arc(batX, batY, 120, -Math.PI * 0.85, 0.25);
-      ctx.stroke();
-      ctx.restore();
-    }
-
+    // 하단 스탯 텍스트 (좌측 뷰포트 내)
     ctx.save();
     ctx.textAlign = "center";
     ctx.font = "900 16px 'Rubik', sans-serif";
     ctx.fillStyle = "#00d2ff";
     ctx.shadowColor = "#00d2ff";
     ctx.shadowBlur = 8;
-    ctx.fillText(`⚡ BAT SPEED: ${this.batSpeed || 95} KM/H  |  LONGEST: ${this.maxDist}M`, cx, H - 28);
+    ctx.fillText(`⚡ BAT SPEED: ${this.batSpeed || 95} KM/H  |  LONGEST: ${this.maxDist}M  |  HOMERUNS: ${this.homeRuns}`, fieldW * 0.5, H - 28);
+    ctx.restore();
+
+    ctx.restore(); // 좌측 뷰포트 clip 해제
+
+    // ========================================================================
+    // 📹 [VIEWPORT 2] 우측: 내 웹캠 실시간 모션 인식 & 전신 스켈레톤 트래커
+    // ========================================================================
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(camX, 0, camW, H);
+    ctx.clip(); // 우측 화면으로 렌더링 영역 제한
+
+    // 1. 우측 룸 배경
+    const rightBg = ctx.createLinearGradient(camX, 0, W, H);
+    rightBg.addColorStop(0, "#0c081a");
+    rightBg.addColorStop(1, "#15092a");
+    ctx.fillStyle = rightBg;
+    ctx.fillRect(camX, 0, camW, H);
+
+    // 사이버 네온 그리드
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.12)";
+    ctx.lineWidth = 1;
+    for (let gy = 0; gy < H; gy += 45) {
+      ctx.beginPath(); ctx.moveTo(camX, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+    for (let gx = camX; gx < W; gx += 45) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+    }
+
+    // 2. 실시간 웹캠 비디오 피드 (우측 뷰포트에 거울 모드로 꽉 채움)
+    if (!useMouse && video && video.readyState >= 2) {
+      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+      const s = Math.max(camW / vw, H / vh);
+      ctx.save();
+      // 우측 영역 기준 좌우 반전(미러)
+      ctx.translate(camX + camW, 0);
+      ctx.scale(-1, 1);
+      ctx.globalAlpha = 0.45; // 선명하면서도 네온 UI와 매끄럽게 융합
+      try {
+        ctx.drawImage(video, (camW - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+      } catch {}
+      ctx.restore();
+    }
+
+    // 3. 전신 스켈레톤 & 관절 렌더링 (우측 뷰포트 좌표계로 매핑)
+    const bodySkel = getBody();
+    if (!useMouse && bodySkel) {
+      // 본체 스켈레톤의 원본 좌표(0~W, 0~H)를 우측 뷰포트(camX~W)로 리매핑하여 그리기
+      this.drawRightMotionSkeleton(ctx, bodySkel, camX, camW);
+    }
+
+    // 4. 우측 뷰포트 상단 HUD 배지
+    ctx.save();
+    ctx.fillStyle = "rgba(12, 6, 24, 0.82)";
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.6)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(camX + 16, 20, camW - 32, 54, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // 펄스 녹색 닷
+    ctx.fillStyle = "#22c55e";
+    ctx.shadowColor = "#22c55e";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(camX + 38, 47, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = "900 15px 'Rubik', sans-serif";
+    ctx.fillStyle = "#00d2ff";
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 6;
+    ctx.textAlign = "left";
+    ctx.fillText("📹 MOTION TRACKER", camX + 54, 42);
+
+    ctx.font = "700 12px 'Nunito Sans', sans-serif";
+    ctx.fillStyle = "#e2e8f0";
+    ctx.shadowBlur = 0;
+    ctx.fillText("실시간 전신 배팅 폼 인식 중", camX + 54, 60);
+
+    // 5. 하단 배팅 코칭 가이드
+    ctx.fillStyle = "rgba(12, 6, 24, 0.85)";
+    ctx.strokeStyle = "rgba(255, 209, 102, 0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(camX + 16, H - 76, camW - 32, 54, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = "900 14px 'Rubik', sans-serif";
+    ctx.fillStyle = "#ffd166";
+    ctx.textAlign = "center";
+    ctx.fillText("⚾ 배팅 팁: 양손을 올리고 몸을 돌려 강하게 스윙하세요!", camX + camW / 2, H - 44);
+
+    ctx.restore();
+
+    ctx.restore(); // 우측 뷰포트 clip 해제
+
+    // ========================================================================
+    // ⚡ [DIVIDER] 중앙 네온 레이저 분할선
+    // ========================================================================
+    ctx.save();
+    const beamGrad = ctx.createLinearGradient(fieldW, 0, fieldW, H);
+    beamGrad.addColorStop(0, "rgba(0, 210, 255, 0.2)");
+    beamGrad.addColorStop(0.5, "rgba(0, 210, 255, 0.95)");
+    beamGrad.addColorStop(1, "rgba(225, 3, 125, 0.2)");
+    ctx.strokeStyle = beamGrad;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.moveTo(fieldW, 0);
+    ctx.lineTo(fieldW, H);
+    ctx.stroke();
+
+    // 분할선 중앙 에너지 노드
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(fieldW, H * 0.5, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  },
+
+  // 👤 타자 아바타 & 커스튬 100% 렌더링 함수
+  drawBatterWithCostumes(ctx, bx, by) {
+    const isSwinging = this.isSwinging;
+    const swingProg = isSwinging ? Math.min(1, Math.max(0, 1 - this.swingTimer / 0.26)) : 0;
+
+    // 배팅 회전 각도 및 신체 비틀림(Torso Twist)
+    // 준비 자세: -35도 뒤로 와인드업 / 스윙 중: -60도에서 +65도까지 맹렬히 회전
+    const swingAngle = isSwinging
+      ? -Math.PI * 0.75 + swingProg * Math.PI * 1.25
+      : -Math.PI * 0.28;
+    const bodyTwist = isSwinging ? Math.sin(swingProg * Math.PI) * 0.45 : -0.15;
+
+    ctx.save();
+    ctx.translate(bx, by);
+
+    // 타자 발밑 배터 박스 그림자
+    ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+    ctx.beginPath();
+    ctx.ellipse(0, 24, 42, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 1. 타자 기본 아바타 몸체 (스킨 & 네온 사이버 아틀레틱스)
+    ctx.save();
+    // 다리 & 발
+    ctx.fillStyle = "#1e293b";
+    ctx.beginPath();
+    ctx.roundRect(-22, 0, 14, 28, 5); // 왼다리
+    ctx.roundRect(8, 0, 14, 28, 5);  // 오른다리
+    ctx.fill();
+
+    // 몸통/상체
+    ctx.rotate(bodyTwist);
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.roundRect(-24, -46, 48, 50, 8);
+    ctx.fill();
+
+    // 머리
+    ctx.fillStyle = "#ffd1a4"; // 살구색 피부
+    ctx.beginPath();
+    ctx.arc(0, -64, 18, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 눈 (투수 쪽을 응시)
+    ctx.fillStyle = "#111827";
+    ctx.beginPath();
+    ctx.arc(6, -65, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 양팔 & 배트 그립
+    const armX = 14 + Math.cos(swingAngle) * 16;
+    const armY = -34 + Math.sin(swingAngle) * 12;
+    ctx.strokeStyle = "#ffd1a4";
+    ctx.lineWidth = 10;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-12, -38);
+    ctx.lineTo(armX, armY);
+    ctx.moveTo(12, -38);
+    ctx.lineTo(armX, armY);
+    ctx.stroke();
+
+    ctx.restore(); // 몸통 로컬 회전 해제
+
+    // 2. 👗 커스튬 파츠 100% 장착 렌더링 (플레이어가 장착한 모든 복장 연동)
+    try {
+      const scale = 0.85;
+
+      // A. 오라 (Aura)
+      if (equippedCostume.aura && COSTUME_ITEMS[equippedCostume.aura]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.aura], { x: 0, y: -20, scale: scale * 1.3 });
+      }
+
+      // B. 등 / 날개 (Back)
+      if (equippedCostume.back && COSTUME_ITEMS[equippedCostume.back]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.back], { x: -8, y: -30, scale: scale * 0.95 });
+      }
+
+      // C. 하의 / 팬츠 (Legs)
+      if (equippedCostume.legs && COSTUME_ITEMS[equippedCostume.legs]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.legs], { x: 0, y: 10, scale, sx: 0.8, sy: 0.75 });
+      }
+
+      // D. 신발 / 스파이크 (Feet)
+      if (equippedCostume.feet && COSTUME_ITEMS[equippedCostume.feet]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.feet], { x: -15, y: 24, scale: scale * 0.75 });
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.feet], { x: 15, y: 24, scale: scale * 0.75 });
+      }
+
+      // E. 상의 / 유니폼 / 저지 (Body)
+      if (equippedCostume.body && COSTUME_ITEMS[equippedCostume.body]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.body], {
+          x: 0, y: -24, scale, sx: 0.85, sy: 0.85, angle: bodyTwist
+        });
+      }
+
+      // F. 머리 / 캡 / 헬멧 (Head)
+      if (equippedCostume.head && COSTUME_ITEMS[equippedCostume.head]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.head], {
+          x: 0, y: -72, scale: scale * 0.95, angle: bodyTwist * 0.6
+        });
+      }
+
+      // G. 얼굴 / 선글라스 / 마스크 (Face)
+      if (equippedCostume.face && COSTUME_ITEMS[equippedCostume.face]) {
+        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.face], {
+          x: 4, y: -64, scale: scale * 0.8, angle: bodyTwist * 0.6
+        });
+      }
+    } catch (err) {
+      console.warn("Baseball costume render error:", err);
+    }
+
+    // 3. 🏏 야구 배트 렌더링 (커스튬 무기 or 사이버 골든 배트)
+    ctx.save();
+    const gripX = 16 + Math.cos(swingAngle) * 18;
+    const gripY = -34 + Math.sin(swingAngle) * 14;
+    ctx.translate(gripX, gripY);
+    ctx.rotate(swingAngle);
+
+    // 만약 커스튬 손/무기(예: bat_gold 등)가 장착되어 있으면 해당 파츠 렌더링
+    if (equippedCostume.hand && COSTUME_ITEMS[equippedCostume.hand]) {
+      const batItem = COSTUME_ITEMS[equippedCostume.hand];
+      drawCostumePiece(ctx, batItem, { x: 45, y: 0, scale: 1.1, angle: Math.PI / 2 });
+    } else {
+      // 기본 크롬 & 네온 사이버 야구 배트
+      const batLen = 115 + (reach > 0 ? reach * 0.6 : 0);
+      const batGrad = ctx.createLinearGradient(0, 0, batLen, 0);
+      batGrad.addColorStop(0, "#ffffff");
+      batGrad.addColorStop(0.35, "#00d2ff");
+      batGrad.addColorStop(1, "#ffd166");
+
+      ctx.fillStyle = batGrad;
+      ctx.shadowColor = "#00d2ff";
+      ctx.shadowBlur = isSwinging ? 30 : 14;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.lineTo(28, -4);
+      ctx.lineTo(batLen - 12, -14);
+      ctx.arc(batLen - 12, 0, 14, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(28, 4);
+      ctx.lineTo(0, 4);
+      ctx.closePath();
+      ctx.fill();
+
+      // 배트 노브
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(-3, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 4. 스윙 모션 블러 네온 아크
+    if (isSwinging) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 210, 255, 0.85)";
+      ctx.shadowColor = "#00d2ff";
+      ctx.shadowBlur = 24;
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      ctx.arc(16, -34, 110, -Math.PI * 0.80, swingAngle);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore(); // 전체 타자 트랜스레이트 해제
+  },
+
+  // 📹 우측 뷰포트용 스켈레톤 및 관절 렌더링
+  drawRightMotionSkeleton(ctx, skel, camX, camW) {
+    if (!skel || !skel[0]) return;
+
+    // 원본 좌표 x: 0~W -> 우측 뷰포트 camX ~ camX + camW 로 사상 (거울 반전 고려)
+    const mapPt = (pt) => {
+      if (!pt) return null;
+      // 웹캠이 미러 반전되어 있으므로 좌표도 대칭 반전 매핑
+      const normX = 1 - (pt.x / W);
+      const mappedX = camX + normX * camW;
+      return { x: mappedX, y: pt.y, v: pt.v ?? 1 };
+    };
+
+    const connections = [
+      [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // 양팔
+      [11, 23], [12, 24], [23, 24],                     // 몸통/골반
+      [23, 25], [25, 27], [24, 26], [26, 28]           // 양다리
+    ];
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.85)";
+    ctx.lineWidth = 4;
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 12;
+
+    connections.forEach(([i1, i2]) => {
+      const p1 = mapPt(skel[i1]), p2 = mapPt(skel[i2]);
+      if (p1 && p2 && p1.v > 0.25 && p2.v > 0.25) {
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+    });
+
+    // 관절 노드 (머리, 어깨, 팔꿈치, 손목 등)
+    [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].forEach((idx) => {
+      const p = mapPt(skel[idx]);
+      if (p && p.v > 0.25) {
+        const isHand = idx === 15 || idx === 16;
+        ctx.fillStyle = isHand ? "#ffd166" : "#ffffff";
+        ctx.shadowColor = isHand ? "#ffd166" : "#00d2ff";
+        ctx.shadowBlur = isHand ? 18 : 10;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, isHand ? 8 : 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 손목 위치에 배팅 조준 링 표시
+        if (isHand) {
+          ctx.strokeStyle = "#ffd166";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    });
+
     ctx.restore();
   }
 };
@@ -5577,7 +6086,8 @@ function drawBackground(color, camAlpha = 0.20) {
   ctx.restore();
 
   // 3. 실시간 플레이어 웹캠 비디오 (방 안 잡동사니 노출 완전 차단 -> 은은한 네온 실루엣 0.12 알파로 아바타처럼 일체화)
-  if (!useMouse && video && video.readyState >= 2) {
+  // (야구 모드는 우측 듀얼 뷰포트에서 전신 스켈레톤과 함께 독립 렌더링하므로 제외)
+  if (!useMouse && video && video.readyState >= 2 && mode !== "baseball") {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save();
@@ -5691,8 +6201,11 @@ function frame(now) {
     drawFx();
     drawCombo();
     // 👗 모든 인게임 모드에서 장착된 커스튬 파츠(모자, 날개, 의상, 무기, 오라) 실시간 렌더링
-    drawEquippedCostumesOnBody(ctx, getBody(), pointers);
-    if (g && !g.noCursor) drawTrails(g.trail ?? "#fff");
+    // (야구 모드는 좌측 타자 아바타 캐릭터가 커스튬을 100% 장착하고 출전하므로 중복 방지)
+    if (mode !== "baseball") {
+      drawEquippedCostumesOnBody(ctx, getBody(), pointers);
+    }
+    if (g && !g.noCursor && mode !== "baseball") drawTrails(g.trail ?? "#fff");
   } else {
     // 메인 게임 선택 화면에서는 캔버스를 완전히 비워 어떠한 모션 잔상/인식 포인트도 미표시
     ctx.clearRect(0, 0, W, H);
