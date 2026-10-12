@@ -7154,10 +7154,20 @@ const nanoSuitEngine = {
         sfx.nanoSuitUp(this.phase);
         if (this.phase > 5) {
           this.active = true;
-          this.phase = 5;
+          this.phase = 0; // ⚡ 0으로 리셋하여 1회 완료 후 무한 반복 폭주 완벽 차단!
+          // ⚡ 나노 변신 완료 시 나노 슈트 풀세트 자동 착용!
+          equippedCostume.body = "body_nano";
+          equippedCostume.head = "head_crown";
+          equippedCostume.hand = "hand_repulsor";
+          equippedCostume.back = "back_angel";
+          saveCostumeData();
+          renderCostumeShelf();
+          renderEquippedSlotsUI();
           sfx.fanfare();
           speak("나노 슈트업 완료! 리펄서 시스템 가동!", true);
-          popup(chestAnchor.x, chestAnchor.y - 80, "NANO SUIT-UP COMPLETE! ⚡", "#ff0055");
+          const px = chestAnchor ? chestAnchor.x : W / 2;
+          const py = chestAnchor ? chestAnchor.y - 80 : H * 0.35;
+          popup(px, py, "NANO SUIT-UP COMPLETE! ⚡", "#ff0055");
           addShake(0.18, 8);
           // 아바타 버디 반응
           buddyEngine.say("주인님 나노 슈트 합체 완료! 최고예요!");
@@ -7665,13 +7675,28 @@ async function openCostumeRoom() {
   isCostumeRoomOpen = true;
   $("costumeRoom")?.classList.remove("hidden");
   $("menu")?.classList.add("hidden");
+
+  // ⚡ 1. 비전 AI 포즈 & 신체 랜드마크 즉시 활성화!
+  try {
+    ensureVideo();
+    visionAI.setActive("pose");
+  } catch (e) {
+    console.warn("비전 활성화:", e);
+  }
+
+  // ⚡ 2. 캔버스 해상도 1280x720 고정 (메인 게임과 1:1 좌표계 동기화)
+  const cvs = $("costumeCanvas");
+  if (cvs) {
+    cvs.width = 1280;
+    cvs.height = 720;
+  }
+
   // 🔒 1등 뺏김 검사: 순위가 밀린 옷이 있다면 자동 회수 및 알림
   await auditAndStripIneligibleCostumes();
   await renderCostumeShelf();
   renderEquippedSlotsUI();
   buddyEngine.init();
-  buddyEngine.say("주인님 어서오세요! 1~3등 상징 옷들을 주먹으로 집어 입어보세요!");
-  try { ensureVideo(); } catch {}
+  buddyEngine.say("주인님 어서오세요! 1~3등 상징 옷들을 자유롭게 입어보세요!");
   ac();
   sfx.levelUp();
 }
@@ -7681,6 +7706,8 @@ function closeCostumeRoom() {
   costumeDragItem = null;
   $("costumeRoom")?.classList.add("hidden");
   $("menu")?.classList.remove("hidden");
+  // 메인 메뉴 복귀 시 비전 인식 대기 모드로 전환
+  visionAI.setActive(null);
   saveCostumeData();
   sfx.end();
 }
@@ -7701,14 +7728,14 @@ async function renderCostumeShelf() {
     card.className = `costume-card ${isEq ? "equipped" : ""} ${!eligible ? "locked" : ""}`;
     card.dataset.itemId = it.id;
 
-    const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본" };
+    const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 파츠" };
     const tierBadge = `<span class="card-tier-badge tier-${it.tier}">${tierLabels[it.tier] || "일반"}</span>`;
 
-    let statusText = "✊ 집기 가능";
+    let statusText = "✊ 집어서 입기";
     if (isEq) {
-      statusText = "✓ 착용 중";
+      statusText = "✓ 착용 중 (클릭 시 벗기)";
     } else if (!eligible) {
-      statusText = `🔒 ${it.tier === "legend" ? "1등만" : it.tier === "hero" ? "2등 이내" : "3등 이내"} 착용 (뺏기면 회수)`;
+      statusText = `🔒 ${it.tier === "legend" ? "1등만" : it.tier === "hero" ? "2등 이내" : "3등 이내"} 착용 (시착 가능)`;
     } else if (it.tier === "legend") {
       statusText = "👑 1등 챔피언 독점!";
     }
@@ -7721,14 +7748,8 @@ async function renderCostumeShelf() {
       <div class="costume-card-status">${statusText}</div>
     `;
 
-    // 마우스/터치 클릭 시 착용 테스트
+    // 마우스/터치 클릭 시 즉시 착용 & 탈착 인터랙션
     card.addEventListener("click", async () => {
-      if (!eligible) {
-        const reqStr = it.tier === "legend" ? "1등" : it.tier === "hero" ? "2등 이내" : "3등 이내";
-        popup(W / 2, H * 0.45, `🔒 [${it.name}]은 현재 ${reqStr} 플레이어만 착용할 수 있습니다! (순위 밀리면 회수)`, "#ffd166");
-        sfx.countdown(false);
-        return;
-      }
       await equipCostumeItem(it);
     });
 
@@ -7758,78 +7779,96 @@ function renderEquippedSlotsUI() {
   });
 }
 
-// 아이템 장착 & 탈착 (순위 독점 자격 검증 내장)
+// 아이템 장착 & 탈착 (가상 피팅 룸 자유 착용 & 랭킹 상징 연동)
 async function equipCostumeItem(item) {
   if (!item) return;
 
-  // 순위 자격 검증
   const { eligible } = await checkItemRankEligibility(item);
-  if (!eligible) {
-    popup(W / 2, H * 0.45, `👑 [${item.name}]은 1등/순위권 플레이어만의 상징입니다! 순위를 탈환하세요!`, "#ff3366");
-    sfx.countdown(false);
-    return;
-  }
 
   if (equippedCostume[item.slot] === item.id) {
     // 이미 착용 중이면 탈착
     equippedCostume[item.slot] = null;
     sfx.costumeUnequip();
     buddyEngine.say(`${item.name}을(를) 벗었습니다!`);
+    popup(W / 2, H * 0.45, `✨ [${item.name}] 장비 해제`, "#aaa");
   } else {
     equippedCostume[item.slot] = item.id;
     sfx.costumeEquip();
-    const rankTitle = item.tier === "legend" ? "1등 챔피언의 상징" : "영웅의 장비";
-    buddyEngine.say(`${rankTitle} ${item.name} 장착 완료! 아주 위풍당당해요!`);
-    burst(costumeDragPos.x || W / 2, costumeDragPos.y || H / 2, item.color || "#00d2ff", 28);
+    const rankTitle = item.tier === "legend" ? "👑 1등 챔피언 상징" : (item.tier === "hero" ? "🥈 2등 영웅 상징" : "🥉 3등 상징");
+    buddyEngine.say(`${item.name} 장착 완료! 아주 멋져요!`);
+    popup(W / 2, H * 0.45, `✨ [${item.name}] 착용 완료! (${rankTitle})`, item.color || "#00d2ff");
+    burst(costumeDragPos.x || W / 2, costumeDragPos.y || H / 2, item.color || "#00d2ff", 32);
   }
+
   saveCostumeData();
   await renderCostumeShelf();
   renderEquippedSlotsUI();
 }
 
-// 가상 피팅 룸 전용 렌더 루프 (커스튬 캔버스 & 제스처 감지)
+// 가상 피팅 룸 전용 렌더 루프 (1280x720 고정 해상도 & 비디오 종횡비 무왜곡 렌더링)
 function costumeRoomUpdateAndDraw(now, dt) {
   const cvs = $("costumeCanvas");
   if (!cvs || !isCostumeRoomOpen) return;
   const ctx = cvs.getContext("2d");
+
+  // 해상도 1280x720 동기화 (메인 게임과 동일 해상도 유지)
+  if (cvs.width !== 1280 || cvs.height !== 720) {
+    cvs.width = 1280;
+    cvs.height = 720;
+  }
+
   const rect = cvs.getBoundingClientRect();
-  cvs.width = rect.width;
-  cvs.height = rect.height;
+  const scaleX = 1280 / (rect.width || 1280);
+  const scaleY = 720 / (rect.height || 720);
 
-  // 1. 웹캠 미러 비디오 렌더링
-  if (video.readyState >= 2) {
+  // 1. 웹캠 미러 비디오 왜곡 없이 중앙 비율 맞춤(Cover) 렌더링
+  if (video && video.readyState >= 2) {
+    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+    const s = Math.max(1280 / vw, 720 / vh);
     ctx.save();
-    ctx.translate(cvs.width, 0);
+    ctx.translate(1280, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, cvs.width, cvs.height);
+    ctx.drawImage(video, (1280 - vw * s) / 2, (720 - vh * s) / 2, vw * s, vh * s);
     ctx.restore();
+
+    // 부드러운 사이버 피팅 미러 틴트 (플레이어 및 옷이 화사하게 돋보임)
+    ctx.fillStyle = "rgba(10, 6, 24, 0.32)";
+    ctx.fillRect(0, 0, 1280, 720);
   } else {
-    ctx.fillStyle = "#0c061a";
-    ctx.fillRect(0, 0, cvs.width, cvs.height);
+    ctx.fillStyle = "#0c0618";
+    ctx.fillRect(0, 0, 1280, 720);
+    ctx.fillStyle = "#00d2ff";
+    ctx.font = "bold 26px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("📷 카메라 영상 로딩 중...", 640, 360);
   }
 
-  // 2. 포인터 (손 인식 or 마우스) 추출
-  let ptr = null;
-  if (useMouse) {
-    ptr = { x: mouse.x - rect.left, y: mouse.y - rect.top, fist: mouse.down };
-  } else if (pointers.length > 0) {
-    ptr = { x: pointers[0].x - rect.left, y: pointers[0].y - rect.top, fist: !!pointers[0].fist };
-  }
-
-  // 3. 신체 앵커 영역 계산 (머리, 가슴, 손목)
+  // 2. 신체 앵커 영역 계산 (머리, 가슴, 손목)
   const skel = getBody();
-  let headA = { x: cvs.width / 2, y: cvs.height * 0.28 };
-  let chestA = { x: cvs.width / 2, y: cvs.height * 0.52 };
-  let handA = { x: cvs.width * 0.65, y: cvs.height * 0.65 };
+  let headA = { x: 640, y: 190 };
+  let chestA = { x: 640, y: 370 };
+  let handA = { x: 800, y: 460 };
 
   if (skel && skel[0] && skel[11] && skel[12]) {
-    const sX = cvs.width / W, sY = cvs.height / H;
-    headA = { x: skel[0].x * sX, y: (skel[0].y - 35) * sY };
-    chestA = { x: ((skel[11].x + skel[12].x) / 2) * sX, y: ((skel[11].y + skel[12].y) / 2 + 25) * sY };
+    headA = { x: skel[0].x, y: skel[0].y - 35 };
+    chestA = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 + 25 };
+    if (skel[16]) handA = { x: skel[16].x, y: skel[16].y };
+  } else if (pointers && pointers.length > 0) {
+    chestA = { x: pointers[0].x, y: pointers[0].y };
+    headA = { x: pointers[0].x, y: Math.max(80, pointers[0].y - 140) };
+    handA = { x: pointers[0].x, y: pointers[0].y };
   }
 
-  // 4. 장착된 파츠 렌더링
+  // 3. 실시간 장착된 파츠 신체 렌더링 (1280x720 좌표계로 1:1 완벽 밀착)
   drawEquippedCostumesOnBody(ctx, skel, pointers);
+
+  // 4. 포인터 (손 인식 or 마우스) 추출
+  let ptr = null;
+  if (useMouse) {
+    ptr = { x: (mouse.x - rect.left) * scaleX, y: (mouse.y - rect.top) * scaleY, fist: mouse.down };
+  } else if (pointers && pointers.length > 0) {
+    ptr = { x: pointers[0].x, y: pointers[0].y, fist: !!pointers[0].fist };
+  }
 
   // 5. ✊ 주먹으로 집기 & ✋ 손 펴서 마그네틱 장착 인터랙션
   if (ptr) {
@@ -7837,23 +7876,22 @@ function costumeRoomUpdateAndDraw(now, dt) {
 
     // 손 포인트 시각화 (주먹이면 빨간 링, 펼치면 푸른 링)
     ctx.strokeStyle = ptr.fist ? "#ff2e93" : "#00d2ff";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.shadowColor = ctx.strokeStyle;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
     ctx.beginPath();
-    ctx.arc(ptr.x, ptr.y, ptr.fist ? 18 : 26, 0, Math.PI * 2);
+    ctx.arc(ptr.x, ptr.y, ptr.fist ? 22 : 30, 0, Math.PI * 2);
     ctx.stroke();
 
     // 텍스트 라벨
-    ctx.font = "bold 13px 'Rubik', sans-serif";
+    ctx.font = "bold 15px 'Rubik', sans-serif";
     ctx.fillStyle = "#fff";
     ctx.textAlign = "center";
-    ctx.fillText(ptr.fist ? "✊ GRABBING" : "✋ OPEN HAND", ptr.x, ptr.y - 32);
+    ctx.fillText(ptr.fist ? "✊ GRABBING" : "✋ OPEN HAND", ptr.x, ptr.y - 36);
 
-    // [A] 주먹을 쥐었을 때: 진열장 아이템 픽업 판정
+    // [A] 주먹을 쥐었을 때: 진열장 아이템 픽업 판정 (화면 마우스 좌표 기준)
     if (ptr.fist && !costumeDragItem) {
-      // 진열장 카드들 위를 지나고 있는지 검사
-      const cards = document.querySelectorAll(".costume-card:not(.locked)");
+      const cards = document.querySelectorAll(".costume-card");
       for (const c of cards) {
         const cRect = c.getBoundingClientRect();
         if (mouse.x >= cRect.left && mouse.x <= cRect.right && mouse.y >= cRect.top && mouse.y <= cRect.bottom) {
@@ -7874,18 +7912,19 @@ function costumeRoomUpdateAndDraw(now, dt) {
     if (costumeDragItem) {
       const ghost = $("dragGhost");
       if (ghost) {
-        ghost.style.left = `${ptr.x + rect.left}px`;
-        ghost.style.top = `${ptr.y + rect.top}px`;
+        // 고스트는 뷰포트 절대 픽셀 좌표 기준 배치
+        ghost.style.left = `${(ptr.x / scaleX) + rect.left}px`;
+        ghost.style.top = `${(ptr.y / scaleY) + rect.top}px`;
       }
 
       // 슬롯 앵커와의 거리 계산
-      const targetAnchor = costumeDragItem.slot === "head" ? headA : chestA;
+      const targetAnchor = costumeDragItem.slot === "head" ? headA : (costumeDragItem.slot === "hand" ? handA : chestA);
       const dist = Math.hypot(ptr.x - targetAnchor.x, ptr.y - targetAnchor.y);
 
       // 마그네틱 흡착 가이드선 및 펄스 링
-      if (dist < 160) {
-        ctx.strokeStyle = "rgba(0, 210, 255, 0.8)";
-        ctx.setLineDash([6, 6]);
+      if (dist < 180) {
+        ctx.strokeStyle = "rgba(0, 210, 255, 0.85)";
+        ctx.setLineDash([8, 8]);
         ctx.beginPath();
         ctx.moveTo(ptr.x, ptr.y);
         ctx.lineTo(targetAnchor.x, targetAnchor.y);
@@ -7895,18 +7934,18 @@ function costumeRoomUpdateAndDraw(now, dt) {
         ctx.strokeStyle = "#22c55e";
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(targetAnchor.x, targetAnchor.y, 45, 0, Math.PI * 2);
+        ctx.arc(targetAnchor.x, targetAnchor.y, 50, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.font = "bold 14px 'Rubik', sans-serif";
+        ctx.font = "bold 16px 'Rubik', sans-serif";
         ctx.fillStyle = "#22c55e";
-        ctx.fillText("✋ 손을 펴서 착용!", targetAnchor.x, targetAnchor.y - 55);
+        ctx.fillText("✋ 손을 펴서 착용!", targetAnchor.x, targetAnchor.y - 62);
       }
 
       // [C] 손을 폈을 때 (p.fist === false): 마그네틱 결합 완료!
       if (!ptr.fist) {
         $("dragGhost")?.classList.add("hidden");
-        if (dist < 160) {
+        if (dist < 220) {
           equipCostumeItem(costumeDragItem);
         }
         costumeDragItem = null;
