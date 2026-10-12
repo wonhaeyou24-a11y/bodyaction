@@ -11,6 +11,7 @@ import { newPunchState, stepPunch } from "./punch.js";
 import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength } from "./poses.js";
 import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js";
 import { bakeToon } from "./costume-toon.js";
+import { jumpSample, newJumpState, stepJump } from "./jump.js";
 import { CostumeMotion } from "./costume-physics.js";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
@@ -383,7 +384,9 @@ function speak(text, force = false) {
 const INTRO = {
   balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
   ninja: "과일을 날카롭게 베어내세요! 폭탄은 조심하세요!",
-  space: "지구를 향해 쏟아지는 유성을 막아내세요!",
+  space: "지구를 향해 쏟아지는 유성을 막아내세요! 가운데 말고 떨어질 곳으로 손을 뻗으세요!",
+  bballoon: "손·발·머리 어디로든 풍선을 터뜨리세요! 발로 차면 보너스! 검은 폭탄은 피해요!",
+  bspace: "온몸으로 유성을 막아내세요! 점선으로 표시된 떨어질 곳으로 몸을 움직여요!",
   draw: "허공에 멋진 그림을 그려 보세요!",
   dodge: "온몸을 움직여 날아오는 돌을 피하고 동전을 모으세요!",
   brick: "손으로 공을 튕겨 벽돌을 모두 깨뜨리세요!",
@@ -552,6 +555,8 @@ let lastBeatTrackIdx = -1;
 const BGM = {
   balloon: { bpm: 112, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.65 },
   ninja:   { bpm: 124, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "square", drums: "taiko", vol: 0.70 },
+  bballoon:{ bpm: 118, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.65 },
+  bspace:  { bpm: 96, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone", vol: 0.65 },
   space:   { bpm: 92, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone", vol: 0.65 },
   draw:    { bpm: 76, root: 196, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "sine", drums: "none", vol: 0.5 },
   dodge:   { bpm: 132, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 3, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
@@ -1659,7 +1664,7 @@ function updateLiveHud(force = false) {
   let energyPct = 100;
   if (mode === "beat") {
     energyPct = Math.max(5, Math.min(100, Math.round(g?.energy ?? 100)));
-  } else if (mode === "space") {
+  } else if (mode === "space" || mode === "bspace") {
     energyPct = Math.round((shield / SHIELD_MAX) * 100);
   } else {
     energyPct = Math.min(100, Math.max(20, Math.round(70 + (combo * 2))));
@@ -2715,13 +2720,54 @@ let halves = [];
 // ☄️ 유성 막기: 화면 한가운데(먼 곳)에서 우리 쪽으로 점점 커지며 날아옴. 부딪히면 방어막이 깨짐
 let shield = 5, flash = 0, stars = null;
 const SHIELD_MAX = 5;
+// 유성은 가운데 먼 곳에서 시작해 점점 커지며 와요. 예전엔 가운데에 손만 대고 있어도 막 나온 유성이 바로 터져서 재미가 없었어요.
+// 이제 ① 충분히 가까워지기(SPACE_HIT_Z) 전에는 못 터뜨리고(흐릿하게 보임) ② 도착 지점이 가운데에서 멀리 떨어진 곳이라
+// 가운데에 손을 두고 있어도 소용없어요 ③ 어디로 떨어질지 점선 표시가 나와서 미리 달려갈 수 있어요.
+const SPACE_HIT_Z = 0.35;
+function spaceTarget() {
+  const cx = W / 2, cy = H * 0.45, m = Math.min(W, H) * 0.36;
+  for (let i = 0; i < 14; i++) {
+    const tx = W * (-0.1 + Math.random() * 1.2), ty = H * (-0.05 + Math.random() * 1.1);
+    if (Math.hypot(tx - cx, ty - cy) >= m) return { tx, ty };
+  }
+  const a = Math.random() * Math.PI * 2;
+  return { tx: cx + Math.cos(a) * m * 1.3, ty: cy + Math.sin(a) * m * 1.3 };
+}
+/** 유성 한 프레임 진행. hitters = 터뜨리는 것들(손 포인터 또는 몸 부위). r이 있는 것은 몸 부위(자기 반지름 사용) */
+function spaceStep(dt, hitters) {
+  flash = Math.max(0, flash - dt * 2);
+  for (const o of objs) {
+    o.z += o.speed * dt * (0.4 + o.z * 1.3);       // 가까워질수록 빨라 보임
+    o.rot += o.vr; o.hitFlash = Math.max(0, o.hitFlash - dt * 4);
+    const c = games.space.pos(o), r = games.space.size(o);
+    if (o.z >= SPACE_HIT_Z) for (const p of hitters) {
+      if (o.dead || o.cool > 0) continue;
+      const hit = p.r !== undefined ? segHit(p.px, p.py, p.x, p.y, c.x, c.y, r + p.r + 8) : segHitsCircle(p.px, p.py, p.x, p.y, c.x, c.y, r + 16);
+      if (hit) {
+        o.hp--; o.hitFlash = 1; o.cool = 0.3;
+        if (o.hp <= 0) {
+          o.dead = true; const pts = o.big ? 3 : 1;
+          burst(c.x, c.y, "#ffb347", 22); burst(c.x, c.y, "#fff", 8);
+          award(c.x, c.y - r, pts, "#ffd166"); sfx.meteor(c.x, o.big);
+        } else { burst(c.x, c.y, "#ffb347", 8); sfx.chip(c.x); }
+      }
+    }
+    if (o.cool > 0) o.cool -= dt;
+    if (!o.dead && o.z >= 1) {                     // 우리에게 도달!
+      o.dead = true; shield--; flash = 1; combo = 0; sfx.crash(); if (shield === 1) speak("방어막이 약해요!"); else if (shield > 1) speak("조심하세요!");
+      popup(W / 2, H / 2, "쾅! 💥", "#ff5d5d");
+      if (shield <= 0) endGame();
+    }
+  }
+  objs = objs.filter((o) => !o.dead);
+}
 games.space = {
   bg: "#04050f",
   camAlpha: 0.3,
   spawn() {
     const big = Math.random() < 0.18;
-    objs.push({ z: 0.03, speed: (0.24 + elapsed() * 0.004) * (big ? 0.8 : 1), big, hp: big ? 2 : 1,
-      tx: W * (-0.1 + Math.random() * 1.2), ty: H * (-0.05 + Math.random() * 1.1),
+    const { tx, ty } = spaceTarget();
+    objs.push({ z: 0.03, speed: (0.24 + elapsed() * 0.004) * (big ? 0.8 : 1), big, hp: big ? 2 : 1, tx, ty,
       base: big ? 1.35 : 0.9, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.06,
       seed: Math.random() * 100, hitFlash: 0 });
     sfx.incoming(objs[objs.length - 1].tx);
@@ -2729,32 +2775,7 @@ games.space = {
   interval: () => Math.max(0.45, 1.1 - elapsed() * 0.01),
   pos(o) { return { x: W / 2 + (o.tx - W / 2) * o.z, y: H * 0.45 + (o.ty - H * 0.45) * o.z }; },
   size(o) { return Math.min(W, H) * 0.14 * o.base * (0.12 + o.z * 1.1); },
-  update(dt) {
-    flash = Math.max(0, flash - dt * 2);
-    for (const o of objs) {
-      o.z += o.speed * dt * (0.4 + o.z * 1.3);       // 가까워질수록 빨라 보임
-      o.rot += o.vr; o.hitFlash = Math.max(0, o.hitFlash - dt * 4);
-      const c = this.pos(o), r = this.size(o);
-      for (const p of pointers) {
-        if (o.dead || o.cool > 0) continue;
-        if (segHitsCircle(p.px, p.py, p.x, p.y, c.x, c.y, r + 16)) {
-          o.hp--; o.hitFlash = 1; o.cool = 0.3;
-          if (o.hp <= 0) {
-            o.dead = true; const pts = o.big ? 3 : 1;
-            burst(c.x, c.y, "#ffb347", 22); burst(c.x, c.y, "#fff", 8);
-            award(c.x, c.y - r, pts, "#ffd166"); sfx.meteor(c.x, o.big);
-          } else { burst(c.x, c.y, "#ffb347", 8); sfx.chip(c.x); }
-        }
-      }
-      if (o.cool > 0) o.cool -= dt;
-      if (!o.dead && o.z >= 1) {                     // 우리에게 도달!
-        o.dead = true; shield--; flash = 1; combo = 0; sfx.crash(); if (shield === 1) speak("방어막이 약해요!"); else if (shield > 1) speak("조심하세요!");
-        popup(W / 2, H / 2, "쾅! 💥", "#ff5d5d");
-        if (shield <= 0) endGame();
-      }
-    }
-    objs = objs.filter((o) => !o.dead);
-  },
+  update(dt) { spaceStep(dt, pointers); },
   draw() {
     if (!stars) stars = Array.from({ length: 160 }, () => ({ a: Math.random() * 6.283, z: Math.random() }));
     ctx.fillStyle = "#fff";
@@ -2765,9 +2786,16 @@ games.space = {
       ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(s.a) * d0, H * 0.45 + Math.sin(s.a) * d0);
       ctx.lineTo(W / 2 + Math.cos(s.a) * d, H * 0.45 + Math.sin(s.a) * d); ctx.stroke();
     }
+    for (const o of objs) {                         // 떨어질 곳 표시 (점선 원): 가까워질수록 또렷해져요
+      const rr = this.size({ ...o, z: 1 }) * 0.55;
+      ctx.save(); ctx.globalAlpha = 0.12 + 0.4 * o.z; ctx.strokeStyle = o.z >= SPACE_HIT_Z ? "#ffb347" : "#9fb4ff"; ctx.lineWidth = 3; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.arc(o.tx, o.ty, rr, 0, 7); ctx.stroke(); ctx.restore();
+    }
     for (const o of [...objs].sort((a, b) => a.z - b.z)) {
       const c = this.pos(o), r = this.size(o), c0 = this.pos({ ...o, z: o.z * 0.75 });
+      ctx.save(); if (o.z < SPACE_HIT_Z) ctx.globalAlpha = 0.5;      // 아직 멀어서 못 터뜨려요
       Art.drawMeteor(c, c0, r, o);
+      ctx.restore();
     }
     if (flash > 0) { ctx.fillStyle = `rgba(255,50,50,${flash * 0.45})`; ctx.fillRect(0, 0, W, H); }
     ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif";
@@ -2926,6 +2954,97 @@ function bodyHint() {
   const t = "🧍 한 걸음 뒤로! 머리부터 발까지 보이게 서 주세요";
   ctx.strokeText(t, W / 2, H * 0.45); ctx.fillText(t, W / 2, H * 0.45);
 }
+
+// 🦵 몸으로 터뜨리기 공통: 손·팔꿈치·머리·무릎·발을 "부딪히는 점"으로 써요. 부위마다 이전 위치를 기억해서 빠르게 움직여도 놓치지 않아요.
+// 판정 크기는 어깨너비 기준(멀리 서도, 아이도 같은 비율). 마우스 모드(테스트)에서는 마우스가 손 하나예요.
+const BODY_HIT_PARTS = [[15, 0.42, "hand"], [16, 0.42, "hand"], [27, 0.40, "foot"], [28, 0.40, "foot"], [0, 0.55, "head"], [25, 0.36, "knee"], [26, 0.36, "knee"], [13, 0.30, "elbow"], [14, 0.30, "elbow"]];
+function segHit(ax, ay, bx, by, cx, cy, r) {            // 선분(이전→현재 위치)과 원의 충돌 (손 크기 설정 reach와 무관)
+  r += Math.min(Math.hypot(bx - ax, by - ay) * 0.4, 45);
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+  let t = l2 ? ((cx - ax) * dx + (cy - ay) * dy) / l2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(ax + t * dx - cx, ay + t * dy - cy) <= r;
+}
+function bodyHitters(st) {
+  const out = [];
+  if (useMouse) { for (const p of pointers) out.push({ x: p.x, y: p.y, px: p.px, py: p.py, r: 30, kind: "hand" }); return out; }
+  const b = getBody();
+  st.pp ??= {};
+  if (!b) { st.pp = {}; return out; }
+  const sw = bv(b, 11, 0.3) && bv(b, 12, 0.3) ? Math.max(60, Math.hypot(b[11].x - b[12].x, b[11].y - b[12].y)) : 120;
+  for (const [i, k, kind] of BODY_HIT_PARTS) {
+    if (!bv(b, i, 0.4)) { delete st.pp[i]; continue; }
+    const p = b[i], prev = st.pp[i] ?? p;
+    out.push({ x: p.x, y: p.y, px: prev.x, py: prev.y, r: k * sw * 0.5, kind });
+    st.pp[i] = { x: p.x, y: p.y };
+  }
+  return out;
+}
+function drawHitters(hs) {                                // 어느 부위가 닿는지 보이게 작은 빛 표시
+  ctx.save(); ctx.globalAlpha = 0.55; ctx.lineWidth = 3;
+  for (const h of hs) { ctx.strokeStyle = h.kind === "foot" ? "#ffd166" : h.kind === "head" ? "#ff9ad5" : "#7df9ff"; ctx.beginPath(); ctx.arc(h.x, h.y, Math.max(10, h.r * 0.8), 0, 7); ctx.stroke(); }
+  ctx.restore();
+}
+
+// 🎈 몸으로 풍선 터뜨리기: 손·발·머리·무릎 어디로든 풍선을 톡! 발로 차거나 머리로 박으면 보너스. 검은 폭탄 풍선은 피하세요
+games.bballoon = {
+  bg: "#2a2a5a", camAlpha: 0.85, body: true, noCursor: true,
+  init() { this.pp = {}; this.pops = 0; this.kicks = 0; this.heads = 0; this.hs = []; this.warned = false; },
+  result() { return ` · 풍선 ${this.pops}개 · 발차기 ${this.kicks} · 헤딩 ${this.heads}`; },
+  spawn() {
+    const bomb = !isFeverTime && currentWave >= 2 && Math.random() < 0.10;
+    const isGold = !bomb && (isFeverTime ? Math.random() < 0.38 : (currentWave === 2 ? Math.random() < 0.15 : Math.random() < 0.08));
+    const r = (46 + Math.random() * 26) * Math.max(0.8, Math.min(1.4, H / 720));
+    const speedBonus = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0;
+    objs.push({ x: r + Math.random() * (W - 2 * r), y: H + r, r, vy: -(1.3 + Math.random() * 1.7) * (H / 800) * speedBonus,
+      color: isGold ? "#ffd700" : COLORS[(Math.random() * COLORS.length) | 0], gold: isGold, bomb, ph: Math.random() * 6.28, t: 0 });
+  },
+  interval: () => Math.max(0.3, 0.68 - elapsed() * 0.005),
+  update(dt) {
+    for (const o of objs) { o.t += dt; o.y += o.vy * dt * 60 * (1 + elapsed() * 0.005); o.x += Math.sin(o.t * 2 + o.ph) * 0.6 * (H / 800); }
+    objs = objs.filter((o) => o.y > -o.r * 2);
+    const hs = this.hs = bodyHitters(this);
+    for (const h of hs) for (const o of objs) {
+      if (o.dead || !segHit(h.px, h.py, h.x, h.y, o.x, o.y, o.r * 0.92 + h.r)) continue;
+      o.dead = true;
+      if (o.bomb) {
+        score = Math.max(0, score - 5); combo = 0;
+        burst(o.x, o.y, "#ff3030", 28); popup(o.x, o.y, "-5", "#ff5d5d"); sfx.bomb(o.x);
+        if (!this.warned) { this.warned = true; speak("검은 폭탄 풍선은 피하세요!"); }
+        continue;
+      }
+      let pts = o.gold ? 5 : 1, tag = null;
+      if (h.kind === "foot") { pts += 1; this.kicks++; tag = "발차기! 🦶"; }
+      else if (h.kind === "head") { pts += 1; this.heads++; tag = "헤딩! ⚽"; }
+      this.pops++;
+      burst(o.x, o.y, o.color, o.gold ? 24 : 14);
+      award(o.x, o.y, pts, o.gold ? "#ffd700" : "#fff"); sfx.pop(o.x, o.gold);
+      if (tag) popup(o.x, o.y - o.r, tag, "#ffd166");
+    }
+    objs = objs.filter((o) => !o.dead);
+  },
+  draw() {
+    for (const o of objs) {
+      if (o.bomb) {
+        ctx.save(); ctx.fillStyle = "#1c1c28"; ctx.strokeStyle = "#ff4d4d"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${o.r * 1.2}px serif`; ctx.fillText("💣", o.x, o.y + 2); ctx.restore();
+      } else Art.drawBalloon(o.x, o.y, o.r, o.color, o.gold);
+    }
+    drawSkeleton(getBody(), "#7df9ff", 0.7);
+    drawHitters(this.hs || []);
+    bodyHint();
+  },
+};
+
+// ☄️ 몸으로 유성 막기: 가운데에서 점점 커지며 날아오는 유성을 손·발·머리로 막아요. 떨어질 곳(점선)으로 몸을 옮겨 가세요
+games.bspace = {
+  ...games.space, body: true, camAlpha: 0.55,
+  init() { this.pp = {}; this.hs = []; },
+  spawn() { games.space.spawn.call(this); objs[objs.length - 1].speed *= 0.85; },     // 몸으로 움직이는 건 손보다 느려서 조금 천천히
+  interval: () => Math.max(0.55, 1.2 - elapsed() * 0.009),
+  update(dt) { this.hs = bodyHitters(this); spaceStep(dt, this.hs); },
+  draw() { games.space.draw.call(this); drawSkeleton(getBody(), "#7df9ff", 0.7); drawHitters(this.hs || []); bodyHint(); },
+};
 
 // 🏃 몸으로 피하기: 온몸을 움직여 돌은 피하고, 손으로 동전을 모아요. 하트 3개
 games.dodge = {
@@ -3189,6 +3308,7 @@ games.runner = {
     this.cal = 0;
     this.base = null;
     this.prevJump = false;
+    this.js = newJumpState();
     this.lives = 3;
     this.inv = 0;
     this.flash = 0;
@@ -3222,73 +3342,15 @@ games.runner = {
     }
   },
 
-  sense(dt) { // NotebookLM 최적화: 가속도 피크 선제 점프 + 앉았다 일어설 때 점프 오인식 원천 차단 가드
+  sense(dt) { // 점프/앉기 판정은 jump.js (어깨 높이 + 몸통 길이 기준, 테스트: node test/jump.test.js)
     let jump = rkJump, duck = rkDuck; rkJump = false;
-    const b = getBody();
-    const now = performance.now();
-
-    if (!useMouse && b) {
-      // 1. 다중 키포인트 폴백 (전신/상체 완벽 트래킹)
-      let y = null, tl = 120;
-      const hasSh = bv(b, 11, 0.25) && bv(b, 12, 0.25);
-      const hasHip = bv(b, 23, 0.25) && bv(b, 24, 0.25);
-
-      if (hasSh && hasHip) {
-        const shY = (b[11].y + b[12].y) / 2;
-        const hipY = (b[23].y + b[24].y) / 2;
-        y = (shY + hipY) / 2;
-        tl = Math.max(40, hipY - shY);
-      } else if (hasSh) {
-        y = (b[11].y + b[12].y) / 2;
-        tl = 100;
-      } else if (b[0] && bv(b, 0, 0.3)) {
-        y = b[0].y;
-        tl = 80;
-      }
-
-      if (y !== null) {
-        if (this.base == null) this.base = y;
-        if (this.prevY == null) this.prevY = y;
-
-        const dy = y - this.base;
-        if (dy >= -tl * 0.05 && dy <= tl * 0.10) {
-          this.base += dy * Math.min(1, dt * 1.5);
-        }
-
-        // 2. 앉기(Duck / Slide) 모션: 기준선보다 15% 이상 숙였을 때 즉시 발동
-        const isCurrentlyDucking = dy > tl * 0.15;
-        if (isCurrentlyDucking) {
-          duck = true;
-          this.lastDuckTime = now;
-        }
-
-        // 3. 수직 상승 속도 및 가속도 계산 (NotebookLM 도약 피크 엔진)
-        const safeDt = Math.max(dt, 0.008);
-        const vUp = (this.prevY - y) / safeDt;
-        const aUp = (vUp - (this.prevVUp || 0)) / safeDt;
-        this.prevY = y;
-        this.prevVUp = vUp;
-
-        // 앉았다가 일어서는 모션(Stand-up)은 점프로 튀지 않도록 차단
-        const isRecoveringFromDuck = (now - this.lastDuckTime < 280) || (dy >= -tl * 0.03);
-
-        const isThrustPeak = !isRecoveringFromDuck && (aUp > 750 && vUp > 35);
-        const isVelocityPeak = !isRecoveringFromDuck && (vUp > (tl * 0.85) || vUp > 110);
-        const isPositionLift = dy < -tl * 0.09 && (now - this.lastDuckTime > 200);
-
-        const up = isThrustPeak || isVelocityPeak || isPositionLift;
-        if (up && !this.prevJump && (now - this.lastJumpTime > 340)) {
-          jump = true;
-          this.lastJumpTime = now;
-        }
-        this.prevJump = up;
-        this.seen = true;
-      } else {
-        this.seen = false;
-      }
-    } else {
-      this.seen = false;
-    }
+    const sm = !useMouse ? jumpSample(getBody()) : null;
+    if (sm) {
+      const r = stepJump(this.js, sm, dt, performance.now());
+      if (r.jump) jump = true;
+      if (r.duck) duck = true;
+      this.seen = true;
+    } else this.seen = false;
     return { jump, duck };
   },
 
@@ -6276,6 +6338,8 @@ const RANK_THRESHOLDS = {
   balloon: [780, 1400, 2000, 2400, 3000],
   ninja:   [1400, 2100, 2700, 3200, 3800],
   space:   [26, 68, 230, 560, 920],
+  bballoon: [90, 170, 330, 560, 820],        // 몸 풍선: 규칙(스폰·콤보·피버)을 시뮬레이션한 값 (손 풍선보다 낮음: 몸으로는 덜 맞힘)
+  bspace:  [6, 11, 26, 120, 800],            // 몸 유성: 시뮬레이션 값 (실력이 낮으면 방어막이 먼저 바닥나 점수가 작아요)
   kungfu:  [13, 30, 81, 210, 470],
   brick:   [9, 25, 55, 110, 360],
   dodge:   [30, 54, 86, 110, 130],
@@ -6485,7 +6549,7 @@ function toMenu() {
 }
 async function showBest() {
   const modesList = [
-    ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"],
+    ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"], ["bballoon", "몸풍선"], ["bspace", "몸유성"],
     ["brick", "벽돌"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
     ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"],
     ["keeper", "골키퍼"], ["box", "펀치백"], ["baseball", "야구"]
@@ -9272,6 +9336,10 @@ frame = function(now) {
 showBest();
 requestAnimationFrame((t) => { last = t; frame(t); });
 
+
+// 몸으로 하는 풍선/유성의 상단 HUD (손 버전을 바탕으로 이름·안내만 바꿈)
+GAME_HUD_META.bballoon = { ...GAME_HUD_META.balloon, badge: "BODY CARNIVAL", title: "BODY BALLOON FRENZY", sub: "FULL-BODY POP", guideMain: "POP BALLOONS WITH HANDS, FEET & HEAD!", guideSub: "손·발·머리 어디든! 발로 차면 보너스, 검은 폭탄은 피해요!", leftName: "HAND / ARM", rightName: "FOOT / HEAD", odTitle: "🎈 BODY PARADE (온몸 풍선 대행진)" };
+GAME_HUD_META.bspace = { ...GAME_HUD_META.space, badge: "BODY DEFENSE", title: "BODY METEOR DEFENSE", sub: "FULL-BODY SHIELD", guideMain: "BLOCK METEORS WITH YOUR WHOLE BODY!", guideSub: "점선이 떨어질 곳! 몸을 움직여 손·발·머리로 막아내세요!", leftName: "BODY SHIELD", rightName: "REACH SENSOR" };
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
