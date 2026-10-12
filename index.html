@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261012_2335">
+<link rel="stylesheet" href="style.css?v=20261013_1201">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -198,6 +198,10 @@
         <span class="costume-btn-icon">👗</span>
         <span class="costume-btn-text">커스튬 룸</span>
         <span class="costume-btn-sparkle">✨</span>
+      </button>
+      <button id="btnCharacter" class="costume-room-pill" title="나의 캐릭터 고르기 (사람 · 동물 · 로봇 · 마법사)" aria-label="캐릭터 선택">
+        <span id="characterBtnIcon" class="costume-btn-icon">🧒</span>
+        <span class="costume-btn-text">캐릭터</span>
       </button>
       <button id="btnFsHub" class="fs-pill" title="대화면/TV 전체화면 토글" aria-label="전체화면 토글">
         <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
@@ -614,6 +618,25 @@
       <span class="btn-icon">🏠</span>
       <span class="btn-text">처음으로</span>
     </button>
+  </div>
+</div>
+
+<!-- 🧑‍🎤 캐릭터 선택 (4종): 선택한 캐릭터는 프로필마다 저장돼요 -->
+<div id="characterModal" class="beat-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="characterModalTitle">
+  <div class="beat-modal-card character-modal-card">
+    <div class="beat-modal-header">
+      <div class="beat-modal-title-group">
+        <span class="beat-modal-badge">CHOOSE YOUR HERO</span>
+        <h2 id="characterModalTitle" class="beat-modal-title">🧑‍🎤 나의 캐릭터 고르기</h2>
+        <p class="beat-modal-desc">내 움직임을 그대로 따라 하는 캐릭터예요. 마음에 드는 친구를 눌러 보세요!</p>
+      </div>
+      <div class="beat-header-actions"><button id="characterModalClose" class="beat-modal-close-btn" type="button" title="닫기" aria-label="닫기">✕</button></div>
+    </div>
+    <div id="characterList" class="character-grid"></div>
+    <div class="character-foot">
+      <span id="characterPicked" class="character-picked"></span>
+      <button id="characterModalOk" class="btn-modal-start" type="button">선택 완료</button>
+    </div>
   </div>
 </div>
 
@@ -1043,6 +1066,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_1100"></script>
+<script type="module" src="main.js?v=20261013_1200"></script>
 </body>
 </html>

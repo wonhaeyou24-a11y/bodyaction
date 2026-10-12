@@ -2856,3 +2856,22 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   #result .result-coin-card .coin-plus { font-size: 1.05rem; white-space: nowrap; }
   #result .result-coin-card .coin-total { white-space: nowrap; }
 }
+
+/* 🧑‍🎤 캐릭터 선택 화면 */
+.character-modal-card { max-width: 1040px; }
+.character-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(8px, 1.4vw, 18px); padding: clamp(8px, 1.4vw, 18px); overflow: hidden auto; min-height: 0; }
+.character-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 10px 14px; border-radius: 22px; cursor: pointer; text-align: center; color: #fff;
+  background: linear-gradient(180deg, rgba(60, 40, 120, 0.55), rgba(20, 12, 50, 0.7)); border: 2px solid rgba(255, 255, 255, 0.14);
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s, box-shadow .18s; font: inherit; }
+.character-card:hover, .character-card:focus-visible { transform: translateY(-4px); border-color: var(--cc, #7df9ff); outline: none; }
+.character-card.selected { border-color: #ffd84a; box-shadow: 0 0 0 3px rgba(255, 216, 74, 0.25), 0 12px 30px rgba(255, 216, 74, 0.25); transform: translateY(-4px); }
+.character-card canvas { width: min(100%, 34vh); aspect-ratio: 3 / 4; display: block; border-radius: 16px; background: radial-gradient(circle at 50% 35%, var(--cc, #7df9ff) -80%, rgba(14, 6, 36, 0.35) 70%); }
+.character-card h3 { margin: 4px 0 0; font-family: var(--font-display); font-size: clamp(1.05rem, 2.4vh, 1.5rem); font-weight: 900; }
+.character-card .cc-title { font-size: 0.8rem; font-weight: 800; color: var(--cc, #7df9ff); }
+.character-card p { margin: 2px 0 0; font-size: 0.78rem; line-height: 1.35; color: rgba(255, 255, 255, 0.78); }
+.character-card .cc-check { position: absolute; top: 10px; right: 12px; font-size: 0.8rem; font-weight: 900; padding: 3px 10px; border-radius: 999px; background: #ffd84a; color: #2a1a00; display: none; }
+.character-card.selected .cc-check { display: block; }
+.character-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px 16px; }
+.character-picked { font-weight: 800; color: #ffd84a; }
+#btnCharacter .costume-btn-icon { font-size: 1.1em; }
+@media (max-width: 860px) { .character-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .character-card p { display: none; } }

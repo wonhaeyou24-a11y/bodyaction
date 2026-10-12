@@ -9,11 +9,14 @@ import { createVisionClient } from "./vision-client.js?v=20261013_0900";
 import { AlphaBeta } from "./tracker.js?v=20261013_0900";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
-import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength } from "./poses.js?v=20261013_0900";
+import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength, skeletonFromAngles, poseById } from "./poses.js?v=20261013_0900";
 import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js?v=20261013_0900";
 import { bakeToon } from "./costume-toon.js?v=20261013_0900";
 import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_0900";
 import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
+import { CHARACTERS, loadCharacterId, saveCharacterId, characterById } from "./character.js?v=20261013_1200";
+import { skeletonToPx } from "./character.js?v=20261013_1200";
+import { drawCharacter } from "./character-art.js?v=20261013_1200";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -9368,6 +9371,80 @@ requestAnimationFrame((t) => { last = t; frame(t); });
 // 몸으로 하는 풍선/유성의 상단 HUD (손 버전을 바탕으로 이름·안내만 바꿈)
 GAME_HUD_META.bballoon = { ...GAME_HUD_META.balloon, badge: "BODY CARNIVAL", title: "BODY BALLOON FRENZY", sub: "FULL-BODY POP", guideMain: "POP BALLOONS WITH HANDS, FEET & HEAD!", guideSub: "손·발·머리 어디든! 발로 차면 보너스, 검은 폭탄은 피해요!", leftName: "HAND / ARM", rightName: "FOOT / HEAD", odTitle: "🎈 BODY PARADE (온몸 풍선 대행진)" };
 GAME_HUD_META.bspace = { ...GAME_HUD_META.space, badge: "BODY DEFENSE", title: "BODY METEOR DEFENSE", sub: "FULL-BODY SHIELD", guideMain: "BLOCK METEORS WITH YOUR WHOLE BODY!", guideSub: "점선이 떨어질 곳! 몸을 움직여 손·발·머리로 막아내세요!", leftName: "BODY SHIELD", rightName: "REACH SENSOR" };
+
+// ============================================================================
+// 🧑‍🎤 캐릭터 선택 (사람 하루 · 여우 토리 · 로봇 볼트 · 마법사 루나)
+// 고른 캐릭터는 프로필마다 저장돼요(localStorage "character_v1"). 캐릭터 게임에서 내 움직임을 따라 하는 주인공이 돼요.
+// 그림은 character-art.js, 목록/저장/뼈대는 character.js (테스트: node test/character.test.js)
+// ============================================================================
+const CHARACTER_ICON = { haru: "🧒", tori: "🦊", bolt: "🤖", luna: "🧙" };
+let currentCharacterId = loadCharacterId(localStorage, recKey("character_v1"));
+let characterLoop = 0;
+function refreshCharacterButton() {
+  const el = $("characterBtnIcon"); if (el) el.textContent = CHARACTER_ICON[currentCharacterId] ?? "🧒";
+  const picked = $("characterPicked"); const ch = characterById(currentCharacterId);
+  if (picked && ch) picked.textContent = "내 캐릭터: " + ch.name + " (" + ch.title + ")";
+}
+function selectCharacter(id) {
+  currentCharacterId = saveCharacterId(localStorage, recKey("character_v1"), id);
+  document.querySelectorAll(".character-card").forEach((el) => el.classList.toggle("selected", el.dataset.id === currentCharacterId));
+  refreshCharacterButton();
+  try { sfx.start?.(); } catch {}
+}
+function buildCharacterCards() {
+  const grid = $("characterList"); if (!grid) return;
+  grid.innerHTML = "";
+  for (const ch of CHARACTERS) {
+    const card = document.createElement("div");
+    card.className = "character-card"; card.dataset.id = ch.id; card.tabIndex = 0; card.setAttribute("role", "button"); card.style.setProperty("--cc", ch.color);
+    card.setAttribute("aria-label", ch.name + " 선택");
+    const cv = document.createElement("canvas"); cv.width = 300; cv.height = 400; card.appendChild(cv);
+    card.insertAdjacentHTML("beforeend", `<span class="cc-check">✔ 선택됨</span><h3></h3><span class="cc-title"></span><p></p>`);
+    card.querySelector("h3").textContent = ch.name; card.querySelector(".cc-title").textContent = ch.title; card.querySelector("p").textContent = ch.desc;
+    const pick = () => selectCharacter(ch.id);
+    card.addEventListener("click", pick);
+    card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    grid.appendChild(card);
+  }
+}
+// 미리보기 동작: 서 있기 → 만세 → 양팔 벌리기 → 앉기 → 서 있기 (살짝 튕기며 바뀜)
+const CHAR_DEMO = (() => {
+  const N = anglesOf({ arms: [100, 100, 80, 80], legs: null });
+  return [N, anglesOf(poseById("armsUp")), anglesOf(poseById("tPose")), anglesOf(poseById("squatT")), N];
+})();
+function characterDemoAngles(t) {
+  const step = 1.7, i = Math.floor(t / step) % CHAR_DEMO.length, prev = (i + CHAR_DEMO.length - 1) % CHAR_DEMO.length, k = Math.min(1, (t % step) / 0.45);
+  return { a: lerpAngles(CHAR_DEMO[prev], CHAR_DEMO[i], easeOutBack(k)), happy: i === 1 };
+}
+function drawCharacterPreviews(now) {
+  const t = now / 1000;
+  document.querySelectorAll(".character-card canvas").forEach((cv) => {
+    const g = cv.getContext("2d"), id = cv.parentElement.dataset.id, W0 = cv.width, H0 = cv.height;
+    g.clearRect(0, 0, W0, H0);
+    const { a, happy } = characterDemoAngles(t), u = H0 * 0.19;
+    const sk = skeletonToPx(skeletonFromAngles(a), W0 / 2, H0 * 0.3, u);
+    drawCharacter(g, id, sk, { t, mood: happy ? "happy" : "normal" });
+  });
+}
+function openCharacterModal() {
+  const m = $("characterModal"); if (!m) return;
+  currentCharacterId = loadCharacterId(localStorage, recKey("character_v1"));
+  if (!$("characterList")?.children.length) buildCharacterCards();
+  document.querySelectorAll(".character-card").forEach((el) => el.classList.toggle("selected", el.dataset.id === currentCharacterId));
+  refreshCharacterButton();
+  m.classList.remove("hidden");
+  const loop = (now) => { if (m.classList.contains("hidden")) { characterLoop = 0; return; } drawCharacterPreviews(now); characterLoop = requestAnimationFrame(loop); };
+  if (!characterLoop) characterLoop = requestAnimationFrame(loop);
+  m.querySelector(".character-card.selected")?.focus?.();
+}
+function closeCharacterModal() { $("characterModal")?.classList.add("hidden"); }
+$("btnCharacter")?.addEventListener("click", openCharacterModal);
+$("characterModalClose")?.addEventListener("click", closeCharacterModal);
+$("characterModalOk")?.addEventListener("click", closeCharacterModal);
+$("characterModal")?.addEventListener("click", (e) => { if (e.target === $("characterModal")) closeCharacterModal(); });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("characterModal")?.classList.contains("hidden")) closeCharacterModal(); });
+document.addEventListener("profile:changed", () => { currentCharacterId = loadCharacterId(localStorage, recKey("character_v1")); refreshCharacterButton(); document.querySelectorAll(".character-card").forEach((el) => el.classList.toggle("selected", el.dataset.id === currentCharacterId)); });
+refreshCharacterButton();
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {

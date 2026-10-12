@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>캐릭터 4종 갤러리 (개발 확인용)</title>
+<style>
+  body { margin: 0; background: #241a45; color: #fff; font-family: "Malgun Gothic", sans-serif; }
+  h1 { font-size: 15px; margin: 6px 12px; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<h1>캐릭터 4종 — 자세별 모습 확인 (?t=시간 / ?mood=happy / ?bg=light)</h1>
+<canvas id="c"></canvas>
+<script type="module">
+import { CHARACTERS, skeletonToPx } from "../character.js";
+import { drawCharacter } from "../character-art.js";
+import { POSES, anglesOf, skeletonFromAngles } from "../poses.js";
+const q = new URLSearchParams(location.search);
+const c = document.getElementById("c"), ctx = c.getContext("2d");
+const poseIds = (q.get("poses") ?? "stand,armsUp,tPose").split(",");
+const find = (id) => POSES.find((p) => p.id === id);
+const neutral = anglesOf({ arms: [100, 100, 80, 80], legs: null });
+const cw = 260, ch = 400, sc = Number(q.get("scale") ?? 105), only = q.get("row");
+const chars = only == null ? CHARACTERS : [CHARACTERS[Number(only)]];
+const rows = chars.length, cols = poseIds.length;
+c.width = cols * cw; c.height = rows * ch;
+ctx.fillStyle = q.get("bg") === "light" ? "#dfe8ff" : "#241a45"; ctx.fillRect(0, 0, c.width, c.height);
+const t = Number(q.get("t") ?? 0.4), mood = q.get("mood") ?? "normal";
+chars.forEach((ch0, r) => {
+  poseIds.forEach((pid, k) => {
+    const x = k * cw, y = r * ch;
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = "rgba(14,6,36,.5)"; ctx.beginPath(); ctx.roundRect(5, 5, cw - 10, ch - 10, 14); ctx.fill();
+    const a = pid === "stand" ? neutral : anglesOf(find(pid));
+    const sk = skeletonToPx(skeletonFromAngles(a), cw / 2, 130, sc);
+    drawCharacter(ctx, ch0.id, sk, { t, mood });
+    ctx.fillStyle = "#ffd166"; ctx.font = "800 12px sans-serif"; ctx.textAlign = "center"; ctx.fillText(`${ch0.name} · ${pid}`, cw / 2, ch - 12);
+    ctx.restore();
+  });
+});
+</script>
+</body>
+</html>

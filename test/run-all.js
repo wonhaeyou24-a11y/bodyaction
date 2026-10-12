@@ -12,6 +12,7 @@ const suites = [
   ["test/costume.test.js", "커스튬 흔들림(스프링 관성)"],
   ["test/jump.test.js", "러너 점프/앉기 판정(오인식 방지)"],
   ["test/armpunch.test.js", "샌드백 펀치·발차기 판정(몸 인식)"],
+  ["test/character.test.js", "캐릭터 선택·저장·뼈대"],
   ["test/profiles.test.js", "가족 프로필"],
   ["test/guide.test.js", "카메라 세팅 판정"],
   ["online/test/room.test.js", "온라인 대결 방 규칙"],
