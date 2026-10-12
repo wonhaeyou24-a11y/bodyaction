@@ -10,6 +10,8 @@ import { AlphaBeta } from "./tracker.js";
 import { newPunchState, stepPunch } from "./punch.js";
 import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength } from "./poses.js";
 import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js";
+import { bakeToon } from "./costume-toon.js";
+import { CostumeMotion } from "./costume-physics.js";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -8143,7 +8145,27 @@ function drawGenericCostume(ctx, item, col) {
   }
 }
 
-// 6. 커스튬 개별 파츠 정밀 2D 벡터 렌더러
+// 6-0. 카툰 스프라이트 캐시: 안 움직이는 아이템은 한 번만 그려서 그림 한 장(외곽선+음영+그림자 포함)으로 저장해 두고
+// 매 프레임 drawImage 한 번으로 찍어요. 움직이는 그림(오라·불꽃·반짝이)은 예전처럼 실시간으로 그려요.
+const costumeSprites = new Map();   // id -> { png: 0|1, spr: 완성된 스프라이트 | null(아직/불필요 → 실시간으로 그림) }
+const COSTUME_LIVE = new Set(["legs_disco_pants", "back_jetpack", "aura_dragon", "aura_fireworks"]);
+function costumeSprite(item) {
+  if (item.slot === "aura" || COSTUME_LIVE.has(item.id) || (item.slot === "back" && /prop/.test(item.id))) return null;
+  const png = costumeImg(item.id) ? 1 : 0;
+  let e = costumeSprites.get(item.id);
+  if (!e || e.png !== png) {                        // 처음이거나, PNG가 뒤늦게 로드되면 다시 구워요
+    e = { png, spr: null };
+    costumeSprites.set(item.id, e);
+    try {
+      const spr = bakeToon((g) => drawCostumeLocal(g, item, false, true), { outline: !png });
+      // ImageBitmap으로 바꿔 두면 그래픽카드에서 가장 빠르게 찍혀요. 준비되는 짧은 동안은 실시간 그림으로 대신해요.
+      if (spr) createImageBitmap(spr.cv).then((bm) => { if (costumeSprites.get(item.id) === e) { spr.cv = bm; e.spr = spr; } }).catch(() => {});
+    } catch (err) { console.warn("costume bake failed:", item.id, err); }
+  }
+  return e.spr;
+}
+
+// 6. 커스튬 개별 파츠 렌더러 (위치/크기/회전은 앵커, 그림은 캐시 → 없으면 실시간)
 function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
   if (!item || !anchor) return;
   const { x, y, scale = 1.0, angle = 0 } = anchor;
@@ -8152,16 +8174,22 @@ function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
   if (angle) ctx.rotate(angle);
   ctx.scale(anchor.sx ?? scale, anchor.sy ?? scale);   // 몸통/하의는 가로·세로를 따로 맞춰요
 
+  const spr = costumeSprite(item);
+  if (spr) ctx.drawImage(spr.cv, spr.x, spr.y, spr.w, spr.h);
+  else drawCostumeLocal(ctx, item, isBuddy, false);
+  ctx.restore();
+}
+
+/** 앵커 기준 로컬 좌표로 아이템 한 개를 그려요. bake=true 면 캐시용(번쩍임 없이) */
+function drawCostumeLocal(ctx, item, isBuddy, bake) {
   const col = item.color || "#00d2ff";
-  ctx.shadowColor = col;
-  ctx.shadowBlur = isBuddy ? 6 : 16;
+  if (!bake) { ctx.shadowColor = col; ctx.shadowBlur = isBuddy ? 6 : 16; }
 
   // 🖼️ PNG 일러스트가 있으면 그걸 쓰고, 없으면 아래 벡터로
   const png = costumeImg(item.id);
   if (png) {
-    ctx.shadowBlur = isBuddy ? 4 : 10;
+    if (!bake) ctx.shadowBlur = isBuddy ? 4 : 10;
     drawCostumeImage(ctx, item, png);
-    ctx.restore();
     return;
   }
 
@@ -8389,9 +8417,10 @@ function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
       drawGenericCostume(ctx, item, col);
       break;
   }
-
-  ctx.restore();
 }
+
+// 사람(내 몸/상대 몸)마다 따로 흔들림 상태를 가져요
+const costumeMotions = [new CostumeMotion(), new CostumeMotion()];
 
 // 7. 실시간 인게임 & 피팅 캔버스 신체 장착 렌더러
 function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
@@ -8421,21 +8450,22 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
       const hasHip = skel[23] && skel[24];
       const midHip = hasHip ? { x: (skel[23].x + skel[24].x) / 2, y: (skel[23].y + skel[24].y) / 2 } : null;
       const torso = midHip ? dist(midShoulder, midHip) : sw * 1.35;            // 몸통 길이(px)
+      const mo = costumeMotions[isBuddy ? 1 : 0].update(performance.now(), midShoulder, torso, [skel[15], skel[16]]);   // 스프링 관성
 
       // 신체 기울기 각도 (어깨선, 머리/귀, 골반 기울기)
       const shoulderAngle = Math.atan2(skel[12].y - skel[11].y, skel[12].x - skel[11].x);
       const headAngle = (skel[7] && skel[8]) ? Math.atan2(skel[8].y - skel[7].y, skel[8].x - skel[7].x) : shoulderAngle * 0.7;
       const hipAngle = (skel[23] && skel[24]) ? Math.atan2(skel[24].y - skel[23].y, skel[24].x - skel[23].x) : shoulderAngle;
 
-      headAnchor = { x: skel[0].x, y: skel[0].y - earD * 0.62, scale: kh * 1.05, angle: headAngle };
+      headAnchor = { x: skel[0].x, y: skel[0].y - earD * 0.62 - mo.head.dy * torso, scale: kh * 1.05, angle: headAngle + mo.head.rot };
       faceAnchor = { x: skel[0].x, y: skel[0].y + earD * 0.1, scale: kh, angle: headAngle };      // 코 기준 (콧수염/안경)
       const bodySy = torso / 72;
       chestAnchor = { x: midShoulder.x, y: midShoulder.y + 14 * bodySy, scale: kb, sx: (sw * 1.2) / 88, sy: bodySy, angle: shoulderAngle };
-      backAnchor = { x: midShoulder.x, y: midShoulder.y + 8 * kb, scale: kb * 1.15, angle: shoulderAngle };
+      backAnchor = { x: midShoulder.x, y: midShoulder.y + 8 * kb, scale: kb * 1.15, angle: shoulderAngle + mo.back.rot };
 
       const kHand = cl(sw / 150, 0.5, 2.5);
-      if (skel[15]) handAnchors.push({ x: skel[15].x, y: skel[15].y, scale: kHand, angle: shoulderAngle });
-      if (skel[16]) handAnchors.push({ x: skel[16].x, y: skel[16].y, scale: kHand, angle: shoulderAngle });
+      if (skel[15]) handAnchors.push({ x: skel[15].x, y: skel[15].y, scale: kHand, angle: shoulderAngle + mo.hands[0].rot });
+      if (skel[16]) handAnchors.push({ x: skel[16].x, y: skel[16].y, scale: kHand, angle: shoulderAngle + mo.hands[1].rot });
 
       // 하의/바지 앵커 (골반 중심, 허벅지 길이에 맞춰 세로 늘임)
       if (midHip) {
@@ -9172,3 +9202,8 @@ frame = function(now) {
 showBest();
 requestAnimationFrame((t) => { last = t; frame(t); });
 
+
+// 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
+if (/[?&]bench\b/.test(location.search)) {
+  window.__kk = { drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+}
