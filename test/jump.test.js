@@ -1,6 +1,7 @@
 // 러너 점프/앉기 판정 테스트: node test/jump.test.js
 // 핵심: ① 가만히/흔들/숨쉬기/뒤로 물러서기/골반이 깜박여도 점프로 오인하지 않음 ② 진짜 점프(작은 뜀박질 포함)는 반드시 인식
 import { jumpSample, newJumpState, stepJump } from "../jump.js";
+import { AlphaBeta } from "../tracker.js";
 
 let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.log("FAIL", name, "-", e.message); } };
@@ -90,6 +91,35 @@ t("프레임 간격이 들쭉날쭉(20~60fps)해도 점프 인식, 가만히면 
     if (stepJump(s, jumpSample(b), dt, now).jump) { if (tt < 5) still++; else jumps++; }
   }
   ok(still === 0 && jumps === 1, `still=${still} jumps=${jumps}`);
+});
+
+// ---- 실제와 비슷한 신호: AI 결과(약 20Hz, 잡음, 40ms 지연) → 알파-베타 추적기 → 60fps 판정 ----
+// (추적기를 거치면 점프 속도가 많이 줄어들어요. 이 값으로 기준을 잡지 않으면 작은 점프를 놓쳐요 — 예전에 그랬어요)
+const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
+function runTracked(seconds, yAt, { seed = 1, hipFlicker = false } = {}) {
+  const rng = mulberry(seed), trk = [11, 12, 23, 24].map(() => new AlphaBeta(BODY_AB)), s = newJumpState(); const jumps = []; let aiNext = 0;
+  for (let i = 0; i < seconds * FPS; i++) {
+    const tt = i / FPS, now = 1000 + tt * 1000;
+    if (tt >= aiNext) { aiNext = tt + (1 / 20) * (0.7 + rng() * 0.6); const y = 300 + yAt(tt - 0.04);
+      [[340, y], [460, y], [360, y + TL], [440, y + TL]].forEach(([x, yy], k) => trk[k].update(x + (rng() - 0.5) * 2, yy + (rng() - 0.5) * 4, now)); }
+    const hv = hipFlicker ? (Math.floor(tt * 7) % 2 === 0 ? 0.9 : 0.1) : 0.9;
+    const b = Array.from({ length: 33 }, () => ({ x: 0, y: 0, v: 0 }));
+    [11, 12, 23, 24].forEach((idx, k) => { const p = trk[k].ready ? trk[k].at(now) : { x: 0, y: 0 }; b[idx] = { x: p.x, y: p.y, v: idx < 20 ? 0.9 : hv }; });
+    if (stepJump(s, jumpSample(b), DT, now).jump) jumps.push(tt);
+  }
+  return jumps;
+}
+for (const [h, d] of [[0.10, 0.35], [0.15, 0.4], [0.3, 0.5]]) {
+  t(`추적기를 거친 실제 신호: 점프 ${h * 100}% 높이를 10번 중 9번 이상 인식`, () => {
+    let n = 0; for (let s = 0; s < 10; s++) if (runTracked(4, jumpAt(2, h * TL, d), { seed: 10 + s }).filter((x) => x > 1.9 && x < 2.6).length >= 1) n++;
+    ok(n >= 9, `${n}/10`);
+  });
+}
+t("추적기를 거친 실제 신호: 서 있기·흔들기·걷기·가볍게 튕기기·골반 깜박임은 점프 0번", () => {
+  const cases = [() => 0, (tt) => 6 * Math.sin(tt * 2 * Math.PI * 0.3) + 4 * Math.sin(tt * 2 * Math.PI), (tt) => 0.04 * TL * Math.sin(tt * 2 * Math.PI * 0.9),
+    (tt) => 0.04 * TL * Math.sin(tt * 2 * Math.PI * 1.2), (tt) => 0.03 * TL * Math.sin(tt * 2 * Math.PI * 1.8)];
+  cases.forEach((f, i) => { const n = runTracked(20, f).length; ok(n === 0, `경우 ${i}: ${n}번`); });
+  const hf = runTracked(20, () => 0, { hipFlicker: true }).length; ok(hf === 0, "골반 깜박임 " + hf);
 });
 
 console.log(`점프 판정: ${pass}/${pass + fail} 통과`);

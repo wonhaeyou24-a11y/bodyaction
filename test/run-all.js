@@ -11,6 +11,7 @@ const suites = [
   ["test/poses.test.js", "포즈 미믹(인식·혼동·난이도)"],
   ["test/costume.test.js", "커스튬 흔들림(스프링 관성)"],
   ["test/jump.test.js", "러너 점프/앉기 판정(오인식 방지)"],
+  ["test/armpunch.test.js", "샌드백 펀치·발차기 판정(몸 인식)"],
   ["test/profiles.test.js", "가족 프로필"],
   ["test/guide.test.js", "카메라 세팅 판정"],
   ["online/test/room.test.js", "온라인 대결 방 규칙"],

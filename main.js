@@ -3,16 +3,17 @@ import { FilesetResolver, HandLandmarker, PoseLandmarker }
 import { bus } from "./online/bus.js";
 import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
-import { ProfileStore } from "./profiles.js";
-import { initSetupGuide } from "./guide.js";
-import { createVisionClient } from "./vision-client.js";
-import { AlphaBeta } from "./tracker.js";
-import { newPunchState, stepPunch } from "./punch.js";
-import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength } from "./poses.js";
-import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js";
-import { bakeToon } from "./costume-toon.js";
-import { jumpSample, newJumpState, stepJump } from "./jump.js";
-import { CostumeMotion } from "./costume-physics.js";
+import { ProfileStore } from "./profiles.js?v=20261013_0900";
+import { initSetupGuide } from "./guide.js?v=20261013_0900";
+import { createVisionClient } from "./vision-client.js?v=20261013_0900";
+import { AlphaBeta } from "./tracker.js?v=20261013_0900";
+import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
+import { ArmVel } from "./armtrack.js?v=20261013_0900";
+import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength } from "./poses.js?v=20261013_0900";
+import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js?v=20261013_0900";
+import { bakeToon } from "./costume-toon.js?v=20261013_0900";
+import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_0900";
+import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -46,7 +47,9 @@ addEventListener("resize", resize); resize();
 
 // ---------- 소리 (효과음 · 배경음악 · 음성) ----------
 // ---------- 소리 (효과음 · 배경음악 · 음성) ----------
-let actx, master, bgmBus, noiseBuf, soundOn = true, voiceOn = true;
+let actx, master, bgmMaster, bgmBus, noiseBuf, soundOn = true, voiceOn = true;
+// 효과음 크기(master)가 바뀔 때 배경음 쪽 크기도 같이 맞춰요 (배경음은 효과음과 다른 길로 나가요: 아래 ac() 참고)
+function setMasterGain(v) { if (master) master.gain.value = v; if (bgmMaster) bgmMaster.gain.value = v; }
 
 // ============================================================================
 // ⚙️ Stitch 아케이드 플레이어 프로필 & 게임 환경 설정 시스템 (Player Settings Manager)
@@ -133,7 +136,7 @@ function applyPlayerSettings() {
   soundOn = playerSettings.soundOn;
   voiceOn = playerSettings.voiceGuide;
   if (master && master.gain) {
-    master.gain.value = soundOn ? (playerSettings.sfxVol / 100) : 0;
+    setMasterGain(soundOn ? (playerSettings.sfxVol / 100) : 0);
   }
   if (bgmBus && bgmBus.gain) {
     bgmBus.gain.value = soundOn ? (playerSettings.bgmVol / 100) * 0.9 : 0;
@@ -151,20 +154,28 @@ function applyPlayerSettings() {
 function ac() {
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
+    // 효과음과 배경음(신스 드럼·멜로디)은 각자 압축기를 거쳐요. 예전엔 둘이 같은 압축기를 같이 써서, 효과음이 많이 터지는
+    // 피버 타임(큐브를 2배로 베는 때)에는 압축기가 계속 소리를 눌러 배경 드럼(비트박스)이 안 들렸어요.
+    const mkComp = () => {
+      const c = actx.createDynamicsCompressor();
+      c.threshold.setValueAtTime(-14, actx.currentTime); c.knee.setValueAtTime(30, actx.currentTime);
+      c.ratio.setValueAtTime(5, actx.currentTime); c.attack.setValueAtTime(0.003, actx.currentTime); c.release.setValueAtTime(0.25, actx.currentTime);
+      return c;
+    };
+    const limiter = actx.createDynamicsCompressor();       // 둘을 합쳤을 때 소리가 깨지지 않게 마지막에만 살짝 잡아 줘요 (평소엔 작동 안 함)
+    limiter.threshold.setValueAtTime(-2, actx.currentTime); limiter.knee.setValueAtTime(0, actx.currentTime);
+    limiter.ratio.setValueAtTime(20, actx.currentTime); limiter.attack.setValueAtTime(0.002, actx.currentTime); limiter.release.setValueAtTime(0.1, actx.currentTime);
+    limiter.connect(actx.destination);
     master = actx.createGain();
-    const comp = actx.createDynamicsCompressor();
-    comp.threshold.setValueAtTime(-14, actx.currentTime);
-    comp.knee.setValueAtTime(30, actx.currentTime);
-    comp.ratio.setValueAtTime(5, actx.currentTime);
-    comp.attack.setValueAtTime(0.003, actx.currentTime);
-    comp.release.setValueAtTime(0.25, actx.currentTime);
-    master.connect(comp).connect(actx.destination);
+    master.connect(mkComp()).connect(limiter);
+    bgmMaster = actx.createGain();
+    bgmMaster.connect(mkComp()).connect(limiter);
     bgmBus = actx.createGain();
     bgmBus.gain.value = soundOn ? (playerSettings.bgmVol / 100) * 0.9 : 0;
-    bgmBus.connect(master);
+    bgmBus.connect(bgmMaster);
   }
   if (actx.state === "suspended") actx.resume();
-  master.gain.value = soundOn ? (playerSettings.sfxVol / 100) : 0;
+  setMasterGain(soundOn ? (playerSettings.sfxVol / 100) : 0);
   return actx;
 }
 // 소리가 나는 위치(화면 x)에 따라 좌우로 퍼지게 해서 입체감을 줌
@@ -794,6 +805,25 @@ function videoToScreen(lm) {
 
 let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
 let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
+// 팔/다리 움직임 추적 (armtrack.js): armVel[0]=오른손목(어깨 12 기준), [1]=왼손목(어깨 11 기준) — pointers 순서와 같아요. legVel[0]=왼발목(엉덩이 23), [1]=오른발목(24)
+const armVel = [new ArmVel(), new ArmVel()], legVel = [new ArmVel(), new ArmVel()];
+const ARM_JOINTS = [[16, 12], [15, 11]], LEG_JOINTS = [[27, 23], [28, 24]];
+function resetArmVel() { armVel.forEach((a) => a.reset()); legVel.forEach((a) => a.reset()); }
+/** 새 포즈 결과(시각 t0 ms)로 팔·다리 속도 갱신. 점이 잘 안 보이면 갱신하지 않아서 속도가 0으로 식어요 */
+function feedArmVel(lm, t0) {
+  const sh = videoToScreen({ x: 0, y: 0 }), sh1 = videoToScreen({ x: 1, y: 0 });
+  const zScale = Math.abs(sh1.x - sh.x);                         // 정규화 z(가로 폭 기준)를 화면 픽셀로
+  const ok = (i) => lm[i] && (lm[i].visibility ?? 1) >= 0.3;
+  const feed = (trk, [j, base]) => {
+    if (!ok(j) || !ok(base)) return;
+    const a = videoToScreen(lm[j]), b = videoToScreen(lm[base]);
+    const sw = ok(11) && ok(12) ? Math.hypot(videoToScreen(lm[11]).x - videoToScreen(lm[12]).x, videoToScreen(lm[11]).y - videoToScreen(lm[12]).y) : 0;
+    if (!(sw > 20)) return;
+    trk.update(t0, a.x - b.x, a.y - b.y, ((lm[j].z ?? 0) - (lm[base].z ?? 0)) * zScale, sw);
+  };
+  ARM_JOINTS.forEach((jb, i) => feed(armVel[i], jb));
+  LEG_JOINTS.forEach((jb, i) => feed(legVel[i], jb));
+}
 let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
 let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
@@ -816,7 +846,7 @@ function updatePointers() {
     body = null;
     euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
     lastHandsInferFresh = false;
-    bodyHave = false; bodyTracks.forEach((t) => t.reset()); handTracks.forEach((t) => t.reset()); ptrVps.length = 0;
+    bodyHave = false; bodyTracks.forEach((t) => t.reset()); handTracks.forEach((t) => t.reset()); ptrVps.length = 0; resetArmVel();
     return;
   }
 
@@ -862,6 +892,7 @@ function updatePointers() {
           lastPoseT0 = t0;
           if (r && r.landmarks && r.landmarks.length) {
             bodySeen = t0;
+            feedArmVel(r.landmarks[0], t0);
             r.landmarks[0].forEach((l, i) => {
               const p = videoToScreen(l);
               (bodyTracks[i] ??= new AlphaBeta(BODY_AB)).update(p.x, p.y, t0);
@@ -870,7 +901,7 @@ function updatePointers() {
             bodyTracks.length = r.landmarks[0].length;
             bodyHave = true;
           } else if (t0 - bodySeen > 600) {
-            body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset());
+            body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset()); resetArmVel();
           }
         } catch (err) {
           console.warn("포즈 인식 예외 (자동 복구):", err);
@@ -886,8 +917,8 @@ function updatePointers() {
       // ⚡ 포즈 모드 및 피팅룸에서도 손목(15, 16)을 pointers로 추출하여 손/주먹 상호작용 지원
       if (body && body[15] && body[16]) {
         pts = [
-          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy },
-          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy }
+          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy, vN: armVel[0].vN(now) },
+          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy, vN: armVel[1].vN(now) }
         ];
       }
     }
@@ -917,6 +948,7 @@ function updatePointers() {
       x: fx, y: fy, px: pr.x, py: pr.y,
       speed: curSpeed,
       vps: ptrVps[i],
+      vN: p.vN,                       // 어깨너비/초 단위 3차원 속도 (몸 인식일 때만; 샌드백 펀치 판정)
       fist: useMouse ? !mouse.down : !!lastFist[i],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
       punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 240 && ptrVps[i] > Math.min(W, H) * 0.55),
@@ -4974,7 +5006,7 @@ games.box = {
     pointers.forEach((p, i) => {
       const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = newPunchState());
       const isLeftFist = p.x < W / 2;
-      const hit = stepPunch(fsm, p.vps ?? p.speed * 60, !!p.punch, dt, Math.min(W, H));
+      const hit = p.vN !== undefined ? stepPunchN(fsm, p.vN, dt) : stepPunch(fsm, p.vps ?? p.speed * 60, !!p.punch, dt, Math.min(W, H));
       if (hit.strike) {
         strikeOccurred = true;
         strikeSideLeft = isLeftFist;
@@ -4988,58 +5020,34 @@ games.box = {
     const skel = getBody();
     if (!useMouse && skel) {
       const legs = [
-        { ankle: 27, knee: 25, heel: 29, foot: 31, isLeft: true },
-        { ankle: 28, knee: 26, heel: 30, foot: 32, isLeft: false }
+        { ankle: 27, knee: 25, hip: 23, isLeft: true },
+        { ankle: 28, knee: 26, hip: 24, isLeft: false }
       ];
 
       legs.forEach((leg, idx) => {
-        const ank = skel[leg.ankle];
-        const knee = skel[leg.knee];
-        const prev = this.prevAnkles[idx];
-
-        if (ank && (ank.v ?? 1) > 0.22) {
-          const dtClamped = Math.max(dt, 0.016);
-          const vx = (ank.x - prev.x) / dtClamped;
-          const vy = (ank.y - prev.y) / dtClamped;
-          const kickSpd = Math.hypot(vx, vy);
-
-          this.prevAnkles[idx] = { x: ank.x, y: ank.y, vy, spd: kickSpd };
-
-          // 발차기 감지 조건:
-          // 1) 발목이 순간적으로 강하게 솟구치거나 (vy < -280)
-          // 2) 발목의 속도가 기준치 이상으로 폭발적일 때 (kickSpd > 380)
-          // 3) 발의 위치가 무릎 위로 올라오거나 샌드백 반경 내에 진입
-          const fsm = this.kickFSM[idx] ?? (this.kickFSM[idx] = newPunchState());
-          const isKickingMotion = vy < -240 || kickSpd > 350;
-          const kickHit = stepPunch(fsm, kickSpd, isKickingMotion, dt, Math.min(W, H));
-
-          // 샌드백과의 근접성 및 모션 방향 검사
-          const distToBag = Math.abs(ank.x - cx);
-          const isNearBag = distToBag < bw * 1.3 && ank.y < (cy + bh * 0.65);
-
-          if ((kickHit.strike || (isKickingMotion && isNearBag)) && fsm.state === "punch") {
-            strikeOccurred = true;
-            strikeSideLeft = leg.isLeft;
-            isKickStrike = true;
-            strikeX = ank.x; strikeY = ank.y;
-
-            // 차올린 높이에 따라 하이킥 / 파워킥 세분화 판정
-            if (ank.y < cy) {
-              kickLabel = "HIGH KICK";
-              strikeIntensity = Math.max(2.4, kickHit.intensity * 1.8);
-            } else {
-              kickLabel = "POWER KICK";
-              strikeIntensity = Math.max(1.9, kickHit.intensity * 1.4);
-            }
-
-            // 시각적 발차기 잔상 등록
-            this.recentKicks.push({
-              x: ank.x, y: ank.y,
-              t: 0.45,
-              label: kickLabel,
-              color: leg.isLeft ? "#00d2ff" : "#ff4b72"
-            });
+        const ank = skel[leg.ankle], hipP = skel[leg.hip], knee = skel[leg.knee];
+        if (!ank || !hipP || !knee || (ank.v ?? 1) <= 0.22) return;
+        this.prevAnkles[idx] = { x: ank.x, y: ank.y, vy: 0, spd: 0 };
+        const fsm = this.kickFSM[idx] ?? (this.kickFSM[idx] = newPunchState());
+        // 발이 땅에서 충분히 올라와 있을 때만 킥 (걷거나 한 걸음 내딛는 건 킥이 아니에요). 서 있을 때 엉덩이→발목 거리 ≈ 허벅지의 2배
+        const thigh = Math.hypot(knee.x - hipP.x, knee.y - hipP.y) || 1;
+        const lifted = (ank.y - hipP.y) < thigh * 1.6;
+        const kickHit = stepPunchN(fsm, lifted ? legVel[idx].vN(performance.now()) : 0, dt, KICK_N);
+        if (kickHit.strike) {
+          strikeOccurred = true;
+          strikeSideLeft = leg.isLeft;
+          isKickStrike = true;
+          strikeX = ank.x; strikeY = ank.y;
+          // 차올린 높이에 따라 하이킥 / 파워킥 세분화 판정
+          if (ank.y < cy) {
+            kickLabel = "HIGH KICK";
+            strikeIntensity = Math.max(2.4, kickHit.intensity * 1.8);
+          } else {
+            kickLabel = "POWER KICK";
+            strikeIntensity = Math.max(1.9, kickHit.intensity * 1.4);
           }
+          // 시각적 발차기 잔상 등록
+          this.recentKicks.push({ x: ank.x, y: ank.y, t: 0.45, label: kickLabel, color: leg.isLeft ? "#00d2ff" : "#ff4b72" });
         }
       });
     }
@@ -7028,7 +7036,7 @@ for (const [id, set, key] of [["optSound", (v) => (soundOn = v), "sound"], ["opt
   set(el.checked);
   el.addEventListener("change", () => {
     set(el.checked); localStorage.setItem(key, el.checked ? "1" : "0");
-    if (actx) master.gain.value = soundOn ? 1 : 0;
+    if (actx) setMasterGain(soundOn ? 1 : 0);
     if (!voiceOn) try { speechSynthesis.cancel(); } catch {}
   });
 }
@@ -9343,5 +9351,5 @@ GAME_HUD_META.bspace = { ...GAME_HUD_META.space, badge: "BODY DEFENSE", title: "
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
-  window.__kk = { dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+  window.__kk = { feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
 }
