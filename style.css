@@ -2740,3 +2740,107 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 }
 
 .costume-card-icon img { width: 64px; height: 64px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }
+
+/* ============================================================================
+   🏆 결과 화면: 화면 전체를 쓰고, 스크롤 없이 한 화면에 배치해요 (위: 제목 / 가운데: 등급·점수 + TOP10 / 아래: 코인·보상·버튼)
+   글자·간격은 화면 높이(vh)에 맞춰 자동으로 커지고 작아져요. 위쪽의 옛 규칙을 덮어쓰기 위해 파일 맨 끝에 둬요.
+   ============================================================================ */
+@keyframes resultFullIn { 0% { opacity: 0; transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
+#result.result-modal {
+  position: fixed; inset: 0; left: 0; top: 0; transform: none;
+  width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; box-sizing: border-box;
+  border-radius: 0; border: none; overflow: hidden; text-align: center;
+  padding: clamp(8px, 2vh, 26px) clamp(12px, 3vw, 48px);
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr); align-content: stretch;
+  gap: clamp(6px, 1.5vh, 16px) clamp(10px, 1.6vw, 22px);
+  animation: resultFullIn 0.35s ease both;
+}
+#result.result-modal > * { grid-column: 1 / -1; min-width: 0; margin: 0; }
+#result .result-header { margin: 0; }
+#result .result-trophy { font-size: clamp(2rem, 7vh, 4.6rem); }
+#result .result-title-group h2 { font-size: clamp(1.3rem, 4.6vh, 2.8rem); }
+#result .result-sub { font-size: clamp(0.75rem, 1.9vh, 1.1rem); }
+
+/* 가운데: 왼쪽(등급·점수·기록) / 오른쪽(TOP10) — 남는 높이를 모두 사용 */
+#result .result-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(8px, 1.6vw, 24px); margin: 0; min-height: 0; align-items: stretch; }
+#result .result-body:has(#resultTop10.hidden) { grid-template-columns: minmax(0, 1fr); }
+#result .result-main { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: clamp(6px, 1.8vh, 20px); min-height: 0; }
+#result .rank-container { margin: 0; }
+#result .rank-stamp { font-size: clamp(3rem, 15vh, 9rem); padding: 0.05em 0.35em; border-width: clamp(3px, 0.7vh, 6px); }
+#result .rank-label { margin-top: clamp(4px, 1vh, 12px); font-size: clamp(0.8rem, 2.2vh, 1.4rem); }
+#result .result-score-wrap { margin: 0; padding: clamp(6px, 1.4vh, 18px); }
+#result .score-caption { font-size: clamp(0.7rem, 1.8vh, 1.1rem); }
+#result .score-rolling { font-size: clamp(2.2rem, 10vh, 6.2rem); margin: 2px 0; }
+#result .new-record-badge { font-size: clamp(0.75rem, 2vh, 1.3rem); }
+#result .result-stats-grid { margin: 0; gap: clamp(6px, 1vw, 14px); }
+#result .stat-card { padding: clamp(5px, 1.2vh, 14px) 6px; }
+#result .stat-label { font-size: clamp(0.7rem, 1.8vh, 1.05rem); }
+#result .stat-val { font-size: clamp(1rem, 3vh, 1.9rem); }
+
+/* TOP10: 열 개의 줄이 칸을 똑같이 나눠 가져요 */
+#result .top10-wrap { margin: 0; padding: clamp(6px, 1.4vh, 16px) clamp(8px, 1.2vw, 18px); min-height: 0; height: 100%; box-sizing: border-box; justify-content: flex-start; }
+#result .top10-title { font-size: clamp(0.85rem, 2.6vh, 1.6rem); margin-bottom: clamp(3px, 0.8vh, 10px); }
+#result .t10-tabs { margin-bottom: clamp(3px, 0.8vh, 8px); }
+#result .top10-list { flex: 1; min-height: 0; grid-template-rows: repeat(10, minmax(0, 1fr)); gap: clamp(2px, 0.5vh, 6px); }
+#result .top10-list li { padding: 0 clamp(6px, 1vw, 16px); font-size: clamp(0.75rem, 2.5vh, 1.5rem); align-items: center; min-height: 0; }
+
+/* 아래: 코인·보상 카드(둘 다 있으면 나란히), 버튼 */
+#result .online-compare { padding: clamp(4px, 1vh, 12px) 12px; }
+#result .result-coin-card { padding: clamp(5px, 1.1vh, 14px) clamp(10px, 1.6vw, 22px); flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px clamp(8px, 1.4vw, 20px); }
+#result .result-coin-card .coin-gain-icon { font-size: clamp(1.2rem, 3.6vh, 2.4rem); }
+#result .result-coin-card .coin-gain-content { display: flex; align-items: center; gap: clamp(6px, 1vw, 14px); }
+#result .result-coin-card .coin-gain-title { font-size: clamp(0.75rem, 2vh, 1.2rem); }
+#result .result-coin-card .coin-plus { font-size: clamp(1rem, 3vh, 1.9rem); }
+#result .result-coin-card .coin-gain-desc { font-size: clamp(0.65rem, 1.6vh, 0.95rem); }
+#result .result-costume-reward { padding: clamp(6px, 1.2vh, 16px) clamp(10px, 1.4vw, 20px); }
+#result .reward-badge-header { margin-bottom: clamp(3px, 0.8vh, 10px); }
+#result .reward-item-box { margin-bottom: clamp(4px, 1vh, 12px); }
+#result .result-actions { gap: clamp(8px, 1.4vw, 20px); }
+#result .action-btn { padding: clamp(8px, 2vh, 22px) 14px; font-size: clamp(0.95rem, 2.8vh, 1.7rem); }
+
+/* 코인 카드와 보상 카드가 같이 보이면 한 줄에 반반 */
+#result:has(#resultCostumeReward:not(.hidden)) #resultCoinCard { grid-column: 1 / span 6; }
+#result:has(#resultCostumeReward:not(.hidden)) #resultCostumeReward { grid-column: 7 / span 6; }
+
+/* 세로로 긴(좁은) 화면: 등급·점수가 위, TOP10이 아래 */
+@media (max-width: 760px) {
+  #result .result-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #result .rank-stamp { font-size: clamp(2.6rem, 9vh, 5rem); }
+  #result .score-rolling { font-size: clamp(2rem, 7vh, 4rem); }
+  #result .top10-list { grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 3px 8px; }
+  #result .top10-list li { font-size: clamp(0.72rem, 2vh, 1.1rem); }
+  #result:has(#resultCostumeReward:not(.hidden)) #resultCoinCard,
+  #result:has(#resultCostumeReward:not(.hidden)) #resultCostumeReward { grid-column: 1 / -1; }
+}
+
+/* 좁은 화면(세로 폰): 카드들을 작게 줄여서, 온라인 결과·보상이 같이 떠도 순위표 자리가 남게 해요 */
+@media (max-width: 760px) {
+  #result.result-modal { overflow-y: auto; grid-template-rows: auto minmax(250px, 1fr); }
+  #result .result-body { min-height: 250px; }
+  #result .result-header { gap: 8px; }
+  #result .result-trophy { font-size: clamp(1.6rem, 5vh, 2.6rem); }
+  #result .result-main { gap: 4px; }
+  #result .rank-stamp { font-size: clamp(2.2rem, 7vh, 4rem); }
+  #result .rank-label { font-size: 0.7rem; margin-top: 2px; }
+  #result .result-score-wrap { padding: 4px; }
+  #result .score-rolling { font-size: clamp(1.8rem, 6vh, 3rem); }
+  #result .stat-card { padding: 4px; }
+  #result .online-compare { padding: 4px 8px; }
+  #result .oc-row { gap: 10px; } #result .oc-score { font-size: 1.1rem; } #result .oc-verdict { font-size: 0.95rem; margin-top: 0; } #result .oc-rematch { min-height: 0; }
+  #result .result-coin-card { padding: 4px 10px; gap: 2px 8px; }
+  #result .result-coin-card .coin-gain-icon { font-size: 1.2rem; }
+  #result .result-coin-card .coin-gain-desc { display: none; }
+  #result .result-costume-reward { padding: 6px 10px; }
+  #result .rc-item-icon { width: 44px; height: 44px; font-size: 1.4rem; }
+  #result .rc-item-info p { display: none; }
+  #result .rc-item-info h4 { font-size: 0.95rem; margin: 0 0 2px; }
+  #result .btn-reward-equip { padding: 6px 10px; font-size: 0.85rem; }
+  #result .action-btn { padding: 8px 10px; font-size: 1rem; }
+}
+@media (max-width: 760px) {
+  #result:has(#resultCostumeReward:not(.hidden)) .result-stats-grid, #result.has-online .result-stats-grid { display: none; }   /* 카드가 많이 뜰 땐 보조 기록(최고/콤보/등급)을 숨겨 순위표 자리를 확보 */
+  #result .result-coin-card .coin-gain-content { gap: 8px; flex-wrap: nowrap; }
+  #result .result-coin-card .coin-gain-title { font-size: 0.8rem; white-space: nowrap; }
+  #result .result-coin-card .coin-plus { font-size: 1.05rem; white-space: nowrap; }
+  #result .result-coin-card .coin-total { white-space: nowrap; }
+}
