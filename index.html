@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261012_2205">
+<link rel="stylesheet" href="style.css?v=20261012_2225">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -187,15 +187,10 @@
       </div>
     </div>
 
-    <div class="sensor-pill">
+    <div class="sensor-pill" title="카메라 영상은 이 기기 밖으로 나가지 않아요 (60 FPS 로컬 전용)">
       <div class="sensor-dot"><i></i></div>
-      <div class="sensor-text">
-        <div class="sensor-title-row">
-          <b>LIVE MOTION SENSOR</b>
-          <span class="sensor-fps-tag">60 FPS • Calibrated</span>
-        </div>
-        <span id="status">카메라 영상은 이 기기 밖으로 나가지 않아요</span>
-      </div>
+      <b class="sensor-live-badge">LIVE</b>
+      <span id="status" class="hidden">온디바이스 모션 센서 가동 중</span>
     </div>
 
     <div class="top-right">
@@ -219,9 +214,15 @@
         </div>
         <div><b id="headerPlayerName">P1 Leo</b><small id="headerPlayerTitle">PARTY LEADER</small></div>
       </div>
-      <button id="btnSetupGuide" class="profile-switch" type="button" title="카메라 세팅 안내 (위치·밝기·인식 확인)" aria-label="카메라 세팅 안내">📷</button>
+      <button id="btnSetupGuide" class="top-nav-action-btn" type="button" title="카메라 세팅 안내 (위치·밝기·인식 확인)" aria-label="카메라 세팅 안내">
+        <span class="tna-icon">📷</span>
+        <span class="tna-text">카메라</span>
+      </button>
       <!-- 👨‍👩‍👧 가족 프로필 빠른 전환 -->
-      <button id="btnProfileSwitch" class="profile-switch" type="button" title="플레이어 바꾸기 (가족 프로필)" aria-label="플레이어 바꾸기">🔄</button>
+      <button id="btnProfileSwitch" class="top-nav-action-btn" type="button" title="플레이어 바꾸기 (가족 프로필)" aria-label="플레이어 바꾸기">
+        <span class="tna-icon">🔄</span>
+        <span class="tna-text">프로필</span>
+      </button>
       <div id="profileMenu" class="profile-menu hidden" role="menu">
         <div class="profile-menu-title">누가 플레이할까요?</div>
         <div id="profileMenuList" class="profile-menu-list"></div>
@@ -1039,8 +1040,11 @@
       <!-- 동적 주입 -->
     </div>
   </aside>
+
+  <!-- ⚡ [최상위 레이어] 우측 진열장 위에서도 손 포인터가 절대 가려지지 않는 모션 핸드 오버레이 -->
+  <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261012_0635"></script>
+<script type="module" src="main.js?v=20261012_2225"></script>
 </body>
 </html>

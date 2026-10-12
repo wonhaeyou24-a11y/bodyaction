@@ -356,18 +356,27 @@ const sfx = {
   },
 };
 
-// 음성 안내 (브라우저 내장 한국어 음성)
+// 음성 안내 (브라우저 내장 한국어 음성 - 크롬/엣지 GC 버그 원천 차단)
 let lastVoice = 0;
+let activeUtterance = null;
 function speak(text, force = false) {
   if (!voiceOn || !window.speechSynthesis) return;
   const n = performance.now();
   if (!force && n - lastVoice < 1200) return;
   lastVoice = n;
   try {
-    speechSynthesis.cancel();
+    if (speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+    }
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "ko-KR"; u.rate = 1.1; u.pitch = 1.15; speechSynthesis.speak(u);
-  } catch {}
+    activeUtterance = u; // 🛡️ 전역 참조를 보관하여 가비지 컬렉션(GC) 도중단 끊김 원천 차단
+    u.lang = "ko-KR"; u.rate = 1.1; u.pitch = 1.15;
+    u.onend = () => { activeUtterance = null; };
+    u.onerror = () => { activeUtterance = null; };
+    speechSynthesis.speak(u);
+  } catch (err) {
+    console.warn("음성 안내 발화 오류(안전 무시):", err);
+  }
 }
 const INTRO = {
   balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
@@ -559,18 +568,43 @@ let bgmNext = 0, bgmStep = 0;
 
 // 🎵 실제 고음질 MP3/오디오 음원 플레이어 시스템 (비트세이버급 사운드 퀄리티)
 let bgmAudio = null;
-function playRealTrackAudio(fileUrl, loop = true) {
+function prepareRealTrackAudio(fileUrl, loop = true) {
   try {
     stopRealTrackAudio();
     if (!fileUrl) return;
     bgmAudio = new Audio(fileUrl);
     bgmAudio.loop = loop;
+    bgmAudio.preload = "auto";
     bgmAudio.volume = soundOn ? 0.95 : 0;
-    bgmAudio.play().catch((e) => console.warn("오디오 자동재생 허용 필요:", e));
+    bgmAudio.addEventListener("error", (e) => {
+      console.warn("오디오 파일 로드 에러 감지 -> 신스 엔진으로 즉각 폴백:", e);
+      if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
+    });
   } catch (err) {
-    console.warn("실제 오디오 음원 로드 실패, 신스 폴백 가동:", err);
+    console.warn("오디오 사전 로드 예외 -> 신스 폴백:", err);
+    if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
   }
 }
+
+function playRealTrackAudio(fileUrl, loop = true) {
+  try {
+    if (!bgmAudio || bgmAudio.src !== fileUrl) {
+      prepareRealTrackAudio(fileUrl, loop);
+    }
+    if (!bgmAudio) return;
+    bgmAudio.currentTime = 0;
+    const p = bgmAudio.play();
+    if (p && typeof p.catch === "function") {
+      p.catch((e) => {
+        console.warn("오디오 재생 정책/로딩 지연 -> 신스 자동 서포트:", e);
+      });
+    }
+  } catch (err) {
+    console.warn("실제 오디오 음원 재생 실패, 신스 폴백 가동:", err);
+    if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
+  }
+}
+
 function stopRealTrackAudio() {
   if (bgmAudio) {
     try {
@@ -587,9 +621,9 @@ function bgmStart() {
   bgmStep = 0;
   const c = BGM[mode];
   if (c && c.audioFile) {
-    // 🎵 beat 모드는 5초 레디타임(isReadyTime) 종료 시점에 정확히 0.00초부터 재생!
+    // 🎵 beat 모드는 레디타임 5초 동안 미리 버퍼링을 완료하고 5초 종료 시 정확히 0.00초부터 웅장하게 재생!
     if (mode === "beat" && isReadyTime) {
-      stopRealTrackAudio();
+      prepareRealTrackAudio(c.audioFile, true);
     } else {
       playRealTrackAudio(c.audioFile, true);
     }
@@ -4170,10 +4204,10 @@ games.beat = {
     this.nextBeatIdx = 0;
     this.nextWallBeat = 16;
     objs = []; // 레디타임 잔여물 리셋
-    if (bgmAudio) {
+    if (bgmAudio && bgmAudio.paused) {
       try {
-        bgmAudio.currentTime = 0;
-        bgmAudio.play().catch((e) => console.warn(e));
+        const p = bgmAudio.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
       } catch {}
     }
   },
@@ -6064,40 +6098,48 @@ function frame(now) {
   drawBackground(g?.bg ?? "#1b1b2f", g?.camAlpha);
   if (playing && g) {
     if (isReadyTime) {
-      // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 실제 시간 100% 동기화
-      const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
-      readyTimeLeft = Math.max(0, 5.0 - elapsedReady);
-      const curCount = Math.max(1, Math.ceil(readyTimeLeft));
-      if (curCount !== lastReadyCount) {
-        lastReadyCount = curCount;
-        sfx.countdown(false); // 1초마다 통통 튀는 카운트다운 비프음
-      }
-
-      // 게임 필드 및 포즈/세이버 렌더링 (플레이어가 자신의 위치와 자세를 실시간 체크)
-      g.draw();
-
-      // 🎵 카운트다운 5초 동안 심장을 뛰게 하는 인트로 비트 재생
-      bgmTick(true);
-
-      // 5초 카운트다운 오버레이 UI 렌더링
-      drawReadyCountdown(readyTimeLeft, Boolean(g.body));
-
-      updateLiveHud();
-
-      // 5초 카운트다운 종료 시 본격적인 게임 시작
-      if (readyTimeLeft <= 0) {
-        isReadyTime = false;
-        sfx.countdown(true); // 팡파르 시작음
-        triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
-        speak("시작!", true);
-        spawnTimer = 0.3;
-        if (mode === "beat") {
-          const c = BGM.beat;
-          if (c && c.audioFile) {
-            playRealTrackAudio(c.audioFile, true);
-          }
+      try {
+        // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 실제 시간 100% 동기화
+        const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
+        readyTimeLeft = Math.max(0, 5.0 - elapsedReady);
+        const curCount = Math.max(1, Math.ceil(readyTimeLeft));
+        if (curCount !== lastReadyCount) {
+          lastReadyCount = curCount;
+          sfx.countdown(false); // 1초마다 통통 튀는 카운트다운 비프음
         }
-        g?.onGameRealStart?.();
+
+        // 게임 필드 및 포즈/세이버 렌더링 (플레이어가 자신의 위치와 자세를 실시간 체크)
+        try { g.draw(); } catch (drawErr) { console.warn("Ready draw guard:", drawErr); }
+
+        // 🎵 카운트다운 5초 동안 심장을 뛰게 하는 인트로 비트 재생
+        try { bgmTick(true); } catch (bgmErr) { console.warn("Ready BGM guard:", bgmErr); }
+
+        // 5초 카운트다운 오버레이 UI 렌더링
+        try { drawReadyCountdown(readyTimeLeft, Boolean(g.body)); } catch (cdErr) { console.warn("Countdown UI guard:", cdErr); }
+
+        try { updateLiveHud(); } catch {}
+
+        // 5초 카운트다운 종료 시 본격적인 게임 시작
+        if (readyTimeLeft <= 0) {
+          isReadyTime = false;
+          sfx.countdown(true); // 팡파르 시작음
+          triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
+          // 이전 음성이 끝나지 않았더라도 자연스럽게 이어지도록 비강제 발화
+          speak("시작!", false);
+          spawnTimer = 0.3;
+          if (mode === "beat") {
+            const c = BGM.beat;
+            if (c && c.audioFile) {
+              playRealTrackAudio(c.audioFile, true);
+            }
+          }
+          try { g?.onGameRealStart?.(); } catch (startErr) { console.warn("onGameRealStart guard:", startErr); }
+        }
+      } catch (readyBlockErr) {
+        console.warn("ReadyTime top-level guard:", readyBlockErr);
+        if (readyTimeLeft <= 0.1) {
+          isReadyTime = false;
+        }
       }
     } else {
       // 3단계 웨이브 전이 검사 (Wave 1: 60~40초, Wave 2: 40~20초, Fever: 20~0초)
@@ -8751,7 +8793,7 @@ function costumeReadHand(now, skel) {
   const sw = Math.hypot(skel[12].x - skel[11].x, skel[12].y - skel[11].y) || 80; // 어깨 너비(px) 기준 척도
   const hands = [];
 
-  if (skel[16] && skel[16].v >= 0.4) {
+  if (skel[16] && skel[16].v >= 0.35) {
     // 오른손 (사용자 기준 또는 미러 기준 화면 우측 UI 조작에 가장 가까운 손)
     const wrist = skel[16];
     const index = skel[20] || wrist;
@@ -8759,12 +8801,15 @@ function costumeReadHand(now, skel) {
     const span = Math.hypot(index.x - wrist.x, index.y - wrist.y);
     const spanPinky = Math.hypot(pinky.x - wrist.x, pinky.y - wrist.y);
     const ratio = Math.max(span, spanPinky) / sw;
-    // 검지나 손끝이 손목 쪽으로 말려들어가면 주먹 (손을 펴면 0.28 이상, 쥐면 0.20 이하)
-    const isFist = ratio < 0.21;
+    // 검지나 손끝이 손목 쪽으로 모이면 주먹 (자연스러운 주먹 쥐기 0.28 이하로 관대하게 판정)
+    let isFist = ratio < 0.28;
+    if (pointers && pointers.some((p) => p.fist && Math.hypot(p.x - wrist.x, p.y - wrist.y) < sw * 0.8)) {
+      isFist = true;
+    }
     hands.push({ x: (wrist.x + index.x) / 2, y: (wrist.y + index.y) / 2, fist: isFist, side: "right" });
   }
 
-  if (skel[15] && skel[15].v >= 0.4) {
+  if (skel[15] && skel[15].v >= 0.35) {
     // 왼손
     const wrist = skel[15];
     const index = skel[19] || wrist;
@@ -8772,7 +8817,10 @@ function costumeReadHand(now, skel) {
     const span = Math.hypot(index.x - wrist.x, index.y - wrist.y);
     const spanPinky = Math.hypot(pinky.x - wrist.x, pinky.y - wrist.y);
     const ratio = Math.max(span, spanPinky) / sw;
-    const isFist = ratio < 0.21;
+    let isFist = ratio < 0.28;
+    if (pointers && pointers.some((p) => p.fist && Math.hypot(p.x - wrist.x, p.y - wrist.y) < sw * 0.8)) {
+      isFist = true;
+    }
     hands.push({ x: (wrist.x + index.x) / 2, y: (wrist.y + index.y) / 2, fist: isFist, side: "left" });
   }
 
@@ -8785,17 +8833,16 @@ function costumeReadHand(now, skel) {
   hands.sort((a, b) => b.x - a.x);
   const activeHand = hands[0];
 
-  // 📍 EMA 스무딩 (alpha = 0.45) 적용으로 손 떨림(Jitter) 완벽 제거
-  const alpha = now - costumeHand.seen > 300 ? 1.0 : 0.45;
+  // 📍 EMA 스무딩 (alpha = 0.55) 적용으로 지연 없이 즉각 추적하면서 손 떨림 완벽 제거
+  const alpha = now - costumeHand.seen > 300 ? 1.0 : 0.55;
   costumeHand.x = costumeHand.x * (1 - alpha) + activeHand.x * alpha;
   costumeHand.y = costumeHand.y * (1 - alpha) + activeHand.y * alpha;
   costumeHand.seen = now;
   costumeHand.fist = activeHand.fist;
 
-  // 2프레임 연속 감지 시 안정적 판정 (깜빡임 노이즈 방어)
+  // 빠른 응답성: 1프레임 감지 즉시 주먹 상태 반영 (지연 제로)
   costumeHand.votes = activeHand.fist ? Math.min(3, costumeHand.votes + 1) : 0;
-  if (costumeHand.votes >= 2) costumeHand.stable = true;
-  else if (costumeHand.votes === 0) costumeHand.stable = false;
+  costumeHand.stable = activeHand.fist;
 }
 
 // 주먹 클릭 실행: 미소장 아이템은 실수 구매 방지를 위해 "3.5초 안에 한 번 더" 쥐어야 구매돼요
@@ -8823,16 +8870,16 @@ function costumeFistActivate(el, now) {
   }
 }
 
-// 손 포인터 그리기 + 진열장 호버/스크롤/주먹 클릭 처리
+// 손 포인터 그리기 + 진열장 호버/스크롤/주먹+체류(Dwell) 듀얼 클릭 처리
 function costumeHandUiTick(ctx, cvs, rect, now) {
   // 1) 포인터 결정: 손 모델(주먹 판정 가능) > 포즈 손목(주먹 판정 불가, 체류 클릭) > 마우스
   let ptr = null, fromHand = false;
   if (useMouse) {
     ptr = { x: (mouse.x - rect.left) * cvs.width / (rect.width || cvs.width), y: (mouse.y - rect.top) * cvs.height / (rect.height || cvs.height), fist: !!mouse.down };
-  } else if (now - costumeHand.seen < 700) {
+  } else if (now - costumeHand.seen < 800) {
     ptr = { x: costumeHand.x, y: costumeHand.y, fist: costumeHand.stable }; fromHand = true;
   } else if (pointers && pointers.length > 0) {
-    ptr = { x: pointers[0].x, y: pointers[0].y, fist: false };
+    ptr = { x: pointers[0].x, y: pointers[0].y, fist: Boolean(pointers[0].fist) }; fromHand = true;
   }
   if (!ptr) {
     costumeHand.hoverEl?.classList.remove("hand-hover"); costumeHand.hoverEl = null; costumeHand.dwellEl = null;
@@ -8843,12 +8890,13 @@ function costumeHandUiTick(ctx, cvs, rect, now) {
   const sy = rect.top + ptr.y * (rect.height || cvs.height) / cvs.height;
   costumeDragPos = { x: ptr.x, y: ptr.y };
 
-  // 2) 손 아래 UI 찾기 + 하이라이트
+  // 2) 손 아래 UI 찾기 + 하이라이트 (우측 진열장 카드 및 탭 타겟팅)
   const el = document.elementFromPoint(sx, sy)?.closest?.(COSTUME_CLICK_SELECTOR) || null;
   if (el !== costumeHand.hoverEl) {
     costumeHand.hoverEl?.classList.remove("hand-hover");
     el?.classList.add("hand-hover");
     costumeHand.hoverEl = el;
+    costumeHand.dwellT = now; // 새 카드 위에 올라가면 Dwell 타이머 리셋
     if (el && !useMouse) sfx.tick();
   }
   if (el) { costumeHand.hoverAt = now; costumeHand.hoverLast = el; }
@@ -8858,49 +8906,88 @@ function costumeHandUiTick(ctx, cvs, rect, now) {
   if (grid && !useMouse) {
     const gr = grid.getBoundingClientRect();
     if (sx >= gr.left && sx <= gr.right && sy >= gr.top && sy <= gr.bottom) {
-      const edge = Math.min(90, gr.height * 0.18);
-      if (sy < gr.top + edge) grid.scrollTop -= (1 - (sy - gr.top) / edge) * 16;
-      else if (sy > gr.bottom - edge) grid.scrollTop += (1 - (gr.bottom - sy) / edge) * 16;
+      const edge = Math.min(100, gr.height * 0.20);
+      if (sy < gr.top + edge) grid.scrollTop -= (1 - (sy - gr.top) / edge) * 18;
+      else if (sy > gr.bottom - edge) grid.scrollTop += (1 - (gr.bottom - sy) / edge) * 18;
     }
   }
 
-  // 4) 클릭 판정: 주먹을 "쥐는 순간"(펴짐→쥠) / 손 모델이 없으면 1.5초 체류
+  // 4) 듀얼 클릭 판정:
+  // A. 주먹을 쥐면 즉시(0ms) 클릭!
+  // B. 주먹을 쥐지 않아도 손을 카드 위에 0.6초만 올려두면(Dwell 게이지 회전) 자동 클릭!
   const rising = costumeHand.stable && !costumeHand.prevStable;
   costumeHand.prevStable = costumeHand.stable;
-  const target = el || (now - costumeHand.hoverAt < 250 ? costumeHand.hoverLast : null);
+  const target = el || (now - costumeHand.hoverAt < 300 ? costumeHand.hoverLast : null);
   let dwellP = 0;
-  if (!useMouse && !fromHand && el) {
-    if (costumeHand.dwellEl !== el) { costumeHand.dwellEl = el; costumeHand.dwellT = now; }
-    dwellP = Math.min(1, (now - costumeHand.dwellT) / 1500);
-    if (dwellP >= 1 && now - costumeHand.lastClick > 700) {
-      costumeHand.lastClick = now; costumeHand.dwellT = now + 900; costumeFistActivate(el, now);
+
+  if (!useMouse && el) {
+    if (costumeHand.dwellEl !== el) {
+      costumeHand.dwellEl = el;
+      costumeHand.dwellT = now;
+    }
+    // 0.6초 체류(Dwell) 프로그레스
+    dwellP = Math.min(1, (now - costumeHand.dwellT) / 600);
+    if (dwellP >= 1 && now - costumeHand.lastClick > 650) {
+      costumeHand.lastClick = now;
+      costumeHand.dwellT = now + 900;
+      costumeFistActivate(el, now);
+      burst(ptr.x, ptr.y, "#00d2ff", 22);
     }
   } else {
     costumeHand.dwellEl = null;
   }
-  if (!useMouse && fromHand && rising && target && now - costumeHand.lastClick > 700) {
+
+  // 주먹 쥐기 클릭: rising이거나 주먹을 쥔 채 새 요소에 닿았을 때 즉각 트리거
+  if (!useMouse && (rising || (costumeHand.stable && el && el !== costumeHand.lastFistEl)) && target && now - costumeHand.lastClick > 650) {
     costumeHand.lastClick = now;
+    costumeHand.lastFistEl = el;
     costumeFistActivate(target, now);
-    burst(ptr.x, ptr.y, "#ff2e93", 18);
+    burst(ptr.x, ptr.y, "#ff2e93", 26);
+  }
+  if (!costumeHand.stable) {
+    costumeHand.lastFistEl = null;
   }
 
-  // 5) 포인터 링 + 안내 문구
+  // 5) 최상위 네온 포인터 링 + Dwell 게이지 + 안내 텍스트 렌더링
   ctx.save();
   const hot = !!el;
   const col = ptr.fist ? "#ff2e93" : (hot ? "#22c55e" : "#00d2ff");
-  ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 16; ctx.lineWidth = 5;
-  ctx.beginPath(); ctx.arc(ptr.x, ptr.y, ptr.fist ? 22 : 32, 0, Math.PI * 2); ctx.stroke();
-  if (dwellP > 0) { ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 42, -Math.PI / 2, -Math.PI / 2 + dwellP * Math.PI * 2); ctx.stroke(); }
-  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 5, 0, Math.PI * 2); ctx.fill();
+
+  // 메인 포인터 원형 링
+  ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 20; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(ptr.x, ptr.y, ptr.fist ? 26 : 36, 0, Math.PI * 2); ctx.stroke();
+
+  // 0.6초 체류(Dwell) 프로그레스 링 (골드 옐로우)
+  if (dwellP > 0) {
+    ctx.strokeStyle = "#fbb500";
+    ctx.shadowColor = "#fbb500";
+    ctx.shadowBlur = 18;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(ptr.x, ptr.y, 48, -Math.PI / 2, -Math.PI / 2 + dwellP * Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 중심 코어 닷
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 7, 0, Math.PI * 2); ctx.fill();
+
+  // 실시간 직관적 상태 안내 뱃지
   let label = "✋ 진열장 위에 손을 올리세요";
-  if (ptr.fist) label = "✊ 쥠!";
-  else if (el?.classList.contains("costume-card")) {
+  if (ptr.fist) {
+    label = "✊ 주먹 쥠! (즉시 선택)";
+  } else if (el?.classList.contains("costume-card")) {
     const owned = el.dataset.owned === "1";
-    label = el.classList.contains("equipped") ? "✊ 주먹 → 벗기" : (owned ? "✊ 주먹 → 착용" : "✊ 주먹 → 구매/시착");
-  } else if (el) label = "✊ 주먹 → 선택";
-  if (!fromHand && !useMouse && hot) label = "⏳ 잠시 가만히… (자동 선택)";
-  ctx.font = "bold 17px 'Rubik', sans-serif"; ctx.textAlign = "center"; ctx.shadowBlur = 6; ctx.shadowColor = "#000";
-  ctx.fillStyle = "#fff"; ctx.fillText(label, ptr.x, ptr.y - 48);
+    const actText = el.classList.contains("equipped") ? "벗기" : (owned ? "착용" : "구매/시착");
+    label = `✊ 주먹 or 잠시 유지 → ${actText}`;
+  } else if (el) {
+    label = "✊ 주먹 or 잠시 유지 → 선택";
+  }
+  if (!ptr.fist && !useMouse && hot && dwellP > 0) {
+    label = `⏳ 선택 중… (${Math.round(dwellP * 100)}%)`;
+  }
+
+  ctx.font = "bold 18px 'Rubik', sans-serif"; ctx.textAlign = "center"; ctx.shadowBlur = 8; ctx.shadowColor = "#000";
+  ctx.fillStyle = "#fff"; ctx.fillText(label, ptr.x, ptr.y - 52);
   ctx.restore();
 }
 
@@ -8963,8 +9050,18 @@ function costumeRoomUpdateAndDraw(now, dt) {
     // 3. 실시간 장착 파츠 (신체 기울기에 1:1 완벽 밀착)
     drawEquippedCostumesOnBody(ctx, skel, pointers);
 
-    // 4. ✊ 손 포인터 + 진열장 주먹 클릭
-    costumeHandUiTick(ctx, cvs, rect, now);
+    // 4. ⚡ [최상위 레이어] 우측 진열장 위에서도 절대 가려지지 않는 모션 핸드 오버레이 렌더링!
+    const overlayCvs = $("costumeHandOverlay");
+    if (overlayCvs) {
+      if (overlayCvs.width !== cw || overlayCvs.height !== ch) {
+        overlayCvs.width = cw; overlayCvs.height = ch;
+      }
+      const overlayCtx = overlayCvs.getContext("2d");
+      overlayCtx.clearRect(0, 0, cw, ch);
+      costumeHandUiTick(overlayCtx, cvs, rect, now);
+    } else {
+      costumeHandUiTick(ctx, cvs, rect, now);
+    }
 
     // 5. 상단 비전 상태 안내 배너 (로딩 진행 상황 및 물러서기 안내)
     drawCostumeStatusBanner(ctx, cw, ch, skel);

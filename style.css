@@ -51,25 +51,31 @@ body.playing .bg-ambience { display: none; }
 .brand-text strong { display: block; font-family: var(--font-display); font-weight: 900; font-size: clamp(1.15rem, 2.6vw, 1.65rem); letter-spacing: -.01em; color: var(--neon-cyan); text-shadow: 0 2px 10px rgba(0, 210, 255, .45); }
 .brand-sub em { font-style: normal; font-family: var(--font-display); font-weight: 900; font-size: .68rem; letter-spacing: .08em; background: #e1037d; color: #fff; padding: 2px 8px; border-radius: 999px; }
 
-.sensor-pill { display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 10px; border-radius: 999px; background: rgba(20, 6, 43, .9); border: 1px solid rgba(0, 210, 255, .3); min-width: 0; flex-shrink: 1; }
-.sensor-dot { position: relative; width: 30px; height: 30px; flex: none; border-radius: 50%; border: 2px solid #22c55e; box-shadow: 0 0 12px #22c55e, inset 0 0 8px #22c55e; display: flex; align-items: center; justify-content: center; }
-.sensor-dot i { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; animation: ping 1.6s infinite; }
+.sensor-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px 6px 10px; border-radius: 999px;
+  background: rgba(20, 6, 43, .92); border: 1.5px solid rgba(0, 210, 255, .4);
+  flex-shrink: 0; white-space: nowrap; box-shadow: 0 0 14px rgba(0, 210, 255, .25);
+}
+.sensor-dot { position: relative; width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid #22c55e; box-shadow: 0 0 10px #22c55e, inset 0 0 6px #22c55e; display: flex; align-items: center; justify-content: center; }
+.sensor-dot i { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: ping 1.6s infinite; }
 @keyframes ping { 0% { transform: scale(.7); opacity: 1; } 100% { transform: scale(1.5); opacity: .3; } }
-.sensor-text { display: flex; flex-direction: column; min-width: 0; }
-.sensor-title-row { display: flex; align-items: center; gap: 6px; }
-.sensor-title-row b { font-family: var(--font-display); font-weight: 800; font-size: .75rem; letter-spacing: .08em; color: #fff; }
-.sensor-fps-tag { font-family: var(--font-display); font-size: .66rem; font-weight: 800; color: #22c55e; background: rgba(34, 197, 94, 0.15); padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(34, 197, 94, 0.35); }
+.sensor-live-badge {
+  font-family: var(--font-display); font-weight: 900; font-size: 0.86rem;
+  letter-spacing: 0.08em; color: #22c55e; text-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
+  line-height: 1;
+}
 #status { min-height: 0; margin: 0; color: var(--neon-cyan); font-size: .78rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: nowrap; }
+.top-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap; }
 
 /* 👗 상단 메뉴바 커스튬 룸 네온 캡슐 버튼 (터치하기 쉬운 큼직한 프리미엄 크기) */
 .costume-room-pill {
   display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;
-  padding: 10px 20px !important; min-height: 48px !important; border-radius: 999px !important;
+  padding: 9px 18px !important; min-height: 46px !important; border-radius: 999px !important;
   background: linear-gradient(135deg, rgba(225, 3, 125, 0.45), rgba(251, 181, 0, 0.35)) !important;
   border: 2px solid var(--neon-pink) !important; font-family: var(--font-display) !important; font-weight: 900 !important;
-  font-size: 1.02rem !important; color: #fff !important; cursor: pointer; transition: all 0.2s;
+  font-size: 1.0rem !important; color: #fff !important; cursor: pointer; transition: all 0.2s;
   box-shadow: 0 0 20px rgba(225, 3, 125, 0.45) !important; white-space: nowrap !important; flex-shrink: 0 !important;
   line-height: 1 !important; outline: none; touch-action: manipulation;
 }
@@ -86,9 +92,9 @@ body.playing .bg-ambience { display: none; }
 /* 📺 TV 전체화면 토글 버튼 (터치하기 쉬운 큼직한 크기) */
 .fs-pill {
   display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;
-  padding: 10px 18px !important; min-height: 48px !important; border-radius: 999px !important;
+  padding: 9px 16px !important; min-height: 46px !important; border-radius: 999px !important;
   background: linear-gradient(135deg, rgba(0,210,255,0.35), rgba(225,3,125,0.35)) !important; border: 2px solid var(--neon-cyan) !important;
-  font-family: var(--font-display) !important; font-weight: 900 !important; font-size: 0.98rem !important; color: #fff !important; cursor: pointer; transition: all 0.2s;
+  font-family: var(--font-display) !important; font-weight: 900 !important; font-size: 0.95rem !important; color: #fff !important; cursor: pointer; transition: all 0.2s;
   box-shadow: 0 0 20px rgba(0,210,255,0.4) !important; white-space: nowrap !important; flex-shrink: 0 !important;
   line-height: 1 !important; outline: none; touch-action: manipulation;
 }
@@ -96,15 +102,32 @@ body.playing .bg-ambience { display: none; }
 .fs-pill .fs-icon { width: 18px; height: 18px; flex-shrink: 0; }
 .fs-pill:hover, .fs-pill:active { transform: translateY(-2px) scale(1.04); background: linear-gradient(135deg, #00d2ff, #e1037d) !important; color: #002b36 !important; box-shadow: 0 0 28px rgba(0,210,255,0.8) !important; }
 
-.coin-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; min-height: 44px; border-radius: 999px; background: rgba(60, 46, 84, .85); border: 1.5px solid rgba(251, 181, 0, .45); font-family: var(--font-display); font-weight: 900; color: #ffd894; font-size: .92rem; white-space: nowrap; flex-shrink: 0; box-sizing: border-box; }
-.ticket-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; min-height: 44px; border-radius: 999px; background: rgba(80, 20, 60, .85); border: 1.5px solid rgba(225, 3, 125, .45); font-family: var(--font-display); font-weight: 900; color: #ffb0c9; font-size: .92rem; white-space: nowrap; flex-shrink: 0; box-sizing: border-box; }
+.coin-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 44px; border-radius: 999px; background: rgba(60, 46, 84, .85); border: 1.5px solid rgba(251, 181, 0, .45); font-family: var(--font-display); font-weight: 900; color: #ffd894; font-size: .90rem; white-space: nowrap; flex-shrink: 0; box-sizing: border-box; }
+.ticket-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 44px; border-radius: 999px; background: rgba(80, 20, 60, .85); border: 1.5px solid rgba(225, 3, 125, .45); font-family: var(--font-display); font-weight: 900; color: #ffb0c9; font-size: .90rem; white-space: nowrap; flex-shrink: 0; box-sizing: border-box; }
 
-.profile { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; min-height: 48px; border-radius: 999px; background: linear-gradient(90deg, #26183d, #312348); border: 1.5px solid rgba(0, 210, 255, .45); white-space: nowrap; flex-shrink: 0; box-sizing: border-box; }
-.avatar-wrap { position: relative; width: 38px; height: 38px; flex-shrink: 0; }
+.profile { display: flex; align-items: center; gap: 8px; padding: 5px 14px 5px 5px; min-height: 46px; border-radius: 999px; background: linear-gradient(90deg, #26183d, #312348); border: 1.5px solid rgba(0, 210, 255, .45); white-space: nowrap; flex-shrink: 0; box-sizing: border-box; }
+.avatar-wrap { position: relative; width: 36px; height: 36px; flex-shrink: 0; }
 .avatar-wrap img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #e1037d; }
-.lvl-badge { position: absolute; right: -4px; bottom: -4px; background: #fbb500; color: #3b2500; font-family: var(--font-display); font-size: 0.62rem; font-weight: 900; padding: 2px 5px; border-radius: 999px; line-height: 1; border: 1.5px solid #14062b; }
-.profile b { display: block; font-size: .88rem; color: #fff; line-height: 1.1; white-space: nowrap; }
-.profile small { font-family: var(--font-display); font-size: .66rem; letter-spacing: .08em; color: #b6ebff; white-space: nowrap; }
+.lvl-badge { position: absolute; right: -4px; bottom: -4px; background: #fbb500; color: #3b2500; font-family: var(--font-display); font-size: 0.60rem; font-weight: 900; padding: 2px 4px; border-radius: 999px; line-height: 1; border: 1.5px solid #14062b; }
+.profile b { display: block; font-size: .86rem; color: #fff; line-height: 1.1; white-space: nowrap; }
+.profile small { font-family: var(--font-display); font-size: .64rem; letter-spacing: .08em; color: #b6ebff; white-space: nowrap; }
+
+/* 📷 카메라 & 🔄 프로필 가로 단어 배치 프리미엄 버튼 */
+.top-nav-action-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 14px; min-height: 44px; border-radius: 999px;
+  background: rgba(49, 35, 72, 0.92); border: 1.5px solid rgba(255, 255, 255, 0.22);
+  color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 0.88rem;
+  cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: all 0.15s ease;
+  outline: none; box-sizing: border-box;
+}
+.top-nav-action-btn:hover, .top-nav-action-btn:active {
+  transform: translateY(-2px) scale(1.04);
+  background: #503d72; border-color: var(--neon-cyan);
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.4);
+}
+.tna-icon { font-size: 1.15rem; line-height: 1; }
+.tna-text { font-size: 0.84rem; line-height: 1; letter-spacing: -0.01em; }
 
 .profile-switch {
   width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.25);
@@ -117,7 +140,7 @@ body.playing .bg-ambience { display: none; }
 @media (max-width: 1200px) {
   .sensor-pill { display: none; }
 }
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .ticket-pill { display: none; }
   .brand-sub { display: none; }
   .profile div { display: none; }
@@ -2020,6 +2043,17 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+/* ⚡ 우측 진열장 위에서도 손 포인터가 절대 가려지지 않는 최상위 오버레이 캔버스 */
+.costume-hand-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
   display: block;
 }
 
