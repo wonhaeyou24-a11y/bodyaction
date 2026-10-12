@@ -1,0 +1,24 @@
+// 모든 단독 테스트를 한 번에 실행:  node test/run-all.js
+// 게임을 고칠 때마다 돌려서 "예전보다 나빠진 곳이 없는지" 확인하세요. 하나라도 실패하면 종료 코드 1.
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const suites = [
+  ["test/tracker.test.js", "손/관절 위치 추적(튐·지연·휘두름 속도)"],
+  ["test/punch.test.js", "샌드백 펀치 판정(헛펀치·연타)"],
+  ["test/profiles.test.js", "가족 프로필"],
+  ["test/guide.test.js", "카메라 세팅 판정"],
+  ["online/test/room.test.js", "온라인 대결 방 규칙"],
+];
+let failed = 0;
+for (const [file, name] of suites) {
+  const r = spawnSync(process.execPath, [file], { cwd: root, encoding: "utf8" });
+  const last = (r.stdout || "").trim().split("\n").pop();
+  const ok = r.status === 0;
+  if (!ok) { failed++; console.log((r.stdout || "") + (r.stderr || "")); }
+  console.log(`${ok ? "OK  " : "FAIL"} ${name.padEnd(28)} ${last}`);
+}
+console.log(failed ? `\n${failed}개 묶음이 실패했어요` : "\n모두 통과");
+process.exit(failed ? 1 : 0);

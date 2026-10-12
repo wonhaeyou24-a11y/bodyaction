@@ -6,6 +6,8 @@ import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js";
 import { initSetupGuide } from "./guide.js";
 import { createVisionClient } from "./vision-client.js";
+import { AlphaBeta } from "./tracker.js";
+import { newPunchState, stepPunch } from "./punch.js";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -678,7 +680,12 @@ let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
 let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
-let bodyVelocities = []; // 관절별 60 FPS 외삽용 속도 벡터
+let bodyVelocities = []; // (예전 방식 호환용)
+// 📍 위치 추적기: 인식 결과가 들쭉날쭉한 간격으로 와도 손/관절이 튀지 않고 부드럽게 따라가게 해요 (tracker.js)
+const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta({ alpha: 0.5, beta: 0.18 }));
+const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
+let bodyTracks = [], bodyVis = [], bodyHave = false;
+const ptrVps = [];       // 손별 초당 이동 속도(px/s) - 프레임 수와 상관없는 속도 (펀치 판정용)
 let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 되었는지 여부
 let lastPointerUpdateTime = 0, lastHandT0 = 0, lastPoseT0 = 0;   // 결과 간격(속도 단위 보정용)
 
@@ -690,6 +697,7 @@ function updatePointers() {
     body = null;
     euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
     lastHandsInferFresh = false;
+    bodyHave = false; bodyTracks.forEach((t) => t.reset()); handTracks.forEach((t) => t.reset()); ptrVps.length = 0;
     return;
   }
 
@@ -698,6 +706,7 @@ function updatePointers() {
   let pts = [];
   const now = performance.now();
   const subDt = lastPointerUpdateTime > 0 ? Math.max(0.008, Math.min(0.033, (now - lastPointerUpdateTime) / 1000)) : 0.016;
+  const frameDt = lastPointerUpdateTime > 0 ? Math.max(0.008, (now - lastPointerUpdateTime) / 1000) : 0.016;   // 실제 프레임 간격(초)
   lastPointerUpdateTime = now;
 
   if (useMouse) {
@@ -724,23 +733,16 @@ function updatePointers() {
           const leadP = Math.min(2.5, Math.max(0, (performance.now() - t0) / 33)) * 0.8;
           if (r.landmarks && r.landmarks.length) {
             bodySeen = t0;
-            const newBody = r.landmarks[0].map((l, i) => {
-              const p = videoToScreen(l), o = body?.[i], v = l.visibility ?? 1;
-              if (!o) return { ...p, v };
-              // 관절별 속도 벡터 산출 (추론 스킵 프레임 외삽용)
-              bodyVelocities[i] = {
-                vx: (bodyVelocities[i]?.vx || 0) * 0.3 + (p.x - o.x) * kP * 0.7,
-                vy: (bodyVelocities[i]?.vy || 0) * 0.3 + (p.y - o.y) * kP * 0.7
-              };
-              // 속도 적응형 무지연 보간
-              const dSpd = Math.hypot(p.x - o.x, p.y - o.y);
-              const blend = Math.min(0.95, 0.78 + dSpd * 0.012);
-              return { x: o.x + (p.x - o.x) * blend + bodyVelocities[i].vx * leadP, y: o.y + (p.y - o.y) * blend + bodyVelocities[i].vy * leadP, v };
+            // 관절마다 추적기에 "이 시각에 여기서 봤어요"를 알려 줘요 (화면 위치는 아래에서 매 프레임 계산)
+            r.landmarks[0].forEach((l, i) => {
+              const p = videoToScreen(l);
+              (bodyTracks[i] ??= new AlphaBeta(BODY_AB)).update(p.x, p.y, t0);
+              bodyVis[i] = l.visibility ?? 1;
             });
-            body = newBody;
+            bodyTracks.length = r.landmarks[0].length;
+            bodyHave = true;
           } else if (t0 - bodySeen > 400) {
-            body = null;
-            bodyVelocities = [];
+            body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset());
           }
         } catch (err) {
           console.warn("포즈 인식 예외:", err);
@@ -748,17 +750,10 @@ function updatePointers() {
           isDetectingBody = false;
           lastPoseInferEndTime = performance.now(); // 추론이 끝난 시점 기준으로 쿨다운 기록!
         }
-      } else if (body && body.length > 0) {
-        // 추론 휴식 구간: 관절 물리 속도로 60 FPS 미세 외삽하여 끊김 없는 실시간 반응
-        for (let i = 0; i < body.length; i++) {
-          const bv = bodyVelocities[i];
-          if (bv && (Math.abs(bv.vx) > 0.3 || Math.abs(bv.vy) > 0.3)) {
-            body[i].x += bv.vx * (subDt / 0.033) * 0.92;
-            body[i].y += bv.vy * (subDt / 0.033) * 0.92;
-          }
-        }
       }
     }
+    // 매 화면 프레임: 추적기로 "지금 시각"의 관절 위치를 만들어요 (인식 결과 사이에도 부드럽게 이어짐)
+    if (bodyHave) body = bodyTracks.map((tr, i) => ({ ...tr.at(now), v: bodyVis[i] ?? 1 }));
     camOk = !!body;
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
@@ -766,18 +761,9 @@ function updatePointers() {
     camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
 
-    // AI 추론 휴식 프레임 (60 FPS 렌더링 프레임): 속도 벡터로 60 FPS 전진 외삽
-    if (!lastHandsInferFresh && lastHands.length > 0) {
-      for (let i = 0; i < lastHands.length; i++) {
-        const v = handVelocities[i];
-        if (v && (Math.abs(v.vx) > 0.5 || Math.abs(v.vy) > 0.5)) {
-          lastHands[i].x = Math.max(0, Math.min(W, lastHands[i].x + v.vx * (subDt / 0.033) * 0.94));
-          lastHands[i].y = Math.max(0, Math.min(H, lastHands[i].y + v.vy * (subDt / 0.033) * 0.94));
-        }
-      }
-    }
-    lastHandsInferFresh = false; // 플래그 소비
-    pts = lastHands;
+    // 매 화면 프레임: 추적기에서 "지금 시각"의 손 위치를 계산 (인식 결과 사이에도 튀지 않고 부드럽게 이어짐)
+    pts = lastHands.map((p, i) => (handTracks[i].ready ? handTracks[i].at(now) : p));
+    lastHandsInferFresh = false;
   }
 
   // 최대 2손(1인 최적화) 포인터 생성 및 공간 일관성 1유로 필터링
@@ -786,13 +772,17 @@ function updatePointers() {
     const fx = euroFilters[i].x.filter(p.x, now);
     const fy = euroFilters[i].y.filter(p.y, now);
     const curSpeed = Math.hypot(fx - pr.x, fy - pr.y);
+    // 초당 이동 속도(px/s): 손은 추적기가 추정한 속도(결과가 올 때 생기는 위치 보정에 흔들리지 않음), 그 외(마우스 등)는 위치 변화로 계산
+    const inst = p.vx !== undefined ? Math.hypot(p.vx, p.vy) * 1000 : curSpeed / frameDt;
+    ptrVps[i] = ptrVps[i] === undefined ? 0 : ptrVps[i] * 0.5 + inst * 0.5;   // 한 프레임 튐은 반만 반영
 
     pointers.push({
       x: fx, y: fy, px: pr.x, py: pr.y,
       speed: curSpeed,
+      vps: ptrVps[i],
       fist: useMouse ? !mouse.down : !!lastFist[i],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
-      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 240 && curSpeed > 7.0),
+      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 240 && ptrVps[i] > Math.min(W, H) * 0.55),
       punchId: useMouse ? mouse.p : lastPunch[i]
     });
   });
@@ -803,7 +793,7 @@ function updatePointers() {
       t.push({ x: p.x, y: p.y });
       if (t.length > 14) t.shift();
     } else {
-      t.length = 0;
+      t.length = 0; ptrVps[i] = undefined;
       euroFilters[i].x.reset(); euroFilters[i].y.reset();
     }
   }
@@ -889,28 +879,10 @@ function detectHandsNow() {
         }
       }
 
-      // 속도 벡터 산출 및 연속 물리 반영
-      // 결과 간격이 들쭉날쭉해도 속도가 항상 "33ms당 이동량"이 되도록 맞추고(kH), 인식 지연만큼 앞으로 당겨요(leadH)
-      const kH = 33 / Math.max(16, Math.min(150, t0 - (lastHandT0 || t0 - 33)));
-      lastHandT0 = t0;
-      const leadH = Math.min(2.5, Math.max(0, (performance.now() - t0) / 33)) * 0.8;
-      lastHands = sortedRaw.map((p, i) => {
-        const o = rawPrev[i];
-        let vx = 0, vy = 0;
-        if (o) {
-          vx = (p.x - o.x) * kH; vy = (p.y - o.y) * kH;
-        }
-        const prevVel = handVelocities[i] || { vx: 0, vy: 0 };
-        handVelocities[i] = {
-          vx: prevVel.vx * 0.25 + vx * 0.75,
-          vy: prevVel.vy * 0.25 + vy * 0.75
-        };
-        // 속도 선행 보정: 카메라 셔터 지연(0.10) + 실제 인식 지연(leadH)만큼 앞으로
-        return {
-          x: p.x + handVelocities[i].vx * (0.10 + leadH),
-          y: p.y + handVelocities[i].vy * (0.10 + leadH)
-        };
-      });
+      // 📍 추적기에 "이 시각에 여기서 봤어요"를 알려 줘요. 화면 위치는 updatePointers에서 매 프레임 계산해요
+      sortedRaw.forEach((p, i) => handTracks[i].update(p.x, p.y, t0));
+      for (let i = sortedRaw.length; i < MAX_HANDS; i++) handTracks[i].reset();
+      lastHands = sortedRaw.map((p) => ({ x: p.x, y: p.y }));
       rawPrev = sortedRaw;
     } else {
       // 그레이스 윈도우 감쇠
@@ -926,6 +898,7 @@ function detectHandsNow() {
         });
       } else if (dtMs >= 220) {
         lastHands = []; lastFist = []; rawPrev = []; sizeHist = [];
+        handTracks.forEach((t) => t.reset());
         handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
         euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
       }
@@ -4210,11 +4183,7 @@ games.box = {
     this.tilt = 0;
     this.tiltVel = 0;
     // 주먹별 펀치 궤도 FSM 상태 머신 (IDLE -> PUNCH -> RETRACT)
-    this.fistFSM = Array.from({ length: 4 }, () => ({
-      state: "IDLE",
-      lastSpeed: 0,
-      cool: 0
-    }));
+    this.fistFSM = Array.from({ length: 4 }, () => newPunchState());
     this.mouseCool = 0;
     this.flash = 0;
     this.punches = 0;
@@ -4264,35 +4233,13 @@ games.box = {
 
     // 웹캠 손인식: 양손 펀치 궤도 & 가속도 피크(Peak Acceleration) 판정
     pointers.forEach((p, i) => {
-      const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = { state: "IDLE", lastSpeed: 0, cool: 0, retractT: 0 });
-      fsm.cool = Math.max(0, fsm.cool - dt);
-      fsm.retractT = Math.max(0, fsm.retractT - dt);
-
+      const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = newPunchState());
       // 손의 위치에 따라 왼주먹 / 오른주먹 자동 구분
       const isLeftFist = p.x < W / 2;
-      const spd = p.speed;
-
-      // 🥊 피트니스 펀치 상태 머신 (연타 데드락 100% 해소 & 민첩한 타격감):
-      // 1) IDLE: 속도 6.5 이상으로 뻗거나 펀치 가속도 피크 발생 시 즉시 타격!
-      // 2) RETRACT: 타격 후 110ms 최소 쿨다운, 180ms 후 자동 복귀하여 연타 펀치가 절대 막히지 않음
-      if (fsm.state === "IDLE") {
-        const isFistStrike = (spd > 6.5 && spd > fsm.lastSpeed * 1.15) || (p.punch && spd > 5.5) || spd > 8.5;
-        if (isFistStrike && fsm.cool <= 0) {
-          fsm.state = "RETRACT";
-          fsm.cool = 0.11;     // 최소 쿨다운 (연타 가능 110ms)
-          fsm.retractT = 0.18; // 타임아웃 가드 (180ms 후 무조건 IDLE 복귀하여 멈춤 현상 차단)
-          punchOccurred = true;
-          punchHandLeft = isLeftFist;
-          punchIntensity = Math.min(2.5, Math.max(1.0, spd / 7.0));
-        }
-      } else if (fsm.state === "RETRACT") {
-        // 속도가 줄어들었거나 타임아웃 경과 시 즉시 다음 펀치 준비!
-        if (fsm.retractT <= 0 || spd < 5.0 || (fsm.cool <= 0 && spd < fsm.lastSpeed)) {
-          fsm.state = "IDLE";
-        }
-      }
-
-      fsm.lastSpeed = spd;
+      // 🥊 펀치 판정(punch.js): 초당 속도가 화면 크기 기준으로 충분히 빠른 상태가 2프레임 이어질 때만 펀치, 펀치 뒤 0.2초는 쉼
+      // (예전엔 "한 프레임에 6.5픽셀"이라 카메라 잡음/위치 튐 한 번에도 연타가 나왔어요)
+      const hit = stepPunch(fsm, p.vps ?? p.speed * 60, !!p.punch, dt, Math.min(W, H));
+      if (hit.strike) { punchOccurred = true; punchHandLeft = isLeftFist; punchIntensity = hit.intensity; }
     });
 
     // 3. 펀치 임팩트 발동 및 샌드백 반응
@@ -4329,8 +4276,8 @@ games.box = {
       // 샌드백 물리 틸트: 왼손 펀치는 오른쪽으로, 오른손 펀치는 왼쪽으로 꺾임!
       const tiltDir = punchHandLeft ? 1 : -1;
       this.tiltVel += tiltDir * (perfect ? 0.55 : 0.38) * punchIntensity;
-      this.flash = 0.8;
-      this.shake = perfect ? 0.12 : 0.08;
+      if (this.flash < 0.3) this.flash = 0.8;                     // 번쩍임은 연달아 다시 켜지지 않게 (깜박임 방지)
+      this.shake = perfect ? 0.12 : (punchIntensity > 1.6 ? 0.08 : 0);   // 센 펀치만 흔들림
 
       // 샌드백 타격점에 화려한 파티클 버스트
       const impactCol = punchHandLeft ? "#00d2ff" : "#ff4b72";
