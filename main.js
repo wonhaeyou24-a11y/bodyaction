@@ -6767,29 +6767,91 @@ const COSTUME_ITEMS = {
     color: "#00d2ff"
   },
   hand_repulsor: {
-    id: "hand_repulsor", name: "플라즈마 리펄서", slot: "hand", tier: "common", price: 10000,
+    id: "hand_repulsor", name: "플라즈마 리펄서", slot: "hand", tier: "common", price: 45000,
     icon: "🦾", desc: "손바닥에서 고압 플라즈마 에너지를 뿜어내는 건틀렛.",
     color: "#00d2ff"
   },
+
+  // --- [🤣 유쾌한 개그 & 단품 패션 아이템 컬렉션] ---
+  face_mustache: {
+    id: "face_mustache", name: "마리오 특대 콧수염", slot: "face", tier: "common", price: 45000,
+    icon: "🥸", desc: "코 밑에 착! 달라붙는 풍성하고 유쾌한 신사의 콧수염.", color: "#8b5a2b"
+  },
+  face_clown_nose: {
+    id: "face_clown_nose", name: "피에로 딸기코 & 미소", slot: "face", tier: "common", price: 38000,
+    icon: "🤡", desc: "코끝에서 삑삑 소리가 날 것 같은 새빨간 피에로 루돌프 코.", color: "#ff2e4c"
+  },
+  face_thug_glasses: {
+    id: "face_thug_glasses", name: "8비트 스웩 픽셀 선글라스", slot: "face", tier: "rare", price: 140000,
+    icon: "😎", desc: "착용 즉시 힙스터로 변신하는 레트로 도트 선글라스.", color: "#ffffff"
+  },
+  head_poop: {
+    id: "head_poop", name: "황금 또옹 모자", slot: "head", tier: "rare", price: 160000,
+    icon: "💩", desc: "머리 위에서 찬란하게 소용돌이치는 황금빛 똥 모자! 인기 폭발!", color: "#ffd700"
+  },
+  head_chicken: {
+    id: "head_chicken", name: "꼬꼬댁 닭벼슬 모자", slot: "head", tier: "common", price: 48000,
+    icon: "🐔", desc: "움직일 때마다 닭벼슬이 팔랑팔랑 춤추는 유쾌한 치킨 모자.", color: "#ff3344"
+  },
+  head_chef: {
+    id: "head_chef", name: "미슐랭 셰프 요리사 모자", slot: "head", tier: "common", price: 42000,
+    icon: "👨‍🍳", desc: "머리 위로 길게 솟아오른 새하얀 마스터 요리사 모자.", color: "#ffffff"
+  },
+  head_frog: {
+    id: "head_frog", name: "개구리 왕눈이 헤드", slot: "head", tier: "common", price: 50000,
+    icon: "🐸", desc: "양쪽에 큼직한 왕눈이가 달린 귀여운 초록 개구리 모자.", color: "#22c55e"
+  },
   head_cat_neon: {
-    id: "head_cat_neon", name: "네온 캣 이어 헤드밴드", slot: "head", tier: "common", price: 12000,
-    icon: "🐱", desc: "고양이 귀 모양으로 발광하는 귀여운 네온 헤어밴드. 움직일 때마다 깜빡여요.",
-    color: "#ff2e93"
+    id: "head_cat_neon", name: "네온 캣 이어 헤드밴드", slot: "head", tier: "common", price: 46000,
+    icon: "🐱", desc: "고양이 귀 모양으로 발광하는 귀여운 네온 헤어밴드. 움직일 때마다 깜빡여요.", color: "#ff2e93"
   },
   head_cowboy_cyber: {
-    id: "head_cowboy_cyber", name: "사이버 카우보이 모자", slot: "head", tier: "common", price: 18000,
-    icon: "🤠", desc: "홀로그램 챙이 빛나는 서부 개척자 스타일 카우보이햇.",
-    color: "#ffb800"
+    id: "head_cowboy_cyber", name: "사이버 카우보이 모자", slot: "head", tier: "common", price: 55000,
+    icon: "🤠", desc: "홀로그램 챙이 빛나는 서부 개척자 스타일 카우보이햇.", color: "#ffb800"
+  },
+  hand_rubber_gloves: {
+    id: "hand_rubber_gloves", name: "엄마의 핑크 고무장갑", slot: "hand", tier: "common", price: 35000,
+    icon: "🧤", desc: "설거지하다 뛰어나온 듯한 강렬한 형광 핫핑크 고무장갑.", color: "#ff2e93"
+  },
+  hand_toy_hammer: {
+    id: "hand_toy_hammer", name: "대왕 뿅망치", slot: "hand", tier: "rare", price: 150000,
+    icon: "🔨", desc: "때릴 때마다 삑삑 소리가 날 것 같은 큼직한 노란 뿅망치.", color: "#ffb800"
+  },
+  hand_drumstick: {
+    id: "hand_drumstick", name: "특대 바삭 크리스피 닭다리", slot: "hand", tier: "hero", price: 360000,
+    icon: "🍗", desc: "무기로 휘두르기엔 너무 맛있어 보이는 바삭바삭 황금 닭다리.", color: "#d97706"
+  },
+  body_rainbow_tee: {
+    id: "body_rainbow_tee", name: "무지개 삼선 쫄티", slot: "body", tier: "common", price: 55000,
+    icon: "👕", desc: "신체 굴곡에 착 달라붙는 알록달록 레트로 무지개 티셔츠.", color: "#00d2ff"
+  },
+  body_hawaiian: {
+    id: "body_hawaiian", name: "하와이안 꽃무늬 바캉스 셔츠", slot: "body", tier: "rare", price: 165000,
+    icon: "🌺", desc: "시원한 야자수와 붉은 하이비스커스 꽃이 만발한 바캉스 셔츠.", color: "#f43f5e"
+  },
+  legs_boxer_shorts: {
+    id: "legs_boxer_shorts", name: "빨간 땡땡이 사각팬티", slot: "legs", tier: "rare", price: 135000,
+    icon: "🩲", desc: "흰 바탕에 강렬한 빨간 땡땡이 무늬가 수놓아진 개그 필수 팬티.", color: "#ef4444"
+  },
+  legs_disco_pants: {
+    id: "legs_disco_pants", name: "반짝이 디스코 나팔바지", slot: "legs", tier: "hero", price: 380000,
+    icon: "👖", desc: "무릎 아래로 활짝 퍼지는 70년대 복고풍 펄 반짝이 바지.", color: "#8b5cf6"
+  },
+  feet_slippers: {
+    id: "feet_slippers", name: "동네 삼선 초록 슬리퍼", slot: "feet", tier: "common", price: 32000,
+    icon: "🩴", desc: "한국인의 소울웨어! 동네 편의점 갈 때 필수인 삼선 슬리퍼.", color: "#10b981"
+  },
+  feet_duck_shoes: {
+    id: "feet_duck_shoes", name: "꽥꽥 노랑 오리 슬리퍼", slot: "feet", tier: "rare", price: 130000,
+    icon: "🦆", desc: "발을 내딛을 때마다 꽥꽥거리는 깜찍한 노란 아기오리 슬리퍼.", color: "#eab308"
   },
   back_pixel_wings: {
-    id: "back_pixel_wings", name: "8비트 픽셀 날개", slot: "back", tier: "rare", price: 45000,
-    icon: "👾", desc: "아케이드 감성 가득한 레트로 픽셀 도트 날개.",
-    color: "#00ffcc"
+    id: "back_pixel_wings", name: "8비트 픽셀 날개", slot: "back", tier: "rare", price: 145000,
+    icon: "👾", desc: "아케이드 감성 가득한 레트로 픽셀 도트 날개.", color: "#00ffcc"
   },
   aura_fireworks: {
-    id: "aura_fireworks", name: "축제 네온 불꽃놀이 오라", slot: "aura", tier: "hero", price: 120000,
-    icon: "🎆", desc: "움직일 때마다 사방으로 네온 불꽃이 팡팡 터지는 화려한 오라.",
-    color: "#ffd700"
+    id: "aura_fireworks", name: "축제 네온 불꽃놀이 오라", slot: "aura", tier: "hero", price: 390000,
+    icon: "🎆", desc: "움직일 때마다 사방으로 네온 불꽃이 팡팡 터지는 화려한 오라.", color: "#ffd700"
   },
 
   // --- [1. 야구 게임 (baseball)] ---
@@ -7017,7 +7079,10 @@ const RANK_REWARDS = {
 let costumeInventory = new Set(["head_crown", "body_nano", "back_angel", "hand_repulsor"]);
 let equippedCostume = {
   head: "head_crown",
+  face: null,       // 🥸 콧수염 / 안경
   body: "body_nano",
+  legs: null,       // 🩳 바지 / 팬티
+  feet: null,       // 🩴 삼선 슬리퍼 / 신발
   back: "back_angel",
   hand: "hand_repulsor",
   aura: null
@@ -7123,11 +7188,11 @@ let playerCoins = 0;
 function getItemPrice(item) {
   if (item && item.price) return item.price;
   switch (item?.tier) {
-    case "legend": return 250000; // 1등 최고급 (25만 코인)
-    case "hero":   return 90000;  // 2등 중고급 (9만 코인)
-    case "rare":   return 35000;  // 3등 보급형 (3만 5천 코인)
+    case "legend": return 1000000; // 1등 최고급 (100만 코인! 끝판왕 목표)
+    case "hero":   return 400000;  // 2등 중고급 (40만 코인! 베테랑)
+    case "rare":   return 150000;  // 3등 보급형 (15만 코인! 중급 도전)
     case "common":
-    default:       return 10000;  // 일반 패션 (1만 코인)
+    default:       return 45000;   // 일반/단품 악세사리 (4만 5천 코인! 수십 판 플레이 필요)
   }
 }
 
@@ -7692,31 +7757,45 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
 
   // ⚡ [극상의 60 FPS 최적화] 장착된 장비가 없고 피팅룸도 아니면 연산 0회 완전 스킵
   const hasAnyCostume = Boolean(
-    equippedCostume.aura || equippedCostume.back || equippedCostume.body || equippedCostume.head || equippedCostume.hand
+    equippedCostume.aura || equippedCostume.back || equippedCostume.body ||
+    equippedCostume.head || equippedCostume.hand || equippedCostume.face ||
+    equippedCostume.legs || equippedCostume.feet
   );
   if (!hasAnyCostume && !isCostumeRoomOpen) return;
 
   try {
     // 앵커 좌표 도출
-    let headAnchor = null, chestAnchor = null, backAnchor = null, handAnchors = [];
+    let headAnchor = null, faceAnchor = null, chestAnchor = null, backAnchor = null, handAnchors = [], legsAnchor = null, feetAnchors = [];
 
     if (skel && skel[0] && skel[11] && skel[12]) {
       // MediaPipe 전신 포즈 기준
       const midShoulder = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 };
       headAnchor = { x: skel[0].x, y: skel[0].y - 35, scale: 1.1 };
+      faceAnchor = { x: skel[0].x, y: skel[0].y + 12, scale: 1.0 }; // 코 밑/입가 (콧수염 & 안경)
       chestAnchor = { x: midShoulder.x, y: midShoulder.y + 35, scale: 1.15 };
       backAnchor = { x: midShoulder.x, y: midShoulder.y, scale: 1.25 };
 
       if (skel[15]) handAnchors.push({ x: skel[15].x, y: skel[15].y, scale: 1.0 });
       if (skel[16]) handAnchors.push({ x: skel[16].x, y: skel[16].y, scale: 1.0 });
+
+      // 하의/바지 앵커 (골반 중심)
+      if (skel[23] && skel[24]) {
+        legsAnchor = { x: (skel[23].x + skel[24].x) / 2, y: (skel[23].y + skel[24].y) / 2 + 15, scale: 1.1 };
+      }
+      // 신발/슬리퍼 앵커 (발목/발)
+      if (skel[27]) feetAnchors.push({ x: skel[27].x, y: skel[27].y + 10, scale: 1.0 });
+      if (skel[28]) feetAnchors.push({ x: skel[28].x, y: skel[28].y + 10, scale: 1.0 });
     } else if (pointers && pointers.length > 0) {
       // 손 인식 기반 (상체 중심 추정)
       const avgX = pointers.reduce((s, p) => s + p.x, 0) / pointers.length;
       const avgY = pointers.reduce((s, p) => s + p.y, 0) / pointers.length;
       headAnchor = { x: avgX, y: Math.max(80, avgY - 140), scale: 1.0 };
+      faceAnchor = { x: avgX, y: Math.max(100, avgY - 110), scale: 1.0 };
       chestAnchor = { x: avgX, y: avgY, scale: 1.0 };
       backAnchor = { x: avgX, y: avgY - 20, scale: 1.1 };
       handAnchors = pointers.map((p) => ({ x: p.x, y: p.y, scale: 1.0 }));
+      legsAnchor = { x: avgX, y: avgY + 120, scale: 1.0 };
+      feetAnchors = [{ x: avgX - 30, y: avgY + 220, scale: 1.0 }, { x: avgX + 30, y: avgY + 220, scale: 1.0 }];
     }
 
     if (!chestAnchor && !headAnchor) return;
@@ -7727,25 +7806,43 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
       if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
     }
 
-    // 2. 등 / 날개
+    // 2. 등 / 날개 / 가방
     if (equippedCostume.back && backAnchor) {
       const item = COSTUME_ITEMS[equippedCostume.back];
       if (item) drawCostumePiece(ctx, item, backAnchor, isBuddy);
     }
 
-    // 3. 상의 / 아머
+    // 3. 하의 / 바지 / 팬티
+    if (equippedCostume.legs && legsAnchor) {
+      const item = COSTUME_ITEMS[equippedCostume.legs];
+      if (item) drawCostumePiece(ctx, item, legsAnchor, isBuddy);
+    }
+
+    // 4. 신발 / 슬리퍼
+    if (equippedCostume.feet && feetAnchors.length > 0) {
+      const item = COSTUME_ITEMS[equippedCostume.feet];
+      if (item) feetAnchors.forEach((fa) => drawCostumePiece(ctx, item, fa, isBuddy));
+    }
+
+    // 5. 상의 / 아머 / 티셔츠
     if (equippedCostume.body && chestAnchor) {
       const item = COSTUME_ITEMS[equippedCostume.body];
       if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
     }
 
-    // 4. 머리 / 헬멧
+    // 6. 머리 / 헬멧 / 모자
     if (equippedCostume.head && headAnchor) {
       const item = COSTUME_ITEMS[equippedCostume.head];
       if (item) drawCostumePiece(ctx, item, headAnchor, isBuddy);
     }
 
-    // 5. 손 / 무기
+    // 7. 얼굴 / 콧수염 / 안경
+    if (equippedCostume.face && faceAnchor) {
+      const item = COSTUME_ITEMS[equippedCostume.face];
+      if (item) drawCostumePiece(ctx, item, faceAnchor, isBuddy);
+    }
+
+    // 8. 손 / 무기 / 장갑
     if (equippedCostume.hand && handAnchors.length > 0) {
       const item = COSTUME_ITEMS[equippedCostume.hand];
       if (item) {
@@ -7753,7 +7850,7 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
       }
     }
 
-    // 6. 나노 슈트업 엔진은 오직 가상 피팅 룸이 열려있을 때만 구동 (인게임 오버헤드 0%)
+    // 9. 나노 슈트업 엔진은 오직 가상 피팅 룸이 열려있을 때만 구동 (인게임 오버헤드 0%)
     if (!isBuddy && isCostumeRoomOpen && chestAnchor) {
       nanoSuitEngine.update(0.016, chestAnchor, pointers);
     }
@@ -7904,8 +8001,11 @@ async function renderCostumeShelf() {
 
 function renderEquippedSlotsUI() {
   const slotMap = {
+    face: $("slotFaceIcon"),
     head: $("slotHeadIcon"),
     body: $("slotBodyIcon"),
+    legs: $("slotLegsIcon"),
+    feet: $("slotFeetIcon"),
     back: $("slotBackIcon"),
     hand: $("slotHandIcon"),
     aura: $("slotAuraIcon")
@@ -8142,7 +8242,7 @@ function setupCostumeRoomEvents() {
 
   // 모두 벗기
   $("btnUnequipAll")?.addEventListener("click", () => {
-    equippedCostume = { head: null, body: null, back: null, hand: null, aura: null };
+    equippedCostume = { head: null, face: null, body: null, legs: null, feet: null, back: null, hand: null, aura: null };
     saveCostumeData();
     renderCostumeShelf();
     renderEquippedSlotsUI();

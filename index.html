@@ -991,11 +991,14 @@
         <!-- 부위별 카테고리 필터 탭 -->
         <nav class="costume-filter-tabs">
           <button class="c-tab active" data-slot="all">전체 (ALL)</button>
-          <button class="c-tab" data-slot="head">👑 모자/투구</button>
-          <button class="c-tab" data-slot="body">🦺 의상/아머</button>
-          <button class="c-tab" data-slot="back">🪽 날개/망토</button>
-          <button class="c-tab" data-slot="hand">⚔️ 무기/장갑</button>
-          <button class="c-tab" data-slot="aura">🌟 각성 오라</button>
+          <button class="c-tab" data-slot="face">🥸 콧수염/안경</button>
+          <button class="c-tab" data-slot="head">👑 모자/탈</button>
+          <button class="c-tab" data-slot="hand">🧤 장갑/무기</button>
+          <button class="c-tab" data-slot="body">👕 티셔츠/상의</button>
+          <button class="c-tab" data-slot="legs">🩳 바지/팬티</button>
+          <button class="c-tab" data-slot="feet">🩴 신발/슬리퍼</button>
+          <button class="c-tab" data-slot="back">🪽 날개/가방</button>
+          <button class="c-tab" data-slot="aura">🌟 오라/이펙트</button>
         </nav>
 
         <!-- 진열장 아이템 그리드 리스트 (main.js에서 동적 렌더링) -->
@@ -1077,24 +1080,36 @@
             <button id="btnUnequipAll" class="btn-unequip-all" type="button">모두 벗기</button>
           </div>
           <div class="equipped-slots-grid">
+            <div class="eq-slot" data-slot="face">
+              <span class="slot-name">얼굴/수염</span>
+              <div id="slotFaceIcon" class="slot-val">비어있음</div>
+            </div>
             <div class="eq-slot" data-slot="head">
-              <span class="slot-name">머리</span>
+              <span class="slot-name">모자</span>
               <div id="slotHeadIcon" class="slot-val">비어있음</div>
             </div>
             <div class="eq-slot" data-slot="body">
-              <span class="slot-name">상의</span>
+              <span class="slot-name">상의/티</span>
               <div id="slotBodyIcon" class="slot-val">비어있음</div>
             </div>
-            <div class="eq-slot" data-slot="back">
-              <span class="slot-name">날개/망토</span>
-              <div id="slotBackIcon" class="slot-val">비어있음</div>
+            <div class="eq-slot" data-slot="legs">
+              <span class="slot-name">하의/바지</span>
+              <div id="slotLegsIcon" class="slot-val">비어있음</div>
+            </div>
+            <div class="eq-slot" data-slot="feet">
+              <span class="slot-name">신발/슬리퍼</span>
+              <div id="slotFeetIcon" class="slot-val">비어있음</div>
             </div>
             <div class="eq-slot" data-slot="hand">
-              <span class="slot-name">무기/건틀렛</span>
+              <span class="slot-name">장갑/무기</span>
               <div id="slotHandIcon" class="slot-val">비어있음</div>
             </div>
+            <div class="eq-slot" data-slot="back">
+              <span class="slot-name">날개/가방</span>
+              <div id="slotBackIcon" class="slot-val">비어있음</div>
+            </div>
             <div class="eq-slot" data-slot="aura">
-              <span class="slot-name">오라</span>
+              <span class="slot-name">오라/이펙트</span>
               <div id="slotAuraIcon" class="slot-val">비어있음</div>
             </div>
           </div>
