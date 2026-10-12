@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>포즈 미믹 자세 갤러리 (개발 확인용)</title>
+<style>
+  body { margin: 0; background: #1f1147; color: #fff; font-family: "Malgun Gothic", sans-serif; }
+  h1 { font-size: 16px; margin: 8px 12px; }
+  #c { display: block; }
+</style>
+</head>
+<body>
+<h1>🙆 포즈 미믹 자세 갤러리 — 모든 자세가 제대로 그려지는지, 가이드/틀린 마디 표시가 보기 좋은지 확인하는 개발용 페이지예요 (?demo=feedback 을 붙이면 내 몸 위 표시 예시)</h1>
+<canvas id="c"></canvas>
+<script type="module">
+import { POSES, anglesOf, skeletonFromAngles, matchPose, needsLegs } from "../poses.js";
+import { drawMascot, drawGhost, drawUserLimbs } from "../pose-art.js";
+const c = document.getElementById("c"), ctx = c.getContext("2d");
+const demo = new URLSearchParams(location.search).get("demo");
+const cols = 7, cw = 190, ch = 330, rows = Math.ceil(POSES.length / cols);
+c.width = cols * cw; c.height = rows * ch + 10;
+ctx.fillStyle = "#1f1147"; ctx.fillRect(0, 0, c.width, c.height);
+
+// 가짜 몸 만들기 (포즈 각도 -> 33점)
+function bodyFrom(a, { scale, ox, oy, wrong = [] }) {
+  const aa = { ...a }; for (const k of wrong) aa[k] += 55;
+  const sk = skeletonFromAngles(aa);
+  const P = ([x, y]) => ({ x: ox + x * scale, y: oy + y * scale, v: 0.95 });
+  const b = Array.from({ length: 33 }, () => ({ x: ox, y: oy, v: 0.95 }));
+  const m = { 0: sk.head, 11: sk.ls, 12: sk.rs, 13: sk.le, 14: sk.re, 15: sk.lw, 16: sk.rw, 23: sk.lh, 24: sk.rh, 25: sk.lk, 26: sk.rk, 27: sk.la, 28: sk.ra };
+  for (const [i, p] of Object.entries(m)) b[i] = P(p);
+  return b;
+}
+
+POSES.forEach((p, i) => {
+  const x = (i % cols) * cw, y = Math.floor(i / cols) * ch;
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = "rgba(14,6,36,.78)"; ctx.strokeStyle = "rgba(125,249,255,.4)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(6, 6, cw - 12, ch - 12, 14); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#ffd166"; ctx.font = "900 12px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(`LV${p.level}  ${p.id}`, cw / 2, 24);
+  if (demo === "feedback") {
+    // 내 몸(그림 속) 위에 목표 자세 + 틀린 마디(주황) 표시 예시: 왼팔 위쪽이 틀린 상태
+    const a = anglesOf(p), scale = 62, ox = cw / 2, oy = 96;
+    const wrong = p.level >= 2 ? ["LU"] : [];
+    const body = bodyFrom(a, { scale, ox, oy, wrong });
+    drawGhost(ctx, a, { x: ox, y: oy }, scale, { legs: needsLegs(p), alpha: 0.6 });
+    drawUserLimbs(ctx, body, matchPose(p, p.level, body), p, { needLegs: needsLegs(p) });
+  } else {
+    drawMascot(ctx, anglesOf(p), { x: cw / 2, y: 40, h: 205 }, { t: 0.4, mood: i % 5 === 0 ? "happy" : "normal" });
+  }
+  ctx.fillStyle = "#fff"; ctx.font = "800 11px sans-serif";
+  let name = p.name; while (ctx.measureText(name).width > cw - 20 && name.length > 4) name = name.slice(0, -1);
+  ctx.fillText(name, cw / 2, ch - 22);
+  ctx.restore();
+});
+</script>
+</body>
+</html>

@@ -8,6 +8,8 @@ import { initSetupGuide } from "./guide.js";
 import { createVisionClient } from "./vision-client.js";
 import { AlphaBeta } from "./tracker.js";
 import { newPunchState, stepPunch } from "./punch.js";
+import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength } from "./poses.js";
+import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -313,7 +315,7 @@ const INTRO = {
   brick: "손으로 공을 튕겨 벽돌을 모두 깨뜨리세요!",
   runner: "점프하고 숙이며 장애물을 피하는 달리기 게임입니다!",
   kungfu: "다가오는 악당들을 주먹으로 빠르게 물리치세요!",
-  pose: "화면에 나오는 포즈를 온몸으로 똑같이 따라 하세요!",
+  pose: "화면 캐릭터와 똑같은 자세를 따라 해요! 자세는 점점 어려워져요!",
   versus: "2인 대결 게임! 풍선을 먼저 터뜨리는 사람이 승리합니다!",
   beat: "음악에 맞춰 날아오는 네온 큐브를 온몸으로 시원하게 베어내세요!",
   keeper: "골대를 향해 날아오는 공을 온몸과 손으로 막아내세요!",
@@ -1340,9 +1342,9 @@ const GAME_HUD_META = {
     rightDesc: "PERFECT POSE",
     odTitle: "✨ FEVER FEVER DANCE TIME (슈퍼 댄스 피버)",
     getMetrics: (g) => [
-      { label: "MATCH", val: `${Math.min(100, 80 + combo * 2)}%` },
-      { label: "POSES", val: score },
-      { label: "SYNC", val: "100%" }
+      { label: "MATCH", val: `${g?.syncPct ?? 0}%` },
+      { label: "POSES", val: g?.done ?? 0 },
+      { label: "LEVEL", val: g?.level ?? 1 }
     ]
   },
   balloon: {
@@ -2787,81 +2789,108 @@ games.dodge = {
   },
 };
 
-// 🙆 포즈 따라하기: 화면에 나온 자세를 따라 해요. 0.7초 동안 유지하면 성공!
-let keyPose = -1, keyPoseT = 0;
-addEventListener("keydown", (e) => { if (/^[1-5]$/.test(e.key)) { keyPose = +e.key - 1; keyPoseT = performance.now(); } });
-const POSES = [
-  { name: "만세!", la: [-0.35, -1], ra: [0.35, -1] },
-  { name: "양팔을 벌려요", la: [-1, 0], ra: [1, 0] },
-  { name: "왼팔을 들어요", la: [-0.4, -1], ra: [0.25, 1] },
-  { name: "오른팔을 들어요", la: [-0.25, 1], ra: [0.4, -1] },
-  { name: "앉아요!", la: [-0.45, 0.9], ra: [0.45, 0.9], squat: true },
-];
-function poseTest(k, b) {
-  const v = (...ids) => ids.every((i) => bv(b, i, 0.4));
-  if (!v(0, 11, 12)) return false;
-  const sw = Math.max(30, Math.abs(b[12].x - b[11].x)), nose = b[0], sL = b[11], sR = b[12];     // 화면 기준: 왼쪽 = 내 왼쪽(거울)
-  switch (k) {
-    case 0: return v(15, 16) && b[15].y < nose.y && b[16].y < nose.y;
-    case 1: return v(15, 16) && Math.abs(b[15].y - sL.y) < 0.6 * sw && Math.abs(b[16].y - sR.y) < 0.6 * sw && b[15].x < sL.x - 0.9 * sw && b[16].x > sR.x + 0.9 * sw;
-    case 2: return v(15, 16) && b[15].y < nose.y && b[16].y > sR.y + 0.4 * sw;
-    case 3: return v(15, 16) && b[16].y < nose.y && b[15].y > sL.y + 0.4 * sw;
-    case 4: return v(23, 24, 25, 26, 27, 28) && (b[25].y - b[23].y) + (b[26].y - b[24].y) < 0.62 * ((b[27].y - b[25].y) + (b[28].y - b[26].y));
-  }
-  return false;
-}
-function drawFigure(cx, cy, s, pose, color) {
-  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = Math.max(4, s * 0.06); ctx.lineCap = "round";
-  const sq = pose.squat ? s * 0.25 : 0, top = cy - s * 0.6 + sq, hip = cy + sq;
-  ctx.beginPath(); ctx.arc(cx, top - s * 0.28, s * 0.15, 0, 7); ctx.stroke();                         // 머리
-  ctx.beginPath(); ctx.moveTo(cx, top - s * 0.1); ctx.lineTo(cx, hip); ctx.stroke();                 // 몸통
-  for (const [dir, sx] of [[pose.la, -1], [pose.ra, 1]]) {                                             // 팔
-    const l = Math.hypot(dir[0], dir[1]), ax = cx + sx * s * 0.02, ay = top;
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + (dir[0] / l) * s * 0.55, ay + (dir[1] / l) * s * 0.55); ctx.stroke();
-  }
-  for (const sx of [-1, 1]) {                                                                         // 다리
-    ctx.beginPath(); ctx.moveTo(cx, hip);
-    if (pose.squat) { ctx.lineTo(cx + sx * s * 0.3, hip + s * 0.05); ctx.lineTo(cx + sx * s * 0.3, hip + s * 0.5); }
-    else ctx.lineTo(cx + sx * s * 0.14, hip + s * 0.65);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
+// 🙆 포즈 미믹: 화면 캐릭터와 똑같은 자세를 따라 해요. 3번 성공할 때마다 레벨이 올라 자세가 어려워져요.
+// 자세 목록/인식 규칙은 poses.js, 캐릭터 그림은 pose-art.js. 캐릭터는 인식에 쓰는 "팔다리 각도"로 그려서
+// 보이는 자세 = 인식하는 자세예요. 내 몸 위에 목표 자세가 점선으로 겹쳐 보이고, 틀린 팔다리는 주황색으로 알려 줘요.
+let poseMatchKey = 0;      // 마우스 모드(테스트): 스페이스/엔터/클릭 = 자세를 맞춘 것으로 침
+addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") poseMatchKey = performance.now(); });
+addEventListener("pointerdown", () => { if (mode === "pose" && useMouse) poseMatchKey = performance.now(); });
+const POSE_PRAISE = ["좋아요! 👍", "잘했어요! 🎉", "멋져요! ✨", "완벽해요! 💯"];
 games.pose = {
   bg: "#1f1147", camAlpha: 0.85, body: true, noCursor: true, manual: true,
-  init() { this.idx = -1; this.hold = 0; this.done = 0; this.ok = false; this.next(); },
-  result() { return ` · 성공 ${this.done}번`; },
+  init() {
+    this.level = 1; this.cfg = levelConfig(1); this.done = 0; this.streak = 0; this.lastId = null; this.pose = null;
+    this.t = 0; this.trans = 1; this.happy = 0; this.ok = false; this.match = null; this.syncPct = 0; this.hint = null; this.hintT = 0; this.spoke = false;
+    this.cur = anglesOf({ arms: [100, 100, 80, 80], legs: null }); this.from = this.cur; this.to = this.cur;
+    this.next();
+  },
+  result() { return ` · 성공 ${this.done}번 · 레벨 ${this.level}`; },
   next() {
-    let k; do { k = (Math.random() * POSES.length) | 0; } while (k === this.idx);
-    this.idx = k; this.limit = Math.max(3.5, 6.5 - elapsed() * 0.04); this.left = this.limit; this.hold = 0;
-    speak(POSES[k].name);
+    const prevLevel = this.level;
+    this.level = levelFor(this.done); this.cfg = levelConfig(this.level);
+    this.pose = pickPose(this.level, this.lastId); this.lastId = this.pose.id;
+    this.from = this.cur; this.to = anglesOf(this.pose); this.trans = 0;       // 캐릭터가 새 자세로 부드럽게 바뀜
+    this.limit = this.cfg.time; this.left = this.limit; this.hold = 0; this.spoke = false; this.hint = null; this.hintT = 0.8;
+    if (this.level > prevLevel) {
+      triggerWaveBanner(`LEVEL ${this.level}`, `${this.cfg.name} · 더 어려운 자세가 나와요!`, false);
+      sfx.levelUp(); speak(`레벨 ${this.level}! ${this.pose.name}`, true);
+    } else speak(this.pose.name);
   },
   update(dt) {
-    const b = getBody();
-    this.ok = useMouse ? keyPose === this.idx && performance.now() - keyPoseT < 1500 : !!(b && poseTest(this.idx, b));
-    this.left -= dt; this.hold = this.ok ? this.hold + dt : Math.max(0, this.hold - dt * 2);
-    if (this.hold >= 0.7) {
-      this.done++; award(W / 2, H * 0.5, 2 + Math.min(3, Math.floor(this.left)), "#80ed99");
+    this.t += dt; this.happy = Math.max(0, this.happy - dt);
+    this.trans = Math.min(1, this.trans + dt / 0.45);
+    this.cur = lerpAngles(this.from, this.to, easeOutBack(this.trans));
+    const body = getBody();
+    let ok = false;
+    if (useMouse) { ok = performance.now() - poseMatchKey < 1500; this.match = null; this.syncPct = ok ? 100 : 0; }
+    else if (body) {
+      this.match = matchPose(this.pose, this.level, body); ok = this.match.matched;
+      this.syncPct = Math.round(this.syncPct * 0.6 + this.match.score * 100 * 0.4);       // 일치율(HUD): 부드럽게 변함
+    } else { this.match = null; this.syncPct = 0; }
+    this.ok = ok && this.trans >= 0.6;                  // 캐릭터가 자세를 바꾸는 중에는 판정하지 않음 (눈으로 확인할 시간)
+    if (body || useMouse) this.left -= dt;              // 몸이 안 보이는 동안은 시간이 줄지 않아요
+    this.hold = this.ok ? this.hold + dt : Math.max(0, this.hold - dt * 2);
+
+    // 어디가 틀렸는지 안내 (0.4초마다 갱신). 시간이 절반 지났는데 가까워졌다면 음성으로도 한 번 알려 줌
+    this.hintT -= dt;
+    if (this.ok) this.hint = null;
+    else if (this.hintT <= 0 && body && !useMouse) {
+      this.hintT = 0.4; this.hint = hintFor(this.pose, this.level, body);
+      if (this.hint && !this.spoke && this.left < this.limit * 0.5 && this.syncPct > 35) { this.spoke = true; speak(this.hint); }
+    }
+
+    if (this.hold >= this.cfg.hold) {
+      this.done++; this.streak++;
+      const pts = poseScore(this.level, this.left, this.streak);
+      award(W / 2, H * 0.5, pts, "#80ed99");
       burst(W / 2, H * 0.5, "#80ed99", 30); burst(W / 2, H * 0.5, "#ffd166", 16); sfx.pop(W / 2, true);
-      popup(W / 2, H * 0.4, ["좋아요! 👍", "잘했어요! 🎉", "멋져요! ✨"][(Math.random() * 3) | 0], "#ffd166");
-      this.next();
+      popup(W / 2, H * 0.4, this.streak >= 3 ? `${this.streak}연속! 🔥` : POSE_PRAISE[(Math.random() * POSE_PRAISE.length) | 0], "#ffd166");
+      this.happy = 0.8; this.next();
     } else if (this.left <= 0) {
-      combo = 0; popup(W / 2, H * 0.4, "아쉬워요 😅", "#ff9a9a"); sfx.chip(W / 2); this.next();
+      this.streak = 0; combo = 0; popup(W / 2, H * 0.4, "아쉬워요 😅", "#ff9a9a"); sfx.chip(W / 2); this.next();
     }
   },
   draw() {
-    if (this.idx < 0) return;
-    const b = getBody(), p = POSES[this.idx], s = Math.min(W, H) * 0.3;
-    drawSkeleton(b, this.ok ? "#80ed99" : "#7df9ff");
-    // 목표 자세 안내판
-    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.beginPath(); ctx.roundRect(W / 2 - s * 0.75, 100, s * 1.5, s * 1.55, 18); ctx.fill();
-    drawFigure(W / 2, 100 + s * 0.72, s * 0.68, p, this.ok ? "#80ed99" : "#fff");
-    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `800 ${Math.max(18, s * 0.17)}px sans-serif`; ctx.fillStyle = "#ffd166";
-    ctx.fillText(p.name, W / 2, 100 + s * 1.4);
-    const w = s * 1.3, x = W / 2 - w / 2, y = 100 + s * 1.65;                                           // 남은 시간 / 유지 진행
-    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x, y, w, 10); ctx.fillStyle = "#ffd166"; ctx.fillRect(x, y, w * Math.max(this.left, 0) / this.limit, 10);
-    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x, y + 16, w, 10); ctx.fillStyle = "#80ed99"; ctx.fillRect(x, y + 16, w * Math.min(this.hold / 0.7, 1), 10);
-    if (useMouse) { ctx.fillStyle = "#fff"; ctx.font = "700 16px sans-serif"; ctx.fillText("(테스트: 키보드 1~5 = 포즈 선택)", W / 2, y + 48); }
+    if (!this.pose) return;
+    const body = getBody(), legs = needsLegs(this.pose);
+    // 1) 내 몸 위: 목표 자세 가이드(점선) + 마디별 맞음(초록)/틀림(주황)
+    if (body && bv(body, 11, 0.45) && bv(body, 12, 0.45)) {
+      const u = torsoLength(body);
+      drawGhost(ctx, this.to, { x: (body[11].x + body[12].x) / 2, y: (body[11].y + body[12].y) / 2 }, u, { legs, alpha: this.level >= 4 ? 0.4 : 0.6 });
+    }
+    drawUserLimbs(ctx, body, this.match, this.pose, { needLegs: legs });
+
+    // 2) 캐릭터 안내판 (넓은 화면은 왼쪽, 좁은 화면은 위쪽 가운데)
+    const side = W >= 900, s = Math.min(side ? W * 0.26 : W * 0.5, H * 0.42);
+    const pw = s * 1.3, ph = s * 1.5 + 118, px = side ? Math.max(pw / 2 + 16, W * 0.15) : W / 2, py = side ? Math.max(120, H * 0.17) : 92;
+    ctx.save();
+    ctx.fillStyle = "rgba(14,6,36,.78)"; ctx.strokeStyle = this.ok ? "#00e676" : "rgba(125,249,255,.55)"; ctx.lineWidth = this.ok ? 5 : 3;
+    ctx.beginPath(); ctx.roundRect(px - pw / 2, py, pw, ph, 22); ctx.fill(); ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffd166"; ctx.font = `900 ${Math.max(13, s * 0.075)}px sans-serif`;
+    ctx.fillText(`LEVEL ${this.level} · ${this.cfg.name}  ${"★".repeat(this.level)}${"☆".repeat(5 - this.level)}`, px, py + 20);
+    drawMascot(ctx, this.cur, { x: px, y: py + 34, h: s * 1.28 }, { t: this.t, mood: this.ok || this.happy > 0 ? "happy" : "normal" });
+    // 자세 이름 (길면 글자 크기를 줄여서 안내판 안에 맞춤)
+    let fs = Math.max(15, s * 0.1); ctx.font = `900 ${fs}px sans-serif`;
+    while (ctx.measureText(this.pose.name).width > pw - 16 && fs > 11) { fs -= 1; ctx.font = `900 ${fs}px sans-serif`; }
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.fillStyle = "#fff";
+    const ny = py + 34 + s * 1.28 + 20;
+    ctx.strokeText(this.pose.name, px, ny); ctx.fillText(this.pose.name, px, ny);
+    // 남은 시간(노랑) / 자세 유지(초록) 막대 + 일치율
+    const bw = pw - 36, bx = px - bw / 2, by = ny + 18;
+    ctx.fillStyle = "rgba(255,255,255,.22)"; ctx.fillRect(bx, by, bw, 9); ctx.fillStyle = this.left < this.limit * 0.25 ? "#ff6b6b" : "#ffd166"; ctx.fillRect(bx, by, bw * Math.max(this.left, 0) / this.limit, 9);
+    ctx.fillStyle = "rgba(255,255,255,.22)"; ctx.fillRect(bx, by + 15, bw, 9); ctx.fillStyle = "#00e676"; ctx.fillRect(bx, by + 15, bw * Math.min(this.hold / this.cfg.hold, 1), 9);
+    ctx.fillStyle = "#fff"; ctx.font = `800 ${Math.max(12, s * 0.07)}px sans-serif`; ctx.fillText(`일치 ${this.syncPct}%`, px, by + 42);
+    ctx.restore();
+
+    // 3) 어디를 고쳐야 하는지 한 줄 안내 (몸 근처 아래쪽 가운데)
+    const msg = useMouse ? "(테스트: 스페이스/클릭 = 자세 맞추기)" : this.ok ? "좋아요! 그대로 유지!" : this.hint;
+    if (msg) {
+      ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `900 ${Math.max(18, Math.min(W * 0.034, 34))}px sans-serif`;
+      ctx.lineWidth = 7; ctx.strokeStyle = "rgba(0,0,0,.75)"; ctx.fillStyle = this.ok ? "#00e676" : "#ffd166";
+      const mx = side ? Math.max(W * 0.58, px + pw / 2 + 200) : W / 2, my = H * 0.84;
+      ctx.strokeText(msg, mx > W - 160 ? W / 2 : mx, my); ctx.fillText(msg, mx > W - 160 ? W / 2 : mx, my); ctx.restore();
+    }
     bodyHint();
   },
 };
@@ -4672,7 +4701,7 @@ const RANK_THRESHOLDS = {
   kungfu:  [13, 30, 81, 210, 470],
   brick:   [9, 25, 55, 110, 360],
   dodge:   [30, 54, 86, 110, 130],
-  pose:    [31, 50, 77, 100, 140],
+  pose:    [21, 37, 60, 75, 105],       // 새 포즈 미믹(레벨 시스템) 점수 규칙으로 다시 계산
   runner:  [250, 450, 620, 700, 800],       // 점수 이중 계산 수정 후 다시 계산
   keeper:  [68, 210, 580, 980, 1400],
   box:     [640, 1300, 1800, 2200, 2800],

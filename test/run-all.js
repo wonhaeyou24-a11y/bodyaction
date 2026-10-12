@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const suites = [
   ["test/tracker.test.js", "손/관절 위치 추적(튐·지연·휘두름 속도)"],
   ["test/punch.test.js", "샌드백 펀치 판정(헛펀치·연타)"],
+  ["test/poses.test.js", "포즈 미믹(인식·혼동·난이도)"],
   ["test/profiles.test.js", "가족 프로필"],
   ["test/guide.test.js", "카메라 세팅 판정"],
   ["online/test/room.test.js", "온라인 대결 방 규칙"],
