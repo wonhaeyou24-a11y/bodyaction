@@ -1685,7 +1685,7 @@ function updateLiveHud(force = false) {
   const timeEl = $("time");
   if (timeEl) {
     if (isReadyTime) {
-      timeEl.textContent = `0:0${Math.max(1, Math.ceil(readyTimeLeft))}`;
+      timeEl.textContent = `0:${String(Math.max(1, Math.ceil(readyTimeLeft))).padStart(2, "0")}`;
     } else {
       const s = Math.max(0, Math.ceil(timeLeft));
       timeEl.textContent = s >= 60 ? `1:${String(s - 60).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`;
@@ -3386,6 +3386,18 @@ games.runner = {
     return { jump, duck };
   },
 
+  // 준비 시간: 내가 뛰고 앉는 대로 캐릭터가 점프·슬라이드해요 (장애물·점수·통계 없음)
+  warmup(dt) {
+    this.t += dt;
+    const { jump, duck } = this.sense(dt), hs = this.hs(), g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
+    if (this.phase === "calib") { this.cal = this.seen ? this.cal + dt : 0; if (this.cal >= 1.2) this.phase = "run"; }
+    if (jump && this.jy <= 0) { this.vy = v0; tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950); burst(this.cx(), this.gy() - 8, "#00d2ff", 10); }
+    this.jy += this.vy * dt; this.vy -= g * dt;
+    if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
+    this.duck = duck && this.jy === 0;
+    for (const line of this.speedLines) { line.x -= line.spd * 0.5 * dt; if (line.x < -line.len) { line.x = W + Math.random() * 80; line.y = H * (0.2 + Math.random() * 0.55); } }
+  },
+
   update(dt) {
     try {
       this.t += dt;
@@ -4253,11 +4265,15 @@ games.beat = {
       track = BEAT_TRACKS.find((t) => t.id === this.chosenTrackId);
     }
     if (!track) {
+      // 랜덤: 직전에 한 곡은 피해요. 이번 접속의 직전 곡이 없으면 저장해 둔 지난 접속의 마지막 곡을 피해서, 처음 시작해도 매번 다른 곡이 나와요
+      let last = lastBeatTrackIdx;
+      if (last < 0) { try { last = BEAT_TRACKS.findIndex((t) => t.id === localStorage.getItem("kk_last_beat_track")); } catch { last = -1; } }
       let trackIdx = Math.floor(Math.random() * BEAT_TRACKS.length);
-      if (trackIdx === lastBeatTrackIdx) trackIdx = (trackIdx + 1) % BEAT_TRACKS.length;
+      if (trackIdx === last) trackIdx = (trackIdx + 1) % BEAT_TRACKS.length;
       lastBeatTrackIdx = trackIdx;
       track = BEAT_TRACKS[trackIdx];
     }
+    try { localStorage.setItem("kk_last_beat_track", track.id); } catch {}
     this.currentTrack = track;
     BGM.beat = { ...this.currentTrack };
 
@@ -4296,7 +4312,10 @@ games.beat = {
     this.flashColor = null;
   },
 
-  // 🎵 5초 레디타임(카운트다운) 종료 시점에 정확히 0.00초부터 오디오 및 비트 시퀀서 동기화 시작!
+  // 준비 시간: 광선검이 내 손을 따라 움직여요 (큐브·점수는 아직 없음)
+  warmup(dt) { this.update(dt); },
+
+  // 🎵 레디타임(카운트다운) 종료 시점에 정확히 0.00초부터 오디오 및 비트 시퀀서 동기화 시작!
   onGameRealStart() {
     this.songStartTime = actx ? actx.currentTime : performance.now() / 1000;
     this.nextBeatIdx = 0;
@@ -5972,11 +5991,12 @@ function elapsed() { return GAME_SECONDS - timeLeft; }
 let warned10 = false, lastScoreEmit = 0;
 let perfFrames = 0, perfT0 = 0, perfAi = 0, mainInfers = 0;   // HUD에 보여 줄 실제 성능 측정값
 let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
-// 5초 레디타임(준비시간) 상태
+// 레디타임(준비시간) 상태. 준비 시간에도 몸·손을 움직이며 광선검/캐릭터(점프·앉기)/커스튬이 움직이는 걸 즐길 수 있어요.
+const READY_SECONDS = 10;
 let isReadyTime = false;
 let readyStartTime = 0;
-let readyTimeLeft = 5.0;
-let lastReadyCount = 5;
+let readyTimeLeft = READY_SECONDS;
+let lastReadyCount = READY_SECONDS;
 let lastWarmupParticle = 0;
 
 // ⚡ 5초 레디타임 인터랙티브 몸풀기 카운트다운 (장착한 모든 커스튬을 입고 자유롭게 모션 동작 연습)
@@ -5999,7 +6019,7 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.fill();
 
   // 2. 5초 원형 프로그레스 네온 게이지
-  const progress = Math.max(0, Math.min(1, (5.0 - t) / 5.0));
+  const progress = Math.max(0, Math.min(1, (READY_SECONDS - t) / READY_SECONDS));
   ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
   ctx.lineWidth = 10;
   ctx.beginPath();
@@ -6175,13 +6195,15 @@ function frame(now) {
       try {
         // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 실제 시간 100% 동기화
         const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
-        readyTimeLeft = Math.max(0, 5.0 - elapsedReady);
+        readyTimeLeft = Math.max(0, READY_SECONDS - elapsedReady);
         const curCount = Math.max(1, Math.ceil(readyTimeLeft));
         if (curCount !== lastReadyCount) {
           lastReadyCount = curCount;
           sfx.countdown(false); // 1초마다 통통 튀는 카운트다운 비프음
         }
 
+        // 준비 시간에도 움직임을 즐길 수 있게: 광선검이 움직이고(슬래시), 캐릭터가 점프·앉기를 해요(러너). 점수·장애물은 없어요
+        try { g.warmup?.(dt); } catch (warmErr) { console.warn("Ready warmup guard:", warmErr); }
         // 게임 필드 및 포즈/세이버 렌더링 (플레이어가 자신의 위치와 자세를 실시간 체크)
         try { g.draw(); } catch (drawErr) { console.warn("Ready draw guard:", drawErr); }
 
@@ -6309,8 +6331,8 @@ function startGame(m, opts = {}) {
   // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 가동
   isReadyTime = true;
   readyStartTime = performance.now();
-  readyTimeLeft = 5.0;
-  lastReadyCount = 5;
+  readyTimeLeft = READY_SECONDS;
+  lastReadyCount = READY_SECONDS;
   sfx.countdown(false); // 첫 카운트다운 톤
   speak(INTRO[m], true); // 게임 설명/안내 음성 발화
   warned10 = false;
@@ -6907,11 +6929,8 @@ async function launchGame(modeName, opts = {}) {
     if (!(await ensureVideo())) return false;
     if (!(await ensureModel(games[modeName].body ? "pose" : "hand"))) return false;
   }
-  if (modeName === "beat" && !opts.online) {
-    // 🎵 네온 노트 슬래시는 펌프 스타일 아케이드 트랙 선택 모달 열기! (온라인 대결은 방장이 이미 곡을 골랐어요)
-    openBeatTrackSelector();
-    return true;
-  }
+  // 🎵 네온 노트 슬래시는 곡을 고르지 않고 매번 랜덤으로 시작해요 (온라인 대결은 방장이 이미 곡을 골랐어요). 곡 선택 창(openBeatTrackSelector)은 지금은 쓰지 않아요.
+  if (modeName === "beat" && !opts.online) games.beat.chosenTrackId = null;
   startGame(modeName, opts);
   return true;
 }
@@ -9351,5 +9370,5 @@ GAME_HUD_META.bspace = { ...GAME_HUD_META.space, badge: "BODY DEFENSE", title: "
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
-  window.__kk = { feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+  window.__kk = { games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
 }
