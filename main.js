@@ -8308,6 +8308,7 @@ function drawGenericCostume(ctx, item, col) {
 
 // 6-0. 카툰 스프라이트 캐시: 안 움직이는 아이템은 한 번만 그려서 그림 한 장(외곽선+음영+그림자 포함)으로 저장해 두고
 // 매 프레임 drawImage 한 번으로 찍어요. 움직이는 그림(오라·불꽃·반짝이)은 예전처럼 실시간으로 그려요.
+const HIDE_IN_GAME = new Set(["body", "hand"]);   // 게임 중 숨길 커스튬 칸 (피팅룸에서는 그대로 보임)
 const costumeSprites = new Map();   // id -> { png: 0|1, spr: 완성된 스프라이트 | null(아직/불필요 → 실시간으로 그림) }
 const COSTUME_LIVE = new Set(["legs_disco_pants", "back_jetpack", "aura_dragon", "aura_fireworks"]);
 function costumeSprite(item) {
@@ -8657,7 +8658,7 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
     if (!chestAnchor && !headAnchor) return;
 
     // 👗 장착한 모든 커스튬 파츠는 레디타임 시작부터 100% 온전히 착용한 채로 노출
-    const isSlotReady = () => true;
+    const isSlotReady = (slot) => isCostumeRoomOpen || !HIDE_IN_GAME.has(slot);   // 게임 중에는 상의·장갑(손 아이템)을 숨겨요 (화면이 복잡해지고 판정에 방해돼서). 피팅룸에서는 보여요
 
     // 1. 오라 (가장 뒷면 레이어)
     if (equippedCostume.aura && isSlotReady("aura")) {
