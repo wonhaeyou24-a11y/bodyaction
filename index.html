@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261012_0610">
+<link rel="stylesheet" href="style.css?v=20261012_0625">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -1002,9 +1002,14 @@
         <span class="fs-icon">📺</span>
         <span class="fs-text">전체화면</span>
       </button>
-      <button id="btnCloseCostume" class="btn-costume-close" type="button" title="피팅 룸 나가기">✕ 나가기</button>
     </div>
   </header>
+
+  <!-- ⚡ [우측 상단 독립 배치] 절대 가려지지 않는 고정 나가기 버튼 -->
+  <button id="btnCloseCostume" class="btn-costume-exit-fixed" type="button" title="가상 피팅 룸 나가기 (ESC)">
+    <span class="exit-icon">✕</span>
+    <span class="exit-text">피팅 룸 나가기</span>
+  </button>
 
   <!-- 3. [우측] 심플 슬림 커스튬 진열장 사이드바 -->
   <aside class="costume-simple-sidebar">
@@ -1036,6 +1041,6 @@
   </aside>
 </div>
 
-<script type="module" src="main.js?v=20261012_0610"></script>
+<script type="module" src="main.js?v=20261012_0625"></script>
 </body>
 </html>

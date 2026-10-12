@@ -757,7 +757,7 @@ let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 �
 let lastPointerUpdateTime = 0, lastHandT0 = 0, lastPoseT0 = 0;   // 결과 간격(속도 단위 보정용)
 
 function updatePointers() {
-  if (!playing || !mode) {
+  if ((!playing || !mode) && !isCostumeRoomOpen) {
     pointers.length = 0;
     trails.forEach((t) => (t.length = 0));
     lastHands = [];
@@ -783,7 +783,7 @@ function updatePointers() {
 
   if (useMouse) {
     pts = [{ x: mouse.x, y: mouse.y }];
-  } else if (games[mode]?.body) {                      // 몸 게임: 전신 포즈 인식
+  } else if ((mode && games[mode]?.body) || isCostumeRoomOpen) {                      // 몸 게임 또는 가상 피팅 룸: 전신 포즈 인식
     const poseWorker = visionAI.ready("pose");
     if ((poseLandmarker || poseWorker) && video.readyState >= 2 && !isDetectingBody) {
       const wr = poseWorker ? visionAI.take("pose") : null;
@@ -828,7 +828,16 @@ function updatePointers() {
       }
     }
     // 매 화면 프레임: 추적기로 "지금 시각"의 관절 위치를 만들어요 (인식 결과 사이에도 부드럽게 이어짐)
-    if (bodyHave) body = bodyTracks.map((tr, i) => ({ ...tr.at(now), v: bodyVis[i] ?? 1 }));
+    if (bodyHave) {
+      body = bodyTracks.map((tr, i) => ({ ...tr.at(now), v: bodyVis[i] ?? 1 }));
+      // ⚡ 포즈 모드 및 피팅룸에서도 손목(15, 16)을 pointers로 추출하여 손/주먹 상호작용 지원
+      if (body && body[15] && body[16]) {
+        pts = [
+          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy },
+          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy }
+        ];
+      }
+    }
     camOk = !!body;
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
@@ -5391,53 +5400,87 @@ function drawReadyCountdown(t, isBodyGame) {
     }
   };
 
+  // 10초를 5단계(각 2초)로 분할하여 실제 착용 장비 아이템이 화면 밖에서 회전하며 날아와 순차 결합!
+  let stepText = "⚡ STEP 1: 신발/슬리퍼 합체 중...";
+  let stepColor = "#ffb800";
+
+  // 현재 착용 중인 아이템 객체 도출 (없으면 친근한 기본 파츠)
+  const getSlotItem = (slot, defId) => {
+    const id = equippedCostume[slot] || defId;
+    return COSTUME_ITEMS[id] || { icon: "✨", name: "나노 파츠", color: "#00d2ff" };
+  };
+
+  const itemFeet = getSlotItem("feet", "feet_slippers");
+  const itemLegs = getSlotItem("legs", "legs_disco_pants");
+  const itemBody = getSlotItem("body", "body_rainbow_tee");
+  const itemHand = getSlotItem("hand", "hand_rubber_gloves");
+  const itemHead = getSlotItem("head", "head_poop");
+  const itemFace = getSlotItem("face", "face_mustache");
+
   if (t > 8) {
-    // 1단계 (10초~8초)
+    // 1단계 (10초~8초): 신발 / 슬리퍼
     const frac = (10 - t) / 2.0;
-    stepText = "⚡ STEP 1/5: 부스터 드라이브 날아오는 중!";
+    stepText = `⚡ STEP 1/5: [${itemFeet.name}] 발로 날아오는 중!`;
     stepColor = "#ffb800";
-    flyPart(-60, H + 80, bootsA.x, bootsA.y, frac, (c, locked) => {
-      c.fillStyle = locked ? "#ffb800" : "#ff5500";
-      c.beginPath(); c.roundRect(-24, -12, 48, 24, 6); c.fill();
+    flyPart(-80, H + 80, bootsA.x, bootsA.y, frac, (c) => {
+      c.font = "bold 34px sans-serif";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.rotate(frac * 8);
+      c.fillText(itemFeet.icon, 0, 0);
     });
   } else if (t > 6) {
-    // 2단계 (8초~6초)
+    // 2단계 (8초~6초): 하의 / 바지
     const frac = (8 - t) / 2.0;
-    stepText = "⚡ STEP 2/5: 흉부 아머 & 아크 리액터 합체!";
+    stepText = `⚡ STEP 2/5: [${itemLegs.name}] 하체에 합체!`;
     stepColor = "#00d2ff";
-    flyPart(W + 100, -80, chestA.x, chestA.y, frac, (c, locked) => {
-      c.fillStyle = locked ? "#e1037d" : "#00d2ff";
-      c.beginPath(); c.arc(0, 0, 22, 0, Math.PI * 2); c.fill();
+    flyPart(W + 100, H * 0.7, cx, cy + 90, frac, (c) => {
+      c.font = "bold 34px sans-serif";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.rotate(-frac * 6);
+      c.fillText(itemLegs.icon, 0, 0);
     });
   } else if (t > 4) {
-    // 3단계 (6초~4초)
+    // 3단계 (6초~4초): 상의 / 티셔츠 / 날개
     const frac = (6 - t) / 2.0;
-    stepText = "⚡ STEP 3/5: 양팔 건틀렛 & 전용 무기 장착!";
-    stepColor = "#ff2e93";
-    flyPart(-120, cy, lHandA.x, lHandA.y, frac, (c) => {
-      c.fillStyle = "#00d2ff"; c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.fill();
-    });
-    flyPart(W + 120, cy, rHandA.x, rHandA.y, frac, (c) => {
-      c.fillStyle = "#ff2e93"; c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.fill();
+    stepText = `⚡ STEP 3/5: [${itemBody.name}] 가슴으로 결합!`;
+    stepColor = "#e1037d";
+    flyPart(-120, -50, chestA.x, chestA.y, frac, (c) => {
+      c.font = "bold 40px sans-serif";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.rotate(frac * 7);
+      c.fillText(itemBody.icon, 0, 0);
     });
   } else if (t > 2) {
-    // 4단계 (4초~2초)
+    // 4단계 (4초~2초): 양손 건틀렛 / 장갑 / 무기
     const frac = (4 - t) / 2.0;
-    stepText = "⚡ STEP 4/5: 사이버 윙 & 제트팩 등 뒤 전개!";
+    stepText = `⚡ STEP 4/5: [${itemHand.name}] 양손에 장착!`;
     stepColor = "#22c55e";
-    flyPart(cx, -150, chestA.x, chestA.y - 20, frac, (c) => {
-      c.fillStyle = "rgba(0, 210, 255, 0.6)";
-      c.beginPath(); c.ellipse(-40, 0, 45, 18, -0.3, 0, Math.PI * 2); c.fill();
-      c.beginPath(); c.ellipse(40, 0, 45, 18, 0.3, 0, Math.PI * 2); c.fill();
+    flyPart(-120, cy, lHandA.x, lHandA.y, frac, (c) => {
+      c.font = "bold 34px sans-serif";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.fillText(itemHand.icon, 0, 0);
+    });
+    flyPart(W + 120, cy, rHandA.x, rHandA.y, frac, (c) => {
+      c.font = "bold 34px sans-serif";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.fillText(itemHand.icon, 0, 0);
     });
   } else {
-    // 5단계 (2초~0초)
+    // 5단계 (2초~0초): 콧수염 & 모자 / 왕관
     const frac = (2 - t) / 2.0;
-    stepText = "⚡ FINAL STEP: 헬멧 바이저 안착 & 전신 변신 완료!";
-    stepColor = "#ff0055";
-    flyPart(cx, -120, headA.x, headA.y, frac, (c, locked) => {
-      c.fillStyle = locked ? "#ffb800" : "#ffffff";
-      c.beginPath(); c.roundRect(-30, -18, 60, 36, 10); c.fill();
+    stepText = `⚡ FINAL STEP: [${itemHead.name}] & [${itemFace.name}] 안착 완료!`;
+    stepColor = "#ffd700";
+    flyPart(cx, -140, headA.x, headA.y, frac, (c) => {
+      c.font = "bold 42px sans-serif";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.rotate(Math.sin(frac * 10) * 0.3);
+      c.fillText(`${itemHead.icon} ${itemFace.icon}`, 0, 0);
     });
   }
 
@@ -7669,59 +7712,65 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
 
     if (!chestAnchor && !headAnchor) return;
 
+    // ⚡ [10초 변신 시퀀스] 레디타임 중에는 도킹 완료된 파츠만 순차 노출 (변신 연출 극대화)
+    const isSlotReady = (slot) => {
+      if (!isReadyTime || isCostumeRoomOpen) return true;
+      if (slot === "feet") return readyTimeLeft <= 8.0;
+      if (slot === "legs") return readyTimeLeft <= 6.0;
+      if (slot === "body" || slot === "back") return readyTimeLeft <= 4.0;
+      if (slot === "hand") return readyTimeLeft <= 2.0;
+      if (slot === "face" || slot === "head" || slot === "aura") return readyTimeLeft <= 1.5;
+      return true;
+    };
+
     // 1. 오라 (가장 뒷면 레이어)
-    if (equippedCostume.aura) {
+    if (equippedCostume.aura && isSlotReady("aura")) {
       const item = COSTUME_ITEMS[equippedCostume.aura];
       if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
     }
 
     // 2. 등 / 날개 / 가방
-    if (equippedCostume.back && backAnchor) {
+    if (equippedCostume.back && backAnchor && isSlotReady("back")) {
       const item = COSTUME_ITEMS[equippedCostume.back];
       if (item) drawCostumePiece(ctx, item, backAnchor, isBuddy);
     }
 
     // 3. 하의 / 바지 / 팬티
-    if (equippedCostume.legs && legsAnchor) {
+    if (equippedCostume.legs && legsAnchor && isSlotReady("legs")) {
       const item = COSTUME_ITEMS[equippedCostume.legs];
       if (item) drawCostumePiece(ctx, item, legsAnchor, isBuddy);
     }
 
     // 4. 신발 / 슬리퍼
-    if (equippedCostume.feet && feetAnchors.length > 0) {
+    if (equippedCostume.feet && feetAnchors.length > 0 && isSlotReady("feet")) {
       const item = COSTUME_ITEMS[equippedCostume.feet];
       if (item) feetAnchors.forEach((fa) => drawCostumePiece(ctx, item, fa, isBuddy));
     }
 
     // 5. 상의 / 아머 / 티셔츠
-    if (equippedCostume.body && chestAnchor) {
+    if (equippedCostume.body && chestAnchor && isSlotReady("body")) {
       const item = COSTUME_ITEMS[equippedCostume.body];
       if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
     }
 
     // 6. 머리 / 헬멧 / 모자
-    if (equippedCostume.head && headAnchor) {
+    if (equippedCostume.head && headAnchor && isSlotReady("head")) {
       const item = COSTUME_ITEMS[equippedCostume.head];
       if (item) drawCostumePiece(ctx, item, headAnchor, isBuddy);
     }
 
     // 7. 얼굴 / 콧수염 / 안경
-    if (equippedCostume.face && faceAnchor) {
+    if (equippedCostume.face && faceAnchor && isSlotReady("face")) {
       const item = COSTUME_ITEMS[equippedCostume.face];
       if (item) drawCostumePiece(ctx, item, faceAnchor, isBuddy);
     }
 
     // 8. 손 / 무기 / 장갑
-    if (equippedCostume.hand && handAnchors.length > 0) {
+    if (equippedCostume.hand && handAnchors.length > 0 && isSlotReady("hand")) {
       const item = COSTUME_ITEMS[equippedCostume.hand];
       if (item) {
         handAnchors.forEach((ha) => drawCostumePiece(ctx, item, ha, isBuddy));
       }
-    }
-
-    // 9. 나노 슈트업 엔진은 오직 가상 피팅 룸이 열려있을 때만 구동 (인게임 오버헤드 0%)
-    if (!isBuddy && isCostumeRoomOpen && chestAnchor) {
-      nanoSuitEngine.update(0.016, chestAnchor, pointers);
     }
   } catch (err) {
     // 🛡️ Zero-Crash Policy: 커스튬 드로잉 중 오류 발생 시에도 메인 게임 렌더링은 100% 정상 유지
@@ -7968,6 +8017,37 @@ function costumeRoomUpdateAndDraw(now, dt) {
     headA = { x: skel[0].x, y: skel[0].y - 35 };
     chestA = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 + 25 };
     if (skel[16]) handA = { x: skel[16].x, y: skel[16].y };
+
+    // ⚡ [내 몸 인식 시각화] 거울 위에 부드러운 네온 사이버 관절 트래킹 라인 렌더링
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
+    ctx.lineWidth = 3;
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 10;
+    const bones = [
+      [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // 상체 & 양팔
+      [11, 23], [12, 24], [23, 24],                      // 몸통 & 골반
+      [23, 25], [25, 27], [24, 26], [26, 28]             // 다리 & 발목
+    ];
+    bones.forEach(([i, j]) => {
+      if (skel[i] && skel[j]) {
+        ctx.beginPath();
+        ctx.moveTo(skel[i].x, skel[i].y);
+        ctx.lineTo(skel[j].x, skel[j].y);
+        ctx.stroke();
+      }
+    });
+
+    // 주요 관절 펄스 노드 점
+    ctx.fillStyle = "#00d2ff";
+    [0, 11, 12, 15, 16, 23, 24, 27, 28].forEach((idx) => {
+      if (skel[idx]) {
+        ctx.beginPath();
+        ctx.arc(skel[idx].x, skel[idx].y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    ctx.restore();
   } else if (pointers && pointers.length > 0) {
     chestA = { x: pointers[0].x, y: pointers[0].y };
     headA = { x: pointers[0].x, y: Math.max(80, pointers[0].y - 140) };
@@ -7988,6 +8068,8 @@ function costumeRoomUpdateAndDraw(now, dt) {
   // 5. ✊ 주먹으로 집기 & ✋ 손 펴서 마그네틱 장착 인터랙션
   if (ptr) {
     costumeDragPos = { x: ptr.x, y: ptr.y };
+    const handScreenX = useMouse ? mouse.x : ((ptr.x / scaleX) + rect.left);
+    const handScreenY = useMouse ? mouse.y : ((ptr.y / scaleY) + rect.top);
 
     // 손 포인트 시각화 (주먹이면 빨간 링, 펼치면 푸른 링)
     ctx.strokeStyle = ptr.fist ? "#ff2e93" : "#00d2ff";
@@ -8004,12 +8086,12 @@ function costumeRoomUpdateAndDraw(now, dt) {
     ctx.textAlign = "center";
     ctx.fillText(ptr.fist ? "✊ GRABBING" : "✋ OPEN HAND", ptr.x, ptr.y - 36);
 
-    // [A] 주먹을 쥐었을 때: 진열장 아이템 픽업 판정 (화면 마우스 좌표 기준)
+    // [A] 주먹을 쥐었을 때: 진열장 아이템 픽업 판정 (손 스크린 픽셀 좌표 기준)
     if (ptr.fist && !costumeDragItem) {
       const cards = document.querySelectorAll(".costume-card");
       for (const c of cards) {
         const cRect = c.getBoundingClientRect();
-        if (mouse.x >= cRect.left && mouse.x <= cRect.right && mouse.y >= cRect.top && mouse.y <= cRect.bottom) {
+        if (handScreenX >= cRect.left && handScreenX <= cRect.right && handScreenY >= cRect.top && handScreenY <= cRect.bottom) {
           const itId = c.dataset.itemId;
           if (itId && COSTUME_ITEMS[itId]) {
             costumeDragItem = COSTUME_ITEMS[itId];
@@ -8028,8 +8110,8 @@ function costumeRoomUpdateAndDraw(now, dt) {
       const ghost = $("dragGhost");
       if (ghost) {
         // 고스트는 뷰포트 절대 픽셀 좌표 기준 배치
-        ghost.style.left = `${(ptr.x / scaleX) + rect.left}px`;
-        ghost.style.top = `${(ptr.y / scaleY) + rect.top}px`;
+        ghost.style.left = `${handScreenX}px`;
+        ghost.style.top = `${handScreenY}px`;
       }
 
       // 슬롯 앵커와의 거리 계산
@@ -8076,6 +8158,12 @@ function costumeRoomUpdateAndDraw(now, dt) {
 function setupCostumeRoomEvents() {
   $("btnCostumeRoom")?.addEventListener("click", openCostumeRoom);
   $("btnCloseCostume")?.addEventListener("click", closeCostumeRoom);
+  // ESC 키로 피팅 룸 즉시 나가기 지원
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isCostumeRoomOpen) {
+      closeCostumeRoom();
+    }
+  });
   $("btnGoCostumeFromReward")?.addEventListener("click", () => {
     $("result")?.classList.add("hidden");
     openCostumeRoom();

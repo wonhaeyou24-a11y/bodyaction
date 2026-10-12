@@ -2003,12 +2003,12 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   position: absolute;
   top: 18px;
   left: 20px;
-  right: 420px;
-  z-index: 15;
+  max-width: calc(100vw - 440px);
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(14, 7, 28, 0.78);
+  background: rgba(14, 7, 28, 0.85);
   backdrop-filter: blur(20px);
   border: 1.5px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
@@ -2088,35 +2088,48 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   box-shadow: 0 0 16px rgba(0, 210, 255, 0.4);
 }
 
-.btn-costume-close {
-  padding: 6px 16px;
+/* ⚡ [우측 상단 독립 배치] 절대 가려지지 않는 고정 나가기 버튼 */
+.btn-costume-exit-fixed {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px;
   border-radius: 999px;
-  border: 1.5px solid rgba(255, 60, 90, 0.5);
-  background: rgba(255, 60, 90, 0.18);
-  color: #ffb0c0;
-  font-family: var(--font-display, 'Rubik', sans-serif);
-  font-weight: 800;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.btn-costume-close:hover {
-  background: #ff3c5a;
+  border: 2px solid #ff3c5a;
+  background: linear-gradient(135deg, #ff2e93 0%, #ff3c5a 100%);
   color: #ffffff;
-  border-color: #ff3c5a;
-  transform: scale(1.04);
-  box-shadow: 0 0 18px rgba(255, 60, 90, 0.5);
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-weight: 900;
+  font-size: 0.92rem;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #990022, 0 8px 24px rgba(255, 60, 90, 0.55);
+  transition: all 0.15s ease;
+  user-select: none;
 }
+.btn-costume-exit-fixed:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 0 #990022, 0 12px 28px rgba(255, 60, 90, 0.75);
+}
+.btn-costume-exit-fixed:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #990022;
+}
+.exit-icon { font-size: 1.1rem; font-weight: 900; }
+.exit-text { letter-spacing: -0.01em; }
 
 /* 3. [우측] 심플 슬림 커스튬 진열장 사이드바 */
 .costume-simple-sidebar {
   position: absolute;
-  top: 18px;
+  top: 72px;
   right: 20px;
   bottom: 18px;
   width: 380px;
   z-index: 15;
-  background: rgba(14, 6, 28, 0.88);
+  background: rgba(14, 6, 28, 0.90);
   backdrop-filter: blur(28px);
   border: 1.5px solid rgba(255, 255, 255, 0.14);
   border-radius: 26px;
