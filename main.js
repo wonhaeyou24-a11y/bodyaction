@@ -8111,6 +8111,24 @@ function setupCostumeRoomEvents() {
     openCostumeRoom();
   });
 
+  // 📺 커스튬 룸 TV/대화면 전체화면 토글
+  $("btnFsCostume")?.addEventListener("click", () => {
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        const txt = $("btnFsCostume")?.querySelector(".fs-text");
+        if (txt) txt.textContent = "창모드";
+      } else {
+        document.exitFullscreen().catch(() => {});
+        const txt = $("btnFsCostume")?.querySelector(".fs-text");
+        if (txt) txt.textContent = "전체화면";
+      }
+      sfx.tick();
+    } catch (e) {
+      console.warn("Fullscreen toggle error:", e);
+    }
+  });
+
   // 카테고리 탭 클릭
   document.querySelectorAll(".costume-filter-tabs .c-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
