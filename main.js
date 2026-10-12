@@ -4105,13 +4105,13 @@ games.beat = {
 
   // 🎵 [Audio-Driven Clock] 실제 오디오의 현재 재생 시점을 유일한 단일 기준 시간으로 반환
   getSongTime() {
-    if (bgmAudio && !bgmAudio.paused && !isNaN(bgmAudio.currentTime)) {
+    if (bgmAudio && !bgmAudio.paused && !isNaN(bgmAudio.currentTime) && bgmAudio.currentTime > 0) {
       return bgmAudio.currentTime;
     }
     if (this.songStartTime > 0 && actx) {
       return Math.max(0, actx.currentTime - this.songStartTime);
     }
-    return 0;
+    return Math.max(0, elapsed());
   },
 
   init() {
@@ -4188,15 +4188,20 @@ games.beat = {
     const approachTime = track.approachTime ?? 1.8;
     const horizonTime = songTime + approachTime;
 
-    // 🛡️ 시간 드리프트 보정: 탭 전환 등으로 songTime이 이미 앞서갔다면 누적된 과거 노트를 건너뜀
-    const expectedIdx = Math.floor((songTime - firstBeat) / beatSec);
-    if (this.nextBeatIdx < expectedIdx - 4) {
-      this.nextBeatIdx = Math.max(0, expectedIdx - 2);
+    // 🛡️ 시간 드리프트 및 음원 루프 자동 보정 (박자 인덱스 재동기화)
+    const expectedIdx = Math.max(0, Math.floor((songTime - firstBeat) / beatSec));
+    if (this.nextBeatIdx < expectedIdx - 3 || this.nextBeatIdx > expectedIdx + 16) {
+      this.nextBeatIdx = Math.max(0, expectedIdx - 1);
     }
 
-    // 최대 24개 박자 앞까지 미래 노트 스케줄링 (무한루프 방지 Guard)
+    // 큐브 배열이 너무 많이 쌓이지 않도록 안전 캡 유지
+    if (objs.length > 28) {
+      objs = objs.filter((o) => !o.dead && o.z < 1.25);
+    }
+
+    // 최대 16개 박자 앞까지 미래 노트 스케줄링 (무한루프 방지 Guard)
     let loopGuard = 0;
-    while (loopGuard++ < 24) {
+    while (loopGuard++ < 16) {
       // 🎵 노래의 실제 소절 박자 타임스탬프 (Beat Hit Timestamp)
       let hitTime = firstBeat + this.nextBeatIdx * beatSec;
 
@@ -4423,8 +4428,8 @@ games.beat = {
         const saber = this.sabers[handIdx];
 
         // 1. [위치 일치] 광선검 검신 선분 또는 손목이 큐브 위치에 실제로 닿았는가?
-        const isSaberTouch = saber && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 36);
-        const curWrist = this.prevWrist[handIdx];
+        const isSaberTouch = Boolean(saber && saber.base && saber.tip && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 36));
+        const curWrist = (this.prevWrist && this.prevWrist[handIdx]) || { x: W * 0.5, y: H * 0.5 };
         const wristDist = Math.hypot(curWrist.x - o.x, curWrist.y - o.y);
         const isWristTouch = wristDist < (o.r + 42);
 
@@ -4432,17 +4437,18 @@ games.beat = {
 
         if (useMouse) {
           const mDist = Math.hypot(mouse.x - o.x, mouse.y - o.y);
-          const mSaberTouch = (this.sabers[0] && segHitsCircle(this.sabers[0].base.x, this.sabers[0].base.y, this.sabers[0].tip.x, this.sabers[0].tip.y, o.x, o.y, o.r + 36)) ||
-                              (this.sabers[1] && segHitsCircle(this.sabers[1].base.x, this.sabers[1].base.y, this.sabers[1].tip.x, this.sabers[1].tip.y, o.x, o.y, o.r + 36));
+          const mSaberTouch = Boolean((this.sabers && this.sabers[0] && segHitsCircle(this.sabers[0].base.x, this.sabers[0].base.y, this.sabers[0].tip.x, this.sabers[0].tip.y, o.x, o.y, o.r + 36)) ||
+                              (this.sabers && this.sabers[1] && segHitsCircle(this.sabers[1].base.x, this.sabers[1].base.y, this.sabers[1].tip.x, this.sabers[1].tip.y, o.x, o.y, o.r + 36)));
           if (mDist < (o.r + 45) || mSaberTouch) isInPosition = true;
         }
 
         // 2. [스윙 액션] 가만히 대고 있는 것이 아닌, 실제로 칼을 휘두르는 가속도가 실렸는가?
-        const wVel = this.wristVel[handIdx];
-        const isSwinging = swing[handIdx] || wVel.spd > 6.0 || (useMouse && (swing[0] || swing[1]));
+        const wVel = (this.wristVel && this.wristVel[handIdx]) || { spd: 0 };
+        const isSwinging = Boolean(swing[handIdx] || wVel.spd > 6.0 || (useMouse && (swing[0] || swing[1])));
 
         // 3. [모멘텀 쿨다운] 제자리 뱅글뱅글 비비기 방지
-        const isCooldownOk = (now - this.lastCutT[handIdx] > 110);
+        const lastCut = (this.lastCutT && this.lastCutT[handIdx]) || 0;
+        const isCooldownOk = (now - lastCut > 110);
 
         // [A] 네온 폭탄(Bomb) 판정: 폭탄을 치면 대폭발!
         if (o.isBomb) {
@@ -4459,14 +4465,14 @@ games.beat = {
         } else {
           // [B] 일반 비트 큐브: 광선검 터치 + 스윙 액션 + 쿨다운 만족 시 통쾌한 절단!
           if (isInPosition && isSwinging && isCooldownOk) {
-            this.lastCutT[handIdx] = now;
+            if (this.lastCutT) this.lastCutT[handIdx] = now;
             o.dead = true;
             o.cut = true;
 
             // 🎵 실제 음악 박자와의 시간 오차(밀리초)에 따른 정확도 채점!
             const diffMs = Math.abs(timeRemaining) * 1000;
             const timingScore = diffMs <= 60 ? 35 : (diffMs <= 110 ? 25 : 15);
-            const speedScore = Math.min(65, Math.round(35 + wVel.spd * 3.2));
+            const speedScore = Math.min(65, Math.round(35 + (wVel.spd || 0) * 3.2));
             const centerScore = 15;
             const baseScore = speedScore + timingScore + centerScore;
             const finalScore = baseScore * this.multiplier;   // 점수는 아래 award()에서 한 번만 더해짐 (콤보도 award()가 올림)
@@ -4511,6 +4517,7 @@ games.beat = {
     objs = objs.filter((o) => !o.dead && o.z < 1.35);
 
     // 충격파 링 시뮬레이션
+    if (this.sparkRings.length > 20) this.sparkRings = this.sparkRings.slice(-15);
     for (const ring of this.sparkRings) {
       ring.r += ring.vr * dt;
       ring.life -= dt * 2.5;
@@ -4518,6 +4525,7 @@ games.beat = {
     this.sparkRings = this.sparkRings.filter((r) => r.life > 0);
 
     // 쪼개진 큐브 반쪽 파편 물리 이동 & 회전
+    if (this.halves.length > 25) this.halves = this.halves.slice(-20);
     for (const h of this.halves) {
       h.x += h.vx; h.y += h.vy; h.vy += dt * 32;
       h.rot += (h.vRot || 0) * dt * 45;
@@ -5859,221 +5867,99 @@ let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
 // 5초 레디타임(준비시간) 상태
 let isReadyTime = false;
 let readyStartTime = 0;
-let readyTimeLeft = 10.0;
-let lastReadyCount = 10;
+let readyTimeLeft = 5.0;
+let lastReadyCount = 5;
+let lastWarmupParticle = 0;
 
-// ⚡ 10초 레디타임 카운트다운 & 5단계 나노 파츠 비행 합체 변신 시퀀스 (Nano Armor Fly-In Assemble)
+// ⚡ 5초 레디타임 인터랙티브 몸풀기 카운트다운 (장착한 모든 커스튬을 입고 자유롭게 모션 동작 연습)
 function drawReadyCountdown(t, isBodyGame) {
   const cx = W / 2, cy = H * 0.44;
   const currentSec = Math.max(1, Math.ceil(t));
   const fraction = t - Math.floor(t);
-  const scale = 1.0 + Math.pow(fraction, 2) * 0.38; // 1초마다 쿵! 하고 수축하는 심장 박동 펄스
+  const scale = 1.0 + Math.pow(fraction, 2) * 0.35; // 1초마다 쿵! 하고 수축하는 심장 박동 펄스
 
   ctx.save();
 
-  // 1. 중앙 어두운 사이버 비네팅 & 포커스 링
-  const bgGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, 320);
-  bgGrad.addColorStop(0, "rgba(8, 6, 20, 0.78)");
-  bgGrad.addColorStop(0.7, "rgba(10, 8, 26, 0.60)");
+  // 1. 중앙 부드러운 네온 비네팅
+  const bgGrad = ctx.createRadialGradient(cx, cy, 20, cx, cy, 300);
+  bgGrad.addColorStop(0, "rgba(20, 8, 45, 0.65)");
+  bgGrad.addColorStop(0.7, "rgba(10, 6, 25, 0.45)");
   bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = bgGrad;
   ctx.beginPath();
-  ctx.arc(cx, cy, 320, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 300, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. 10초 원형 프로그레스 게이지 (황금 -> 시안 -> 마젠타 3단 네온 그라데이션)
-  const progress = Math.max(0, Math.min(1, (10.0 - t) / 10.0));
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 12;
+  // 2. 5초 원형 프로그레스 네온 게이지
+  const progress = Math.max(0, Math.min(1, (5.0 - t) / 5.0));
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.lineWidth = 10;
   ctx.beginPath();
-  ctx.arc(cx, cy, 125, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 110, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.strokeStyle = currentSec <= 3 ? "#ff3366" : (currentSec <= 6 ? "#00d2ff" : "#ffb800");
-  ctx.lineWidth = 12;
+  const numColor = currentSec <= 2 ? "#ff3366" : (currentSec <= 3 ? "#ffb800" : "#00d2ff");
+  ctx.strokeStyle = numColor;
+  ctx.lineWidth = 10;
   ctx.lineCap = "round";
-  ctx.shadowColor = ctx.strokeStyle;
-  ctx.shadowBlur = 24;
+  ctx.shadowColor = numColor;
+  ctx.shadowBlur = 20;
   ctx.beginPath();
-  ctx.arc(cx, cy, 125, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+  ctx.arc(cx, cy, 110, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
   ctx.stroke();
 
-  // 3. 🚀 [10초 변신 시퀀스] 실시간 나노 파츠 비행 합체 애니메이션
-  // 플레이어의 신체 위치 추출
-  const skel = getBody();
-  let headA = { x: cx, y: cy - 140 };
-  let chestA = { x: cx, y: cy + 10 };
-  let lHandA = { x: cx - 120, y: cy + 40 };
-  let rHandA = { x: cx + 120, y: cy + 40 };
-  let bootsA = { x: cx, y: cy + 180 };
-
-  if (skel && skel[0] && skel[11] && skel[12]) {
-    headA = { x: skel[0].x, y: skel[0].y - 35 };
-    chestA = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 + 25 };
-    if (skel[15]) lHandA = { x: skel[15].x, y: skel[15].y };
-    if (skel[16]) rHandA = { x: skel[16].x, y: skel[16].y };
-    if (skel[27] && skel[28]) bootsA = { x: (skel[27].x + skel[28].x) / 2, y: (skel[27].y + skel[28].y) / 2 };
-  } else if (pointers.length > 0) {
-    if (pointers[0]) lHandA = { x: pointers[0].x, y: pointers[0].y };
-    if (pointers[1]) rHandA = { x: pointers[1].x, y: pointers[1].y };
-  }
-
-  const flyPart = (fromX, fromY, toX, toY, phaseFrac, drawFn) => {
-    const p = Math.min(1, Math.max(0, phaseFrac));
-    const ease = Math.pow(p, 3); // 급가속하여 착 달라붙음
-    const curX = fromX + (toX - fromX) * ease;
-    const curY = fromY + (toY - fromY) * ease;
-    const curScale = 2.5 - 1.5 * ease;
-
-    // 비행 중 빛나는 혜성 꼬리(Trail)
-    if (p < 1) {
-      ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(fromX, fromY);
-      ctx.lineTo(curX, curY);
-      ctx.stroke();
-    }
-
-    ctx.save();
-    ctx.translate(curX, curY);
-    ctx.scale(curScale, curScale);
-    drawFn(ctx, p >= 1);
-    ctx.restore();
-
-    // 착 달라붙는 순간 충격파 링 생성
-    if (p >= 0.95 && p < 1.0) {
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(toX, toY, 35 * (1 - p) * 20, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  };
-
-  // 10초를 5단계(각 2초)로 분할하여 실제 착용 장비 아이템이 화면 밖에서 회전하며 날아와 순차 결합!
-  let stepText = "⚡ STEP 1: 신발/슬리퍼 합체 중...";
-  let stepColor = "#ffb800";
-
-  // 현재 착용 중인 아이템 객체 도출 (없으면 친근한 기본 파츠)
-  const getSlotItem = (slot, defId) => {
-    const id = equippedCostume[slot] || defId;
-    return COSTUME_ITEMS[id] || { icon: "✨", name: "나노 파츠", color: "#00d2ff" };
-  };
-
-  const itemFeet = getSlotItem("feet", "feet_slippers");
-  const itemLegs = getSlotItem("legs", "legs_disco_pants");
-  const itemBody = getSlotItem("body", "body_rainbow_tee");
-  const itemHand = getSlotItem("hand", "hand_rubber_gloves");
-  const itemHead = getSlotItem("head", "head_poop");
-  const itemFace = getSlotItem("face", "face_mustache");
-
-  if (t > 8) {
-    // 1단계 (10초~8초): 신발 / 슬리퍼
-    const frac = (10 - t) / 2.0;
-    stepText = `⚡ STEP 1/5: [${itemFeet.name}] 발로 날아오는 중!`;
-    stepColor = "#ffb800";
-    flyPart(-80, H + 80, bootsA.x, bootsA.y, frac, (c) => {
-      c.font = "bold 34px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.rotate(frac * 8);
-      c.fillText(itemFeet.icon, 0, 0);
-    });
-  } else if (t > 6) {
-    // 2단계 (8초~6초): 하의 / 바지
-    const frac = (8 - t) / 2.0;
-    stepText = `⚡ STEP 2/5: [${itemLegs.name}] 하체에 합체!`;
-    stepColor = "#00d2ff";
-    flyPart(W + 100, H * 0.7, cx, cy + 90, frac, (c) => {
-      c.font = "bold 34px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.rotate(-frac * 6);
-      c.fillText(itemLegs.icon, 0, 0);
-    });
-  } else if (t > 4) {
-    // 3단계 (6초~4초): 상의 / 티셔츠 / 날개
-    const frac = (6 - t) / 2.0;
-    stepText = `⚡ STEP 3/5: [${itemBody.name}] 가슴으로 결합!`;
-    stepColor = "#e1037d";
-    flyPart(-120, -50, chestA.x, chestA.y, frac, (c) => {
-      c.font = "bold 40px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.rotate(frac * 7);
-      c.fillText(itemBody.icon, 0, 0);
-    });
-  } else if (t > 2) {
-    // 4단계 (4초~2초): 양손 건틀렛 / 장갑 / 무기
-    const frac = (4 - t) / 2.0;
-    stepText = `⚡ STEP 4/5: [${itemHand.name}] 양손에 장착!`;
-    stepColor = "#22c55e";
-    flyPart(-120, cy, lHandA.x, lHandA.y, frac, (c) => {
-      c.font = "bold 34px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.fillText(itemHand.icon, 0, 0);
-    });
-    flyPart(W + 120, cy, rHandA.x, rHandA.y, frac, (c) => {
-      c.font = "bold 34px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.fillText(itemHand.icon, 0, 0);
-    });
-  } else {
-    // 5단계 (2초~0초): 콧수염 & 모자 / 왕관
-    const frac = (2 - t) / 2.0;
-    stepText = `⚡ FINAL STEP: [${itemHead.name}] & [${itemFace.name}] 안착 완료!`;
-    stepColor = "#ffd700";
-    flyPart(cx, -140, headA.x, headA.y, frac, (c) => {
-      c.font = "bold 42px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.rotate(Math.sin(frac * 10) * 0.3);
-      c.fillText(`${itemHead.icon} ${itemFace.icon}`, 0, 0);
-    });
-  }
-
-  // 4. 상단 READY 라벨 & 합체 단계 텍스트
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.shadowBlur = 14;
-  ctx.shadowColor = "#ffb800";
-  ctx.fillStyle = "#ffb800";
-  ctx.font = "900 24px 'Rubik', sans-serif";
-  ctx.fillText("⚡ NANO ARMOR ASSEMBLE · 10초 합체 변신", cx, cy - 165);
-
-  ctx.shadowColor = stepColor;
-  ctx.fillStyle = stepColor;
-  ctx.font = "800 17px 'Rubik', sans-serif";
-  ctx.fillText(stepText, cx, cy - 135);
-
-  // 5. 거대한 펄스 카운트다운 숫자
+  // 3. 중앙 대형 펄스 숫자
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
-  ctx.shadowBlur = 40;
-  const numColor = currentSec <= 3 ? "#ff3366" : (currentSec <= 6 ? "#00d2ff" : "#ffb800");
+  ctx.shadowBlur = 35;
   ctx.shadowColor = numColor;
   ctx.fillStyle = numColor;
-  ctx.font = "900 118px 'Rubik', sans-serif";
-  ctx.fillText(currentSec, 0, 8);
+  ctx.font = "900 110px 'Rubik', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(currentSec, 0, 6);
   ctx.restore();
 
-  // 6. 하단 동작 준비 안내 가이드
+  // 4. 상단 흥겨운 모션 안내 타이틀
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.shadowBlur = 12;
-  ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-  ctx.font = "700 21px sans-serif";
+  ctx.shadowColor = "#ffb800";
+  ctx.fillStyle = "#ffb800";
+  ctx.font = "900 24px 'Rubik', sans-serif";
+  ctx.fillText("🕺 READY! 신나게 몸을 풀어보세요!", cx, cy - 150);
+
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = "#00d2ff";
+  ctx.fillStyle = "#a5e7ff";
+  ctx.font = "800 16px 'Rubik', sans-serif";
+  ctx.fillText("카메라 앞에서 팔을 흔들거나 스트레칭해 보세요 ✨", cx, cy - 120);
+
+  // 5. 모션 동작 감지 시 반짝이 파티클 인터랙션 (재미있는 몸풀기 피드백)
+  const now = performance.now();
+  if (now - lastWarmupParticle > 120) {
+    lastWarmupParticle = now;
+    pointers.forEach((p) => {
+      if (p.speed > 8) {
+        burst(p.x, p.y, ["#ffd700", "#00d2ff", "#ff0077", "#00ffaa"][(Math.random() * 4) | 0], 6);
+      }
+    });
+  }
+
+  // 6. 하단 본 게임 카운트다운 안내
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+  ctx.font = "700 18px sans-serif";
   ctx.fillStyle = "#ffffff";
   const guideText = isBodyGame
-    ? "카메라 앞에서 물러서서 나노 파츠가 합체되는 모습을 감상하세요!"
-    : "카메라를 향해 손을 뻗어 출격 준비 자세를 취하세요!";
-  ctx.fillText(guideText, cx, cy + 165);
+    ? "멋진 커스튬을 입고 자유롭게 움직여 보세요!"
+    : "손을 움직여 조준선과 반응성을 체크해 보세요!";
+  ctx.fillText(guideText, cx, cy + 145);
 
-  ctx.font = "600 16px sans-serif";
+  ctx.font = "600 15px sans-serif";
   ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-  ctx.fillText(`${currentSec}초 후 최고 전투 모드로 본 게임이 시작됩니다!`, cx, cy + 196);
+  ctx.fillText(`${currentSec}초 후 게임이 시작됩니다!`, cx, cy + 172);
 
   ctx.restore();
 }
@@ -6178,9 +6064,9 @@ function frame(now) {
   drawBackground(g?.bg ?? "#1b1b2f", g?.camAlpha);
   if (playing && g) {
     if (isReadyTime) {
-      // ⚡ 10초 레디타임(준비시간) 실제 시간(Wall-clock) 100% 동기화 (나노 파츠 비행 합체 변신 시간)
+      // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 실제 시간 100% 동기화
       const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
-      readyTimeLeft = Math.max(0, 10.0 - elapsedReady);
+      readyTimeLeft = Math.max(0, 5.0 - elapsedReady);
       const curCount = Math.max(1, Math.ceil(readyTimeLeft));
       if (curCount !== lastReadyCount) {
         lastReadyCount = curCount;
@@ -6304,11 +6190,11 @@ function startGame(m, opts = {}) {
   if (stageWave) { stageWave.textContent = "WAVE 1"; stageWave.classList.remove("fever"); }
   document.body.classList.add("playing");
 
-  // ⚡ 10초 레디타임(준비시간 & 5단계 나노 합체 변신) 가동
+  // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 가동
   isReadyTime = true;
   readyStartTime = performance.now();
-  readyTimeLeft = 10.0;
-  lastReadyCount = 10;
+  readyTimeLeft = 5.0;
+  lastReadyCount = 5;
   sfx.countdown(false); // 첫 카운트다운 톤
   speak(INTRO[m], true); // 게임 설명/안내 음성 발화
   warned10 = false;
@@ -8537,16 +8423,8 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
 
     if (!chestAnchor && !headAnchor) return;
 
-    // ⚡ [10초 변신 시퀀스] 레디타임 중에는 도킹 완료된 파츠만 순차 노출 (변신 연출 극대화)
-    const isSlotReady = (slot) => {
-      if (!isReadyTime || isCostumeRoomOpen) return true;
-      if (slot === "feet") return readyTimeLeft <= 8.0;
-      if (slot === "legs") return readyTimeLeft <= 6.0;
-      if (slot === "body" || slot === "back") return readyTimeLeft <= 4.0;
-      if (slot === "hand") return readyTimeLeft <= 2.0;
-      if (slot === "face" || slot === "head" || slot === "aura") return readyTimeLeft <= 1.5;
-      return true;
-    };
+    // 👗 장착한 모든 커스튬 파츠는 레디타임 시작부터 100% 온전히 착용한 채로 노출
+    const isSlotReady = () => true;
 
     // 1. 오라 (가장 뒷면 레이어)
     if (equippedCostume.aura && isSlotReady("aura")) {
