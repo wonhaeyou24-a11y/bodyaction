@@ -1938,217 +1938,270 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 .guide-card .online-actions .primary { flex: 1; }
 
 /* ============================================================================
-   👗 Stitch 기반 모션 캐릭터 커스튬 & 나노 슈트업 드레스룸 스타일 (Kinetic Arcade Party)
+   👗 가상 피팅 룸 (전체화면 웹캠 미러 + 우측 심플 진열장 사이드바)
    ============================================================================ */
-/* 1. 상단 허브 커스튬 룸 젤리 버튼 */
-.costume-room-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #e1037d 0%, #00d2ff 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 4px 0 #850047, 0 8px 20px rgba(225, 3, 125, 0.4);
-  color: #ffffff;
-  font-family: var(--font-display, 'Rubik', sans-serif);
-  font-weight: 800;
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  user-select: none;
-}
-.costume-room-pill:hover {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow: 0 6px 0 #850047, 0 12px 26px rgba(0, 210, 255, 0.5);
-}
-.costume-room-pill:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #850047, 0 4px 10px rgba(0, 210, 255, 0.3);
-}
-.costume-btn-icon { font-size: 1.15rem; }
-.costume-btn-sparkle { font-size: 0.9rem; animation: pulseSparkle 1.4s infinite ease-in-out; }
-@keyframes pulseSparkle {
-  0%, 100% { opacity: 0.6; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.3) rotate(20deg); }
-}
-
-/* 2. 커스튬 룸 전체 화면 오버레이 (100% 완전 풀스크린 몰입형 뷰) */
 .costume-room-backdrop {
   position: fixed;
   inset: 0;
   z-index: 120;
-  background: radial-gradient(circle at 50% 30%, rgba(30, 16, 52, 0.98) 0%, rgba(10, 4, 24, 1) 100%);
-  backdrop-filter: blur(28px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeInModal 0.25s ease-out;
-}
-.costume-room-container {
-  width: 100vw;
-  max-width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
-  background: rgba(14, 6, 28, 0.95);
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
+  background: #000000;
   overflow: hidden;
+  display: block;
+  animation: fadeInModal 0.2s ease-out;
 }
 
-/* 헤더 */
-.costume-header {
+/* 1. 전체화면 꽉 찬 플레이어 신체 인식 미러 뷰포트 */
+.costume-fullscreen-viewport {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  overflow: hidden;
+  background: #0a0514;
+}
+
+#costumeCanvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 홀로그램 드래그 고스트 */
+.costume-drag-ghost {
+  position: absolute;
+  pointer-events: none;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 18px rgba(0, 210, 255, 0.9));
+}
+.costume-drag-ghost span {
+  font-size: 3.2rem;
+  animation: floatGhost 1s infinite alternate ease-in-out;
+}
+.costume-drag-ghost small {
+  background: rgba(0, 210, 255, 0.95);
+  color: #002233;
+  font-weight: 900;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  margin-top: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+@keyframes floatGhost {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px); }
+}
+
+/* 2. 상단 미니멀 플로팅 헤더 바 */
+.costume-floating-top {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  right: 420px;
+  z-index: 15;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(16, 6, 36, 0.75);
-  gap: 14px;
-  flex-shrink: 0;
+  background: rgba(14, 7, 28, 0.78);
+  backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 8px 18px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(0, 210, 255, 0.1);
+  gap: 12px;
 }
-.costume-title-group {
+
+.cft-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
-.costume-brand-icon {
-  font-size: 2rem;
-  background: rgba(0, 210, 255, 0.15);
-  padding: 6px 10px;
-  border-radius: 18px;
-  border: 1px solid rgba(0, 210, 255, 0.4);
-}
-.costume-title {
-  margin: 0;
+
+.cft-logo {
   font-family: var(--font-display, 'Rubik', sans-serif);
-  font-size: 1.35rem;
-  font-weight: 900;
+  font-size: 1.05rem;
   color: #fff;
+  white-space: nowrap;
   letter-spacing: -0.01em;
+}
+.cft-logo b {
   background: linear-gradient(90deg, #a5e7ff 0%, #ffb0c9 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.costume-subtitle {
-  margin: 3px 0 0;
-  font-size: 0.82rem;
-  color: var(--text-dim, #bbc9cf);
-}
+
 .costume-gesture-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 6px 14px;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 210, 255, 0.3);
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  white-space: nowrap;
 }
-.hint-pill { font-size: 0.8rem; color: #ecdcff; }
+.hint-pill { font-size: 0.76rem; color: #ecdcff; }
 .hint-pill b { color: #00d2ff; }
-.hint-arrow { color: #ffb800; font-size: 0.85rem; font-weight: 900; }
 
-.btn-costume-fs {
+.cft-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-costume-tool {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 16px;
+  padding: 6px 14px;
   border-radius: 999px;
-  border: 1.5px solid rgba(0, 210, 255, 0.5);
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.22), rgba(168, 85, 247, 0.18));
-  color: #00d2ff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
   font-family: var(--font-display, 'Rubik', sans-serif);
   font-weight: 800;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 0 14px rgba(0, 210, 255, 0.3);
 }
-.btn-costume-fs:hover {
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.38), rgba(168, 85, 247, 0.3));
+.btn-costume-tool:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: #00d2ff;
   transform: translateY(-1px);
-  box-shadow: 0 0 20px rgba(0, 210, 255, 0.55);
+}
+
+.btn-fs-pill {
+  border-color: rgba(0, 210, 255, 0.45);
+  background: linear-gradient(135deg, rgba(0, 210, 255, 0.15), rgba(168, 85, 247, 0.15));
+  color: #00d2ff;
+}
+.btn-fs-pill:hover {
+  background: linear-gradient(135deg, rgba(0, 210, 255, 0.35), rgba(168, 85, 247, 0.25));
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.4);
 }
 
 .btn-costume-close {
-  padding: 7px 18px;
+  padding: 6px 16px;
   border-radius: 999px;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1.5px solid rgba(255, 60, 90, 0.5);
+  background: rgba(255, 60, 90, 0.18);
+  color: #ffb0c0;
   font-family: var(--font-display, 'Rubik', sans-serif);
   font-weight: 800;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .btn-costume-close:hover {
-  background: rgba(255, 60, 90, 0.3);
+  background: #ff3c5a;
+  color: #ffffff;
   border-color: #ff3c5a;
   transform: scale(1.04);
+  box-shadow: 0 0 18px rgba(255, 60, 90, 0.5);
 }
 
-/* 3열 레이아웃 바디: 중앙 피팅 거울이 초대형으로 화면을 장악 */
-.costume-body {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 310px 1fr 310px;
-  gap: 16px;
-  padding: 12px 18px;
-  overflow: hidden;
-  height: calc(100vh - 68px);
-}
-
-/* [좌측] 진열장 컬럼 */
-.costume-shelf-col {
+/* 3. [우측] 심플 슬림 커스튬 진열장 사이드바 */
+.costume-simple-sidebar {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  bottom: 18px;
+  width: 380px;
+  z-index: 15;
+  background: rgba(14, 6, 28, 0.88);
+  backdrop-filter: blur(28px);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 26px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  background: rgba(20, 8, 40, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 16px;
+  gap: 12px;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(168, 85, 247, 0.15);
   overflow: hidden;
 }
-.shelf-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.shelf-tag {
-  background: rgba(255, 184, 0, 0.2);
-  color: #ffb800;
-  font-size: 0.68rem;
-  font-weight: 900;
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 184, 0, 0.4);
+
+.css-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
-.shelf-title { margin: 0; font-size: 1rem; color: #fff; font-family: var(--font-display, 'Rubik', sans-serif); font-weight: 800; }
+.css-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.css-badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #00d2ff;
+  text-transform: uppercase;
+}
+.css-title {
+  margin: 0;
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #ffffff;
+}
+.css-count-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 210, 255, 0.15);
+  color: #a5e7ff;
+  border: 1px solid rgba(0, 210, 255, 0.35);
+}
+
+/* 카테고리 필터 탭 (슬림 가로 스크롤 & 랩) */
 .costume-filter-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
+  max-height: 80px;
+  overflow-y: auto;
+  padding-bottom: 2px;
 }
+.costume-filter-tabs::-webkit-scrollbar { width: 3px; }
+.costume-filter-tabs::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 6px; }
+
 .c-tab {
   padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #bbc9cf;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.12s;
+  white-space: nowrap;
 }
-.c-tab:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.c-tab:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
 .c-tab.active {
-  background: #00d2ff;
-  color: #002633;
+  background: linear-gradient(135deg, #00d2ff 0%, #0088ff 100%);
+  color: #ffffff;
   border-color: #00d2ff;
-  box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.5);
   font-weight: 900;
 }
-.costume-item-grid {
+
+/* 아이템 그리드 리스트 */
+.costume-item-grid.simple-grid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2157,60 +2210,57 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   padding-right: 4px;
 }
 .costume-item-grid::-webkit-scrollbar { width: 5px; }
-.costume-item-grid::-webkit-scrollbar-thumb { background: rgba(0, 210, 255, 0.3); border-radius: 10px; }
+.costume-item-grid::-webkit-scrollbar-thumb { background: rgba(0, 210, 255, 0.35); border-radius: 10px; }
 
 /* 개별 커스튬 아이템 카드 */
 .costume-card {
-  background: rgba(30, 16, 53, 0.7);
+  background: rgba(25, 12, 45, 0.75);
   border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  padding: 12px 10px;
+  border-radius: 16px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  cursor: grab;
+  cursor: pointer;
   position: relative;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
   user-select: none;
 }
 .costume-card:hover {
-  transform: translateY(-3px) scale(1.02);
+  transform: translateY(-2px);
   border-color: #00d2ff;
-  box-shadow: 0 8px 20px rgba(0, 210, 255, 0.25);
+  box-shadow: 0 6px 18px rgba(0, 210, 255, 0.3);
+  background: rgba(35, 18, 62, 0.9);
 }
 .costume-card.equipped {
   border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
-  box-shadow: 0 0 14px rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.14);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.35);
 }
-.costume-card.locked {
-  opacity: 0.55;
-  filter: grayscale(0.5);
-  cursor: not-allowed;
-}
+
 .card-tier-badge {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 900;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
 }
 .tier-legend { background: #ffb800; color: #3b2a00; }
 .tier-hero { background: #e1037d; color: #fff; }
 .tier-rare { background: #00d2ff; color: #003040; }
-.tier-common { background: rgba(255, 255, 255, 0.25); color: #fff; }
+.tier-common { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
 .costume-card-icon {
   font-size: 2.2rem;
-  margin: 6px 0 4px;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+  margin: 6px 0 2px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
   transition: transform 0.15s;
 }
-.costume-card:hover .costume-card-icon { transform: scale(1.15) rotate(-3deg); }
+.costume-card:hover .costume-card-icon {
+  transform: scale(1.15) rotate(-3deg);
+}
 .costume-card-name {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: #fff;
   margin-bottom: 2px;
@@ -2220,294 +2270,43 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   width: 100%;
 }
 .costume-card-desc {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: var(--text-dim, #bbc9cf);
   line-height: 1.25;
   height: 2.5em;
   overflow: hidden;
 }
 .costume-card-status {
-  margin-top: 6px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-.costume-card.equipped .costume-card-status { background: #22c55e; color: #022b10; }
-.shelf-footer-note {
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(255, 184, 0, 0.1);
-  border: 1px dashed rgba(255, 184, 0, 0.3);
-  font-size: 0.72rem;
-  color: #ffdea8;
-  line-height: 1.35;
-}
-
-/* [중앙] 피팅 미러 컬럼 */
-.costume-mirror-col {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  background: #000;
-  border-radius: 28px;
-  overflow: hidden;
-  border: 2px solid rgba(0, 210, 255, 0.4);
-  box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
-}
-.nano-charge-dock {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  width: min(90%, 460px);
-  background: rgba(20, 8, 40, 0.88);
-  border: 1.5px solid #00d2ff;
-  border-radius: 20px;
-  padding: 10px 18px;
-  box-shadow: 0 10px 30px rgba(0, 210, 255, 0.4);
-  text-align: center;
-}
-.nc-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--font-display, 'Rubik', sans-serif);
-  font-weight: 900;
-  font-size: 0.88rem;
-  color: #fff;
-  margin-bottom: 6px;
-}
-.nc-percent { color: #ffb800; }
-.nc-bar-track {
-  width: 100%;
-  height: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.nc-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #00d2ff, #ff2e93, #ffb800);
-  box-shadow: 0 0 12px #ff2e93;
-  transition: width 0.08s linear;
-}
-.nc-hint { margin: 6px 0 0; font-size: 0.74rem; color: #a5e7ff; font-weight: 700; }
-
-.mirror-canvas-wrapper {
-  flex: 1;
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-#costumeCanvas {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-/* 홀로그램 드래그 고스트 */
-.costume-drag-ghost {
-  position: absolute;
-  pointer-events: none;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 16px rgba(0, 210, 255, 0.8));
-}
-.costume-drag-ghost span { font-size: 3.2rem; animation: floatGhost 1s infinite alternate ease-in-out; }
-.costume-drag-ghost small {
-  background: rgba(0, 210, 255, 0.9);
-  color: #002233;
-  font-weight: 900;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.75rem;
   margin-top: 4px;
-}
-@keyframes floatGhost {
-  from { transform: translateY(0); }
-  to { transform: translateY(-8px); }
-}
-
-.mirror-footer-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  background: rgba(17, 7, 38, 0.85);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  gap: 10px;
-}
-.mfs-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
-  color: #ecdcff;
-}
-.mfs-chip b { color: #fff; }
-.dot-green { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-.dot-cyan { width: 8px; height: 8px; border-radius: 50%; background: #00d2ff; box-shadow: 0 0 8px #00d2ff; }
-.btn-costume-snap {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1.5px solid #ffb800;
-  background: rgba(255, 184, 0, 0.2);
-  color: #ffdea8;
-  font-family: var(--font-display, 'Rubik', sans-serif);
-  font-weight: 800;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-costume-snap:hover {
-  background: #ffb800;
-  color: #382400;
-  box-shadow: 0 0 16px rgba(255, 184, 0, 0.6);
-  transform: scale(1.05);
-}
-
-/* [우측] 사이드 컬럼 (나노 변신 & 버디 아바타 & 슬롯) */
-.costume-side-col {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-}
-.costume-side-col::-webkit-scrollbar { width: 4px; }
-.costume-side-col::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
-
-/* ⚡ 아이언맨 나노 변신 카드 */
-.card-nano-transform {
-  background: linear-gradient(135deg, rgba(225, 3, 125, 0.25) 0%, rgba(25, 11, 48, 0.6) 100%);
-  border: 1.5px solid rgba(225, 3, 125, 0.5);
-  border-radius: 20px;
-  padding: 14px;
-  box-shadow: 0 8px 24px rgba(225, 3, 125, 0.2);
-}
-.cnt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.cnt-badge {
-  background: #ff2e93;
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 900;
-  padding: 2px 7px;
-  border-radius: 6px;
-}
-.card-nano-transform h4 { margin: 0; font-size: 0.95rem; color: #fff; font-family: var(--font-display, 'Rubik', sans-serif); }
-.cnt-desc { margin: 0 0 10px; font-size: 0.72rem; color: #ffb0c9; line-height: 1.35; }
-.btn-nano-instant {
-  width: 100%;
-  padding: 10px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
-  background: linear-gradient(90deg, #ff2e93, #e1037d);
-  box-shadow: 0 4px 0 #8e004c, 0 6px 18px rgba(255, 46, 147, 0.4);
-  color: #fff;
-  font-family: var(--font-display, 'Rubik', sans-serif);
-  font-weight: 900;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s;
-}
-.btn-nano-instant:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #8e004c, 0 10px 24px rgba(255, 46, 147, 0.6); }
-.btn-nano-instant:active { transform: translateY(2px); box-shadow: 0 1px 0 #8e004c; }
-
-/* 🤖 나를 따라 움직이는 미니 버디 아바타 */
-.card-avatar-buddy {
-  background: rgba(20, 8, 40, 0.65);
-  border: 1.5px solid rgba(0, 210, 255, 0.35);
-  border-radius: 20px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-}
-.buddy-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.buddy-title-wrap { display: flex; align-items: center; gap: 6px; }
-.buddy-avatar-dot { width: 8px; height: 8px; border-radius: 50%; background: #00d2ff; box-shadow: 0 0 8px #00d2ff; }
-.card-avatar-buddy h4 { margin: 0; font-size: 0.9rem; color: #fff; font-family: var(--font-display, 'Rubik', sans-serif); }
-.buddy-mood {
   font-size: 0.65rem;
   font-weight: 800;
-  padding: 2px 7px;
+  padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(0, 210, 255, 0.2);
-  color: #a5e7ff;
-}
-.buddy-viewport {
-  position: relative;
-  width: 100%;
-  height: 180px;
-  background: radial-gradient(circle, rgba(0, 210, 255, 0.1) 0%, rgba(10, 4, 25, 0.8) 100%);
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#buddyCanvas { width: 100%; height: 100%; display: block; }
-.buddy-bubble {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.75);
-  border: 1px solid rgba(0, 210, 255, 0.4);
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
-  color: #fff;
-  text-align: center;
-  pointer-events: none;
-  animation: floatBubble 2s infinite ease-in-out;
-}
-@keyframes floatBubble {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
-.buddy-caption { margin: 8px 0 0; font-size: 0.68rem; color: var(--text-dim, #bbc9cf); text-align: center; }
-
-/* 🎒 현재 착용 장비 슬롯 */
-.card-equipped-slots {
-  background: rgba(20, 8, 40, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 12px;
-}
-.ces-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.card-equipped-slots h4 { margin: 0; font-size: 0.85rem; color: #fff; font-family: var(--font-display, 'Rubik', sans-serif); }
-.btn-unequip-all {
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.08);
-  color: #ffdad6;
-  font-size: 0.68rem;
-  cursor: pointer;
+  white-space: nowrap;
 }
-.btn-unequip-all:hover { background: rgba(255, 60, 60, 0.3); border-color: #ff3c3c; }
-.equipped-slots-grid { display: grid; gap: 6px; }
-.eq-slot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.75rem;
+
+/* 모바일 및 작은 화면 반응형 대응 */
+@media (max-width: 900px) {
+  .costume-floating-top {
+    right: 20px;
+    top: 12px;
+    left: 12px;
+    padding: 6px 12px;
+  }
+  .costume-simple-sidebar {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    height: 280px;
+    border-radius: 20px;
+    padding: 12px;
+  }
+  .costume-filter-tabs { max-height: 40px; }
+  .costume-gesture-hint { display: none; }
 }
-.slot-name { font-weight: 800; color: #bbc9cf; }
-.slot-val { color: #fff; font-weight: 700; }
-.slot-val.has-item { color: #00d2ff; font-weight: 900; }
 
 /* 3. 🎁 1~3등 커스튬 파츠 획득 결과 모달 카드 */
 .result-costume-reward {

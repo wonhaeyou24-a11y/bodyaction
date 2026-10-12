@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261012_0340">
+<link rel="stylesheet" href="style.css?v=20261012_0600">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -949,176 +949,73 @@
 </div>
 
 <!-- ============================================================================
-     👗 모션 캐릭터 커스튬 & 나노 슈트업 드레스룸 (Costume & Virtual Fitting Room)
+     👗 모션 캐릭터 커스튬 가상 피팅 룸 (심플 전체화면 미러 & 우측 진열장)
      ============================================================================ -->
 <div id="costumeRoom" class="costume-room-backdrop hidden">
-  <div class="costume-room-container">
-    <!-- 1. 헤더 바 -->
-    <header class="costume-header">
-      <div class="costume-title-group">
-        <div class="costume-brand-icon">⚡👗</div>
-        <div>
-          <h2 class="costume-title">NANO COSTUME & VIRTUAL DRESSING ROOM</h2>
-          <p class="costume-subtitle">모션인식 가상 피팅 룸 • 손을 뻗어 진열된 옷을 입고 나노 히어로로 변신하세요!</p>
-        </div>
-      </div>
-      <div class="costume-gesture-hint">
-        <span class="hint-pill">✊ <b>주먹</b>으로 아이템 집기</span>
-        <span class="hint-arrow">➔</span>
-        <span class="hint-pill">✋ <b>몸</b>에 대고 <b>손 펴서</b> 착용!</span>
-      </div>
+  <!-- 1. 전체화면 꽉 찬 플레이어 신체 인식 미러 캔버스 -->
+  <div class="costume-fullscreen-viewport">
+    <canvas id="costumeCanvas"></canvas>
+    <!-- 드래그 중인 아이템 홀로그램 플로팅 프리뷰 -->
+    <div id="dragGhost" class="costume-drag-ghost hidden">
+      <span id="dragGhostIcon">👑</span>
+      <small id="dragGhostLabel">아이템 잡는 중</small>
+    </div>
+  </div>
+
+  <!-- 2. 상단 미니멀 플로팅 헤더 바 -->
+  <header class="costume-floating-top">
+    <div class="cft-left">
+      <span class="cft-logo">👗 <b>가상 피팅 룸</b></span>
       <div class="costume-wallet-pill" title="현재 보유 중인 코인">
         <span class="wallet-icon">🪙</span>
         <span class="wallet-label">보유:</span>
         <b id="costumePlayerCoins" class="wallet-val">0</b>
       </div>
-      <button id="btnFsCostume" class="btn-costume-fs" title="TV/대화면 모니터 전체화면 토글 (F11)">
+      <div class="costume-gesture-hint">
+        <span class="hint-pill">클릭하거나 ✊<b>주먹</b>으로 끌어와 착용!</span>
+      </div>
+    </div>
+    <div class="cft-right">
+      <button id="btnUnequipAll" class="btn-costume-tool" type="button" title="모든 장비 벗기">🧹 모두 벗기</button>
+      <button id="btnCostumePhoto" class="btn-costume-tool" type="button" title="내 모습 사진 찍기">📸 사진 촬영</button>
+      <button id="btnFsCostume" class="btn-costume-tool btn-fs-pill" type="button" title="TV/모니터 전체화면 토글 (F11)">
         <span class="fs-icon">📺</span>
         <span class="fs-text">전체화면</span>
       </button>
-      <button id="btnCloseCostume" class="btn-costume-close" title="커스튬 룸 닫기 (메인으로)">✕ 나가기</button>
-    </header>
+      <button id="btnCloseCostume" class="btn-costume-close" type="button" title="피팅 룸 나가기">✕ 나가기</button>
+    </div>
+  </header>
 
-    <!-- 2. 메인 바디 (3열 레이아웃: 좌측 진열장 | 중앙 웹캠 미러 캔버스 | 우측 변신/버디 패널) -->
-    <main class="costume-body">
-      <!-- [좌측] 3D 홀로그램 진열장 선반 (Showcase Shelves) -->
-      <aside class="costume-shelf-col">
-        <div class="shelf-header">
-          <span class="shelf-tag">SHOWCASE</span>
-          <h3 class="shelf-title">보유 커스튬 진열장</h3>
-        </div>
+  <!-- 3. [우측] 심플 슬림 커스튬 진열장 사이드바 -->
+  <aside class="costume-simple-sidebar">
+    <div class="css-header">
+      <div class="css-title-wrap">
+        <span class="css-badge">STORE & CLOSET</span>
+        <h3 class="css-title">내 커스튬 진열장</h3>
+      </div>
+      <span class="css-count-tag">터치/클릭 즉시 착용</span>
+    </div>
 
-        <!-- 부위별 카테고리 필터 탭 -->
-        <nav class="costume-filter-tabs">
-          <button class="c-tab active" data-slot="all">전체 (ALL)</button>
-          <button class="c-tab" data-slot="face">🥸 콧수염/안경</button>
-          <button class="c-tab" data-slot="head">👑 모자/탈</button>
-          <button class="c-tab" data-slot="hand">🧤 장갑/무기</button>
-          <button class="c-tab" data-slot="body">👕 티셔츠/상의</button>
-          <button class="c-tab" data-slot="legs">🩳 바지/팬티</button>
-          <button class="c-tab" data-slot="feet">🩴 신발/슬리퍼</button>
-          <button class="c-tab" data-slot="back">🪽 날개/가방</button>
-          <button class="c-tab" data-slot="aura">🌟 오라/이펙트</button>
-        </nav>
+    <!-- 부위별 심플 카테고리 탭 -->
+    <nav class="costume-filter-tabs">
+      <button class="c-tab active" data-slot="all">전체</button>
+      <button class="c-tab" data-slot="face">🥸 콧수염</button>
+      <button class="c-tab" data-slot="head">👑 모자</button>
+      <button class="c-tab" data-slot="hand">🧤 장갑/무기</button>
+      <button class="c-tab" data-slot="body">👕 티셔츠</button>
+      <button class="c-tab" data-slot="legs">🩳 바지</button>
+      <button class="c-tab" data-slot="feet">🩴 신발</button>
+      <button class="c-tab" data-slot="back">🪽 날개/가방</button>
+      <button class="c-tab" data-slot="aura">🌟 오라</button>
+    </nav>
 
-        <!-- 진열장 아이템 그리드 리스트 (main.js에서 동적 렌더링) -->
-        <div id="costumeItemList" class="costume-item-grid">
-          <!-- 동적 주입 -->
-        </div>
-
-        <div class="shelf-footer-note">
-          <span>💡 1등~3등 달성 시 해당 게임의 전설/영웅 파츠가 자동 지급됩니다!</span>
-        </div>
-      </aside>
-
-      <!-- [중앙] 실시간 웹캠 피팅 미러 스테이지 -->
-      <section class="costume-mirror-col">
-        <!-- 나노 변신 차징 오버레이 바 -->
-        <div id="nanoChargeWrap" class="nano-charge-dock hidden">
-          <div class="nc-header">
-            <span class="nc-icon">⚡</span>
-            <span id="ncStatusText" class="nc-status">NANO SUIT-UP CHARGING...</span>
-            <span id="ncPercent" class="nc-percent">0%</span>
-          </div>
-          <div class="nc-bar-track">
-            <div id="ncBarFill" class="nc-bar-fill" style="width: 0%;"></div>
-          </div>
-          <p id="ncHintText" class="nc-hint">가슴 앞에 두 손을 모아 에너지를 차징하세요!</p>
-        </div>
-
-        <div class="mirror-canvas-wrapper">
-          <canvas id="costumeCanvas"></canvas>
-          <!-- 드래그 중인 아이템 홀로그램 플로팅 프리뷰 -->
-          <div id="dragGhost" class="costume-drag-ghost hidden">
-            <span id="dragGhostIcon">👑</span>
-            <small id="dragGhostLabel">아이템 잡는 중</small>
-          </div>
-        </div>
-
-        <!-- 하단 피팅 가이드 티커 -->
-        <div class="mirror-footer-strip">
-          <div class="mfs-chip"><span class="dot-green"></span> <b>실시간 앵커링</b> 머리 • 가슴 • 손목 • 등</div>
-          <div class="mfs-chip"><span class="dot-cyan"></span> <b>마그네틱 스냅</b> 근처에 가면 착! 달라붙음</div>
-          <button id="btnCostumePhoto" class="btn-costume-snap" type="button">📸 히어로 포토 찰칵!</button>
-        </div>
-      </section>
-
-      <!-- [우측] 나노 슈트업 변신 & 나를 따라하는 미니 버디 아바타 패널 -->
-      <aside class="costume-side-col">
-        <!-- ⚡ 아이언맨 나노 변신 모듈 -->
-        <div class="card-nano-transform">
-          <div class="cnt-header">
-            <span class="cnt-badge">HERO MODE</span>
-            <h4>⚡ 아이언맨 나노 슈트업</h4>
-          </div>
-          <p class="cnt-desc">가슴에 두 손을 모아 차징 후, 양팔을 활짝 벌리면 5단계 나노 변신이 발동합니다!</p>
-          <div class="cnt-buttons">
-            <button id="btnTriggerNanoSuit" class="btn-nano-instant" type="button">💥 즉시 나노 변신 실행</button>
-          </div>
-        </div>
-
-        <!-- 🤖 나를 따라 움직이는 미니 버디 아바타 (Kinematic Mini Buddy) -->
-        <div class="card-avatar-buddy">
-          <div class="buddy-header">
-            <div class="buddy-title-wrap">
-              <span class="buddy-avatar-dot"></span>
-              <h4>🤖 내 동작을 따라하는 버디</h4>
-            </div>
-            <span id="buddyMoodTag" class="buddy-mood">따라쟁이 ON</span>
-          </div>
-          <div class="buddy-viewport">
-            <canvas id="buddyCanvas" width="220" height="200"></canvas>
-            <div id="buddySpeechBubble" class="buddy-bubble">주인님 멋진 옷을 골라주세요! 삐리릭!</div>
-          </div>
-          <p class="buddy-caption">플레이어가 움직이고 춤추면 버디도 똑같이 따라해요!</p>
-        </div>
-
-        <!-- 🎒 현재 착용 중인 슬롯 -->
-        <div class="card-equipped-slots">
-          <div class="ces-header">
-            <h4>🎒 현재 착용 장비</h4>
-            <button id="btnUnequipAll" class="btn-unequip-all" type="button">모두 벗기</button>
-          </div>
-          <div class="equipped-slots-grid">
-            <div class="eq-slot" data-slot="face">
-              <span class="slot-name">얼굴/수염</span>
-              <div id="slotFaceIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="head">
-              <span class="slot-name">모자</span>
-              <div id="slotHeadIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="body">
-              <span class="slot-name">상의/티</span>
-              <div id="slotBodyIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="legs">
-              <span class="slot-name">하의/바지</span>
-              <div id="slotLegsIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="feet">
-              <span class="slot-name">신발/슬리퍼</span>
-              <div id="slotFeetIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="hand">
-              <span class="slot-name">장갑/무기</span>
-              <div id="slotHandIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="back">
-              <span class="slot-name">날개/가방</span>
-              <div id="slotBackIcon" class="slot-val">비어있음</div>
-            </div>
-            <div class="eq-slot" data-slot="aura">
-              <span class="slot-name">오라/이펙트</span>
-              <div id="slotAuraIcon" class="slot-val">비어있음</div>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </main>
-  </div>
+    <!-- 진열장 아이템 리스트 (main.js에서 동적 생성) -->
+    <div id="costumeItemList" class="costume-item-grid simple-grid">
+      <!-- 동적 주입 -->
+    </div>
+  </aside>
 </div>
 
-<script type="module" src="main.js?v=20261012_0560"></script>
+<script type="module" src="main.js?v=20261012_0600"></script>
 </body>
 </html>
