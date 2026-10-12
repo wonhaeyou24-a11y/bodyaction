@@ -2548,3 +2548,128 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 .btn-reward-equip:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #b33c00, 0 12px 26px rgba(255, 184, 0, 0.6); }
 .btn-reward-equip:active { transform: translateY(2px); box-shadow: 0 1px 0 #b33c00; }
 
+/* ============================================================================
+   🪙 점수 환산 키네틱 코인 & 커스튬 상점 가격 시스템 스타일
+   ============================================================================ */
+.coin-gold-pill {
+  background: linear-gradient(135deg, rgba(255, 184, 0, 0.22), rgba(255, 85, 0, 0.15)) !important;
+  border-color: rgba(255, 184, 0, 0.5) !important;
+  color: #ffd700 !important;
+  font-weight: 800;
+  box-shadow: 0 0 12px rgba(255, 184, 0, 0.25);
+}
+
+.costume-wallet-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(255, 184, 0, 0.2), rgba(255, 85, 0, 0.12));
+  border: 1.5px solid rgba(255, 184, 0, 0.6);
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: 0 0 16px rgba(255, 184, 0, 0.3);
+  font-family: var(--font-display, 'Rubik', sans-serif);
+}
+.costume-wallet-pill .wallet-icon { font-size: 1.25rem; animation: coinSpin 3s infinite ease-in-out; }
+.costume-wallet-pill .wallet-label { font-size: 0.8rem; color: #ffdea8; font-weight: 700; }
+.costume-wallet-pill .wallet-val { font-size: 1.05rem; color: #ffd700; font-weight: 900; }
+
+@keyframes coinSpin {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.18) rotate(15deg); }
+}
+
+/* 결과창 코인 획득 카드 */
+.result-coin-card {
+  margin: 12px 0 16px;
+  background: linear-gradient(135deg, rgba(255, 184, 0, 0.12), rgba(255, 85, 0, 0.08));
+  border: 1.5px solid rgba(255, 184, 0, 0.45);
+  border-radius: 14px;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 18px rgba(255, 184, 0, 0.2);
+  animation: coinCardPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes coinCardPop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.result-coin-card .coin-gain-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.result-coin-card .coin-gain-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.result-coin-card .coin-gain-title {
+  font-size: 0.82rem;
+  color: #ffdea8;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.result-coin-card .coin-gain-nums {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.result-coin-card .coin-plus {
+  font-size: 1.35rem;
+  color: #ffd700;
+  font-weight: 900;
+  text-shadow: 0 0 12px rgba(255, 184, 0, 0.6);
+  font-family: var(--font-display, 'Rubik', sans-serif);
+}
+.result-coin-card .coin-total {
+  font-size: 0.8rem;
+  color: #a5e7ff;
+  font-weight: 700;
+}
+.result-coin-card .coin-gain-desc {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* 커스튬 카드 내 가격 태그 및 구매 버튼 */
+.card-price-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 184, 0, 0.18);
+  border: 1px solid rgba(255, 184, 0, 0.45);
+  color: #ffd700;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-top: 4px;
+  font-family: var(--font-display, 'Rubik', sans-serif);
+}
+.btn-card-buy {
+  margin-top: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 184, 0, 0.6);
+  background: linear-gradient(135deg, #ffb800, #ff5500);
+  box-shadow: 0 2px 0 #993300, 0 4px 10px rgba(255, 184, 0, 0.35);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.btn-card-buy:hover { transform: translateY(-1px); box-shadow: 0 3px 0 #993300, 0 6px 14px rgba(255, 184, 0, 0.5); }
+.btn-card-buy:active { transform: translateY(1px); box-shadow: 0 0 0 #993300; }
+.costume-card.owned .btn-card-buy {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #4ade80;
+  box-shadow: none;
+  cursor: default;
+}
+
+

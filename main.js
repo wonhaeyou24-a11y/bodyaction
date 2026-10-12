@@ -343,6 +343,17 @@ const sfx = {
     tone(1480, t + 0.03, 0.22, "sawtooth", 0.35, 240, p);
     noise(t, 0.25, 0.3, 3200, p);
   },
+  coinGain() {
+    const t = ac().currentTime;
+    tone(987.77, t, 0.08, "sine", 0.35, 1318.51);
+    tone(1318.51, t + 0.07, 0.14, "triangle", 0.4);
+  },
+  coinSpend() {
+    const t = ac().currentTime;
+    tone(523.25, t, 0.08, "triangle", 0.3);
+    tone(659.25, t + 0.06, 0.09, "sine", 0.35);
+    tone(783.99, t + 0.12, 0.14, "sine", 0.4);
+  },
 };
 
 // 음성 안내 (브라우저 내장 한국어 음성)
@@ -5868,6 +5879,19 @@ function endGame() {
     $("resultCombo").textContent = maxCombo ? `${maxCombo} COMBO` : "0 COMBO";
     $("resultGradeText").textContent = gradeTitle;
 
+    // 🪙 점수를 키네틱 코인으로 환산하여 즉시 지급!
+    let gainedCoins = Math.floor(score * 1.5);
+    if (maxCombo > 0) gainedCoins += Math.min(500, maxCombo * 10);
+    if (top.myIdx === 0) gainedCoins += 1000;
+    else if (top.myIdx === 1) gainedCoins += 500;
+    else if (top.myIdx === 2) gainedCoins += 250;
+    gainedCoins = Math.max(50, gainedCoins);
+
+    const updatedCoins = await addPlayerCoins(gainedCoins);
+    if ($("rcGainedCoins")) $("rcGainedCoins").textContent = `+${gainedCoins.toLocaleString()} 🪙`;
+    if ($("rcTotalCoins")) $("rcTotalCoins").textContent = `(보유: ${updatedCoins.toLocaleString()} 🪙)`;
+    updateCoinsDisplay(updatedCoins);
+
     // 신기록 엠블럼
     const recBadge = $("newRecordBadge");
     if (recBadge) {
@@ -6743,9 +6767,29 @@ const COSTUME_ITEMS = {
     color: "#00d2ff"
   },
   hand_repulsor: {
-    id: "hand_repulsor", name: "플라즈마 리펄서", slot: "hand", tier: "common",
+    id: "hand_repulsor", name: "플라즈마 리펄서", slot: "hand", tier: "common", price: 10000,
     icon: "🦾", desc: "손바닥에서 고압 플라즈마 에너지를 뿜어내는 건틀렛.",
     color: "#00d2ff"
+  },
+  head_cat_neon: {
+    id: "head_cat_neon", name: "네온 캣 이어 헤드밴드", slot: "head", tier: "common", price: 12000,
+    icon: "🐱", desc: "고양이 귀 모양으로 발광하는 귀여운 네온 헤어밴드. 움직일 때마다 깜빡여요.",
+    color: "#ff2e93"
+  },
+  head_cowboy_cyber: {
+    id: "head_cowboy_cyber", name: "사이버 카우보이 모자", slot: "head", tier: "common", price: 18000,
+    icon: "🤠", desc: "홀로그램 챙이 빛나는 서부 개척자 스타일 카우보이햇.",
+    color: "#ffb800"
+  },
+  back_pixel_wings: {
+    id: "back_pixel_wings", name: "8비트 픽셀 날개", slot: "back", tier: "rare", price: 45000,
+    icon: "👾", desc: "아케이드 감성 가득한 레트로 픽셀 도트 날개.",
+    color: "#00ffcc"
+  },
+  aura_fireworks: {
+    id: "aura_fireworks", name: "축제 네온 불꽃놀이 오라", slot: "aura", tier: "hero", price: 120000,
+    icon: "🎆", desc: "움직일 때마다 사방으로 네온 불꽃이 팡팡 터지는 화려한 오라.",
+    color: "#ffd700"
   },
 
   // --- [1. 야구 게임 (baseball)] ---
@@ -7060,6 +7104,8 @@ async function loadCostumeData() {
 
   // 로드 즉시 자격 검사 및 부적격 옷 회수
   await auditAndStripIneligibleCostumes();
+  // 🪙 플레이어 코인 잔액 로드
+  await loadPlayerCoins();
 }
 
 async function saveCostumeData() {
@@ -7069,6 +7115,58 @@ async function saveCostumeData() {
 
   await SecureStore.saveCheckpoint(invKey, Array.from(costumeInventory));
   await SecureStore.saveCheckpoint(eqKey, equippedCostume);
+}
+
+// 🪙 4. 플레이어 키네틱 코인 화폐 & 상점 가격 엔진
+let playerCoins = 0;
+
+function getItemPrice(item) {
+  if (item && item.price) return item.price;
+  switch (item?.tier) {
+    case "legend": return 250000; // 1등 최고급 (25만 코인)
+    case "hero":   return 90000;  // 2등 중고급 (9만 코인)
+    case "rare":   return 35000;  // 3등 보급형 (3만 5천 코인)
+    case "common":
+    default:       return 10000;  // 일반 패션 (1만 코인)
+  }
+}
+
+async function loadPlayerCoins() {
+  const pid = profiles?.activeId;
+  const key = recKey("player_coins_v1", pid);
+  const saved = await SecureStore.loadCheckpoint(key, null);
+  playerCoins = saved !== null ? +saved : 1500; // 스타트 지원금 1,500 코인
+  updateCoinsDisplay(playerCoins);
+  return playerCoins;
+}
+
+async function savePlayerCoins() {
+  const pid = profiles?.activeId;
+  const key = recKey("player_coins_v1", pid);
+  await SecureStore.saveCheckpoint(key, playerCoins);
+  updateCoinsDisplay(playerCoins);
+}
+
+async function addPlayerCoins(amount) {
+  if (amount <= 0) return playerCoins;
+  playerCoins += amount;
+  await savePlayerCoins();
+  sfx.coinGain();
+  return playerCoins;
+}
+
+async function spendPlayerCoins(amount) {
+  if (amount <= 0 || playerCoins < amount) return false;
+  playerCoins -= amount;
+  await savePlayerCoins();
+  sfx.coinSpend();
+  return true;
+}
+
+function updateCoinsDisplay(coins = playerCoins) {
+  const text = coins.toLocaleString();
+  if ($("headerPlayerCoins")) $("headerPlayerCoins").textContent = text;
+  if ($("costumePlayerCoins")) $("costumePlayerCoins").textContent = text;
 }
 
 // 🎁 1~3등 달성 시 해당 게임의 고유 커스튬 파츠 지급 로직
@@ -7693,10 +7791,12 @@ async function openCostumeRoom() {
 
   // 🔒 1등 뺏김 검사: 순위가 밀린 옷이 있다면 자동 회수 및 알림
   await auditAndStripIneligibleCostumes();
+  // 🪙 코인 잔액 최신화
+  await loadPlayerCoins();
   await renderCostumeShelf();
   renderEquippedSlotsUI();
   buddyEngine.init();
-  buddyEngine.say("주인님 어서오세요! 1~3등 상징 옷들을 자유롭게 입어보세요!");
+  buddyEngine.say("주인님 어서오세요! 게임으로 모은 코인으로 명품 옷을 장만해보세요!");
   ac();
   sfx.levelUp();
 }
@@ -7712,7 +7812,7 @@ function closeCostumeRoom() {
   sfx.end();
 }
 
-// 진열장 아이템 렌더링 (실시간 순위 독점 자격 반영)
+// 진열장 아이템 렌더링 (실시간 순위 독점 자격 + 코인 구매/소장 시스템 반영)
 async function renderCostumeShelf() {
   const listEl = $("costumeItemList");
   if (!listEl) return;
@@ -7722,35 +7822,80 @@ async function renderCostumeShelf() {
 
   for (const it of items) {
     const isEq = equippedCostume[it.slot] === it.id;
+    const isOwned = costumeInventory.has(it.id);
+    const price = getItemPrice(it);
     const { eligible, rankReq, currentRank } = await checkItemRankEligibility(it);
 
     const card = document.createElement("div");
-    card.className = `costume-card ${isEq ? "equipped" : ""} ${!eligible ? "locked" : ""}`;
+    card.className = `costume-card ${isEq ? "equipped" : ""} ${isOwned ? "owned" : ""}`;
     card.dataset.itemId = it.id;
 
-    const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 파츠" };
+    const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 패션" };
     const tierBadge = `<span class="card-tier-badge tier-${it.tier}">${tierLabels[it.tier] || "일반"}</span>`;
+    const priceBadge = `<span class="card-price-badge">🪙 ${price.toLocaleString()}</span>`;
 
-    let statusText = "✊ 집어서 입기";
-    if (isEq) {
-      statusText = "✓ 착용 중 (클릭 시 벗기)";
-    } else if (!eligible) {
-      statusText = `🔒 ${it.tier === "legend" ? "1등만" : it.tier === "hero" ? "2등 이내" : "3등 이내"} 착용 (시착 가능)`;
+    let actionBtnHtml = "";
+    if (isOwned) {
+      if (isEq) {
+        actionBtnHtml = `<button class="btn-card-buy btn-act-toggle" type="button" style="background:#ff2e93;">✓ 착용 중 (벗기)</button>`;
+      } else {
+        actionBtnHtml = `<button class="btn-card-buy btn-act-toggle" type="button" style="background:rgba(34,197,94,0.3);border-color:#22c55e;color:#4ade80;">✓ 소장 완료 (입기)</button>`;
+      }
+    } else {
+      actionBtnHtml = `<button class="btn-card-buy btn-act-buy" type="button">🪙 ${price.toLocaleString()} 구매</button>`;
+    }
+
+    let statusNote = "";
+    if (!isOwned) {
+      statusNote = `<div class="costume-card-status" style="color:#ffdea8;">미소장 (클릭 시 구매)</div>`;
     } else if (it.tier === "legend") {
-      statusText = "👑 1등 챔피언 독점!";
+      statusNote = `<div class="costume-card-status" style="color:#ffd700;">👑 1등 상징 독점 소장</div>`;
+    } else {
+      statusNote = `<div class="costume-card-status" style="color:#4ade80;">소장 중인 아이템</div>`;
     }
 
     card.innerHTML = `
-      ${tierBadge}
+      <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+        ${tierBadge}
+        ${priceBadge}
+      </div>
       <div class="costume-card-icon">${it.icon}</div>
       <div class="costume-card-name">${escapeHtml(it.name)}</div>
       <div class="costume-card-desc">${escapeHtml(it.desc)}</div>
-      <div class="costume-card-status">${statusText}</div>
+      ${statusNote}
+      ${actionBtnHtml}
     `;
 
-    // 마우스/터치 클릭 시 즉시 착용 & 탈착 인터랙션
-    card.addEventListener("click", async () => {
-      await equipCostumeItem(it);
+    // 구매 버튼 또는 카드 클릭 이벤트 바인딩
+    card.addEventListener("click", async (e) => {
+      const isBuyBtn = e.target.classList.contains("btn-act-buy");
+      
+      if (!isOwned) {
+        // 미소장 아이템 구매 시도
+        if (playerCoins >= price) {
+          const success = await spendPlayerCoins(price);
+          if (success) {
+            costumeInventory.add(it.id);
+            await saveCostumeData();
+            await equipCostumeItem(it);
+            popup(W / 2, H * 0.45, `🎉 [${it.name}] 구매 성공! 영구 소장되었습니다!`, "#ffd700");
+            sfx.levelUp();
+            buddyEngine.say(`와! 주인님 [${it.name}]을(를) 구매하셨군요! 너무 멋져요!`);
+            burst(W / 2, H * 0.45, it.color || "#ffd700", 36);
+          }
+        } else {
+          // 코인 부족 경고
+          const lack = price - playerCoins;
+          popup(W / 2, H * 0.45, `⚠️ 코인이 부족합니다! (필요: ${price.toLocaleString()} 🪙 / 부족: ${lack.toLocaleString()} 🪙) 게임을 더 플레이하세요!`, "#ff3366");
+          sfx.countdown(false);
+          buddyEngine.say(`코인이 ${lack.toLocaleString()}개 부족해요! 게임을 더 플레이해서 모아봐요!`);
+          // 피팅룸에서는 시착(미리 입어보기) 지원
+          await equipCostumeItem(it);
+        }
+      } else {
+        // 이미 소장한 아이템은 자유롭게 입고 벗기
+        await equipCostumeItem(it);
+      }
     });
 
     listEl.appendChild(card);

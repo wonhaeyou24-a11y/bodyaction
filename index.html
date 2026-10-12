@@ -210,6 +210,7 @@
         <span class="fs-text">TV 전체화면</span>
       </button>
       <div class="coin-pill">⭐ <span id="totalBest">0</span></div>
+      <div class="coin-pill coin-gold-pill" title="보유 코인 (게임을 플레이해서 모은 코인)">🪙 <span id="headerPlayerCoins">0</span></div>
       <div class="ticket-pill">🎟️ <span>120</span></div>
       <div class="profile interactive-profile" id="btnPlayerProfile" role="button" tabindex="0" title="플레이어 설정 열기">
         <div class="avatar-wrap">
@@ -571,6 +572,19 @@
     </div>
     <div id="ocVerdict" class="oc-verdict"></div>
     <div id="ocRematch" class="oc-rematch"></div>
+  </div>
+
+  <!-- 🪙 점수 환산 코인 획득 카드 -->
+  <div id="resultCoinCard" class="result-coin-card">
+    <div class="coin-gain-icon">🪙</div>
+    <div class="coin-gain-content">
+      <span class="coin-gain-title">점수 환산 코인 획득</span>
+      <div class="coin-gain-nums">
+        <b id="rcGainedCoins" class="coin-plus">+0 🪙</b>
+        <small id="rcTotalCoins" class="coin-total">(보유: 0 🪙)</small>
+      </div>
+    </div>
+    <div class="coin-gain-desc">점수를 많이 낼수록 비싼 명품 옷과 악세사리를 살 수 있어요!</div>
   </div>
 
   <!-- 🎁 1~3등 게임별 커스튬 파츠 획득 보상 알림 카드 -->
@@ -952,6 +966,11 @@
         <span class="hint-pill">✊ <b>주먹</b>으로 아이템 집기</span>
         <span class="hint-arrow">➔</span>
         <span class="hint-pill">✋ <b>몸</b>에 대고 <b>손 펴서</b> 착용!</span>
+      </div>
+      <div class="costume-wallet-pill" title="현재 보유 중인 코인">
+        <span class="wallet-icon">🪙</span>
+        <span class="wallet-label">보유:</span>
+        <b id="costumePlayerCoins" class="wallet-val">0</b>
       </div>
       <button id="btnCloseCostume" class="btn-costume-close" title="커스튬 룸 닫기 (메인으로)">✕ 나가기</button>
     </header>
