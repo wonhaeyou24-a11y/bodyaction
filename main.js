@@ -601,70 +601,80 @@ function bgmStart() {
 function bgmTick(isIntro = false) {
   const c = BGM[mode];
   if (!c || !playing || !actx) return;
-  while (bgmNext < actx.currentTime + 0.25) {
-    const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = (c.prog ? c.prog[bar % (c.prog.length || 4)] : 0), t = bgmNext, v = (c.vol ?? 0.8) * (isIntro ? 0.75 : 1.0);
-    const speed = 1 + (isIntro ? 0 : Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0));
-    bgmNext += 60 / (c.bpm * speed) / 2;
-    const f = (semi, oct = 1) => c.root * oct * 2 ** ((semi + ch) / 12);
-
-    // 1. 묵직한 서브 베이스라인 (실제 음원이 연주 중일 때는 과하지 않게 조화로운 저음 서포트)
-    if (s % 2 === 0) {
-      if (!c.audioFile) {
-        if (c.bassSeq && c.bassSeq.length > 0) {
-          const bassSemi = c.bassSeq[bar % c.bassSeq.length];
-          tone(c.root * 0.5 * 2 ** (bassSemi / 12), t, 0.28, "triangle", 0.28 * v, undefined, undefined, bgmBus);
-        } else {
-          tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
-        }
-      }
+  try {
+    // 🛡️ 무한 루프 & 탭 전환 시차 원천 방어 (AudioContext 시간 드리프트 자동 재동기화)
+    if (actx.currentTime - bgmNext > 0.8 || bgmNext < actx.currentTime - 0.8) {
+      bgmNext = actx.currentTime;
     }
+    let loopGuard = 0;
+    while (bgmNext < actx.currentTime + 0.25 && ++loopGuard < 16) {
+      const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = (c.prog ? c.prog[bar % (c.prog.length || 4)] : 0), t = bgmNext, v = (c.vol ?? 0.8) * (isIntro ? 0.75 : 1.0);
+      const bpmSafe = Math.max(40, c.bpm || 120);
+      const speed = Math.max(0.5, 1 + (isIntro ? 0 : Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0)));
+      bgmNext += 60 / (bpmSafe * speed) / 2;
+      const f = (semi, oct = 1) => c.root * oct * 2 ** ((semi + ch) / 12);
 
-    // 2. 신스 리드 멜로디 (실제 오디오 음원이 없을 때만 신스 멜로디 연주, 있으면 실제 음원이 노래를 연주!)
-    if (!c.audioFile && (!isIntro || (bar >= 1 && s % 4 === 0))) {
-      if (c.melody && c.melody.length > 0) {
-        const noteIdx = e % c.melody.length;
-        const semi = c.melody[noteIdx];
-        if (semi !== null && semi !== undefined) {
-          tone(c.root * 2 ** (semi / 12), t, 0.20, c.wave || "sawtooth", 0.19 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
-        }
-      } else if (c.scale && c.scale.length > 0) {
-        if ((c.drums !== "drone" || s % 4 === 0) && Math.random() < 0.82) {
-          const idx = (ARP[s] + (bar % 2)) % c.scale.length;
-          tone(f(c.scale[idx], 2), t, 0.18, c.wave || "sawtooth", 0.14 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
-        }
-      }
-    }
-
-    // 3. 비트 드럼 엔진 (4-on-the-floor EDM & POP)
-    if (c.drums === "edm") {
-      // 💥 강력한 4-on-the-floor 펀치 서브 킥 (정박 s=0, 2, 4, 6)
+      // 1. 묵직한 서브 베이스라인 (실제 음원이 연주 중일 때는 과하지 않게 조화로운 저음 서포트)
       if (s % 2 === 0) {
-        tone(175, t, 0.18, "sine", 0.58 * v, 36, undefined, bgmBus);
-        // 비트 플래시 시각적 펄스 연동 (정박 킥에 칼같이 점등!)
-        if (mode === "beat" && games.beat) {
-          games.beat.beatFlash = Math.max(games.beat.beatFlash || 0, isIntro ? 0.45 : 0.85);
+        if (!c.audioFile) {
+          if (c.bassSeq && c.bassSeq.length > 0) {
+            const bassSemi = c.bassSeq[bar % c.bassSeq.length];
+            tone(c.root * 0.5 * 2 ** (bassSemi / 12), t, 0.28, "triangle", 0.28 * v, undefined, undefined, bgmBus);
+          } else {
+            tone(f(0, 0.5), t, 0.28, "triangle", 0.26 * v, undefined, undefined, bgmBus);
+          }
         }
       }
-      // 🎶 찰진 일렉트릭 스네어 & 클랩 (2, 4박자 정박 - s=2, 6)
-      if (!isIntro && (s === 2 || s === 6)) {
-        tone(210, t, 0.12, "sine", 0.32 * v, 80, undefined, bgmBus);
-        noise(t, 0.13, 0.22 * v, 2400, undefined, bgmBus);
+
+      // 2. 신스 리드 멜로디 (실제 오디오 음원이 없을 때만 신스 멜로디 연주, 있으면 실제 음원이 노래를 연주!)
+      if (!c.audioFile && (!isIntro || (bar >= 1 && s % 4 === 0))) {
+        if (c.melody && c.melody.length > 0) {
+          const noteIdx = e % c.melody.length;
+          const semi = c.melody[noteIdx];
+          if (semi !== null && semi !== undefined) {
+            tone(c.root * 2 ** (semi / 12), t, 0.20, c.wave || "sawtooth", 0.19 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+          }
+        } else if (c.scale && c.scale.length > 0) {
+          if ((c.drums !== "drone" || s % 4 === 0) && Math.random() < 0.82) {
+            const idx = (ARP[s] + (bar % 2)) % c.scale.length;
+            tone(f(c.scale[idx], 2), t, 0.18, c.wave || "sawtooth", 0.14 * v, undefined, ((s % 4) - 1.5) / 3, bgmBus);
+          }
+        }
       }
-      // ⚡ 오프비트 오픈 하이햇 (엇박 s=1, 3, 5, 7)
-      if (s % 2 === 1) {
-        noise(t, 0.07, 0.09 * v, 7500, ((s % 4) - 1.5) / 3, bgmBus);
+
+      // 3. 비트 드럼 엔진 (4-on-the-floor EDM & POP)
+      if (c.drums === "edm") {
+        // 💥 강력한 4-on-the-floor 펀치 서브 킥 (정박 s=0, 2, 4, 6)
+        if (s % 2 === 0) {
+          tone(175, t, 0.18, "sine", 0.58 * v, 36, undefined, bgmBus);
+          // 비트 플래시 시각적 펄스 연동 (정박 킥에 칼같이 점등!)
+          if (mode === "beat" && games.beat) {
+            games.beat.beatFlash = Math.max(games.beat.beatFlash || 0, isIntro ? 0.45 : 0.85);
+          }
+        }
+        // 🎶 찰진 일렉트릭 스네어 & 클랩 (2, 4박자 정박 - s=2, 6)
+        if (!isIntro && (s === 2 || s === 6)) {
+          tone(210, t, 0.12, "sine", 0.32 * v, 80, undefined, bgmBus);
+          noise(t, 0.13, 0.22 * v, 2400, undefined, bgmBus);
+        }
+        // ⚡ 오프비트 오픈 하이햇 (엇박 s=1, 3, 5, 7)
+        if (s % 2 === 1) {
+          noise(t, 0.07, 0.09 * v, 7500, ((s % 4) - 1.5) / 3, bgmBus);
+        }
+      } else if (c.drums === "pop") {
+        if (s % 4 === 0) tone(145, t, 0.18, "sine", 0.42 * v, 42, undefined, bgmBus);
+        if (s === 2 || s === 6) noise(t, 0.12, 0.14 * v, 2000, undefined, bgmBus);
+        noise(t, 0.04, 0.05 * v, 7200, ((s % 2) - 0.5) / 2, bgmBus);
+      } else if (c.drums === "taiko") {
+        if (s === 0 || s === 3 || s === 4 || s === 7) tone(110, t, 0.25, "sine", 0.5 * v, 38, undefined, bgmBus);
+        if (s === 2 || s === 6) noise(t, 0.12, 0.16 * v, 1100, undefined, bgmBus);
+      } else if (c.drums === "drone") {
+        if (s === 0) { tone(f(0, 0.5), t, 1.8, "sawtooth", 0.08, undefined, -0.4, bgmBus); tone(f(0, 0.5) * 1.01, t, 1.8, "sawtooth", 0.08, undefined, 0.4, bgmBus); }
+        if (s % 4 === 0) tone(85, t, 0.2, "sine", 0.25, 38, undefined, bgmBus);
       }
-    } else if (c.drums === "pop") {
-      if (s % 4 === 0) tone(145, t, 0.18, "sine", 0.42 * v, 42, undefined, bgmBus);
-      if (s === 2 || s === 6) noise(t, 0.12, 0.14 * v, 2000, undefined, bgmBus);
-      noise(t, 0.04, 0.05 * v, 7200, ((s % 2) - 0.5) / 2, bgmBus);
-    } else if (c.drums === "taiko") {
-      if (s === 0 || s === 3 || s === 4 || s === 7) tone(110, t, 0.25, "sine", 0.5 * v, 38, undefined, bgmBus);
-      if (s === 2 || s === 6) noise(t, 0.12, 0.16 * v, 1100, undefined, bgmBus);
-    } else if (c.drums === "drone") {
-      if (s === 0) { tone(f(0, 0.5), t, 1.8, "sawtooth", 0.08, undefined, -0.4, bgmBus); tone(f(0, 0.5) * 1.01, t, 1.8, "sawtooth", 0.08, undefined, 0.4, bgmBus); }
-      if (s % 4 === 0) tone(85, t, 0.2, "sine", 0.25, 38, undefined, bgmBus);
     }
+  } catch (err) {
+    console.warn("bgmTick safe guard:", err);
   }
 }
 
@@ -2615,40 +2625,48 @@ const games = {
     },
     interval: () => Math.max(0.28, (0.75 - elapsed() * 0.007)),
     update(dt) {
-      for (const o of objs) { o.x += o.vx * dt * 60; o.y += o.vy * dt * 60; o.vy += o.g * dt * 60; o.rot += o.vr; }
-      for (const p of pointers) {
-        // 빠른 베기 반응성 보장 (스피드 임계치 10으로 완화)
-        if (p.speed < 10) continue;
-        for (const o of objs) {
-          if (o.dead || !segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 8)) continue;
-          o.dead = true;
-          if (o.bomb) {
-            score = Math.max(0, score - 5); combo = 0;
-            burst(o.x, o.y, "#ff3030", 28); popup(o.x, o.y, "-5", "#ff5d5d");
-            sfx.bomb(o.x); speak("앗, 폭탄!");
-          } else {
-            burst(o.x, o.y, "#ff5d73", 22);
-            award(o.x, o.y, 1);
-            sfx.slice(o.x);
-            halves.push({ ...o, half: -1 }, { ...o, half: 1 });
+      try {
+        for (const o of objs) { o.x += o.vx * dt * 60; o.y += o.vy * dt * 60; o.vy += o.g * dt * 60; o.rot += o.vr; }
+        for (const p of pointers) {
+          // 빠른 베기 반응성 보장 (스피드 임계치 10으로 완화)
+          if (p.speed < 10) continue;
+          for (const o of objs) {
+            if (o.dead || !segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 8)) continue;
+            o.dead = true;
+            if (o.bomb) {
+              score = Math.max(0, score - 5); combo = 0;
+              burst(o.x, o.y, "#ff3030", 28); popup(o.x, o.y, "-5", "#ff5d5d");
+              sfx.bomb(o.x); speak("앗, 폭탄!");
+            } else {
+              burst(o.x, o.y, "#ff5d73", 22);
+              award(o.x, o.y, 1);
+              sfx.slice(o.x);
+              halves.push({ ...o, half: -1 }, { ...o, half: 1 });
+            }
           }
         }
+        objs = objs.filter((o) => !o.dead && o.y < H + 200);
+        for (const h of halves) {
+          h.x += h.half * 3.5; h.y += h.vy * dt * 60; h.vy += h.g * dt * 60; h.rot += h.half * 0.14;
+          h.life = (h.life ?? 1) - 0.016;
+        }
+        halves = halves.filter((h) => h.life > 0);
+      } catch (err) {
+        console.warn("Ninja update error:", err);
       }
-      objs = objs.filter((o) => !o.dead && o.y < H + 200);
-      for (const h of halves) {
-        h.x += h.half * 3.5; h.y += h.vy * dt * 60; h.vy += h.g * dt * 60; h.rot += h.half * 0.14;
-        h.life = (h.life ?? 1) - 0.016;
-      }
-      halves = halves.filter((h) => h.life > 0);
     },
     draw() {
-      for (const o of objs) {
-        Art.drawFruit(o.x, o.y, o.r, o.emoji, o.rot, 0);
-      }
-      for (const h of halves) {
-        ctx.save(); ctx.globalAlpha = Math.max(h.life, 0);
-        Art.drawFruit(h.x, h.y, h.r, h.emoji, h.rot, h.half);
-        ctx.restore();
+      try {
+        for (const o of objs) {
+          Art.drawFruit(o.x, o.y, o.r, o.emoji, o.rot, 0);
+        }
+        for (const h of halves) {
+          ctx.save(); ctx.globalAlpha = Math.max(h.life, 0);
+          Art.drawFruit(h.x, h.y, h.r, h.emoji, h.rot, h.half);
+          ctx.restore();
+        }
+      } catch (err) {
+        console.warn("Ninja draw error:", err);
       }
     },
     trail: "#00d2ff",
@@ -2877,50 +2895,61 @@ games.dodge = {
   init() { this.items = []; this.spawnT = 0.6; this.lives = 3; this.inv = 0; this.flash = 0; this.coins = 0; },
   result() { return ` · 동전 ${this.coins}개`; },
   update(dt) {
-    const b = getBody(), e = elapsed();
-    this.spawnT -= dt;
-    if (this.spawnT <= 0) {
-      this.spawnT = Math.max(0.3, 0.85 - e * 0.009) * (0.7 + Math.random() * 0.6);
-      const coin = Math.random() < 0.35, r = coin ? 30 : 38 + Math.random() * 18;
-      this.items.push({ x: r + Math.random() * (W - 2 * r), y: -r, r, vy: (230 + e * 4.5) * (H / 800) * (coin ? 0.8 : 1), coin, rot: 0 });
-    }
-    this.inv = Math.max(0, this.inv - dt); this.flash = Math.max(0, this.flash - dt * 2);
-    const torso = [], hands = [];
-    if (b) {
-      for (const i of [0, 11, 12, 23, 24]) if (bv(b, i, 0.3)) torso.push(b[i]);
-      if (bv(b, 11, 0.3) && bv(b, 12, 0.3)) torso.push({ x: (b[11].x + b[12].x) / 2, y: (b[11].y + b[12].y) / 2 });
-      if (bv(b, 23, 0.3) && bv(b, 24, 0.3)) torso.push({ x: (b[23].x + b[24].x) / 2, y: (b[23].y + b[24].y) / 2 });
-      for (const i of [15, 16]) if (bv(b, i, 0.3)) hands.push(b[i]);
-    }
-    for (const it of this.items) {
-      it.y += it.vy * dt; it.rot += dt * 2.5;
-      if (it.dead) continue;
-      if (it.coin) {
-        if ([...torso, ...hands].some((p) => Math.hypot(p.x - it.x, p.y - it.y) < it.r + 24)) {
-          it.dead = true; this.coins++; award(it.x, it.y, 1, "#ffd166"); sfx.pop(it.x, true); burst(it.x, it.y, "#ffd166", 14);
-        }
-      } else if (this.inv <= 0 && torso.some((p) => Math.hypot(p.x - it.x, p.y - it.y) < it.r * 0.85 + 8)) {
-        it.dead = true; this.lives--; this.inv = 1.5; this.flash = 1; combo = 0;
-        burst(it.x, it.y, "#ff6b4a", 26); sfx.crash();
-        if (this.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (this.lives > 1) speak("앗, 조심!");
-        if (this.lives <= 0) endGame();
+    try {
+      const b = getBody(), e = elapsed();
+      this.spawnT -= dt;
+      if (this.spawnT <= 0) {
+        this.spawnT = Math.max(0.3, 0.85 - e * 0.009) * (0.7 + Math.random() * 0.6);
+        const coin = Math.random() < 0.35, r = coin ? 30 : 38 + Math.random() * 18;
+        this.items.push({ x: r + Math.random() * (W - 2 * r), y: -r, r, vy: (230 + e * 4.5) * (H / 800) * (coin ? 0.8 : 1), coin, rot: 0 });
       }
-      if (!it.dead && it.y > H + it.r) { it.dead = true; if (!it.coin && b) { score += 1; popup(it.x, H - 60, "+1", "#9fe8ff"); } }
+      this.inv = Math.max(0, this.inv - dt); this.flash = Math.max(0, this.flash - dt * 2);
+      const torso = [], hands = [];
+      if (b) {
+        for (const i of [0, 11, 12, 23, 24]) if (bv(b, i, 0.3) && b[i]) torso.push(b[i]);
+        if (bv(b, 11, 0.3) && bv(b, 12, 0.3) && b[11] && b[12]) torso.push({ x: (b[11].x + b[12].x) / 2, y: (b[11].y + b[12].y) / 2 });
+        if (bv(b, 23, 0.3) && bv(b, 24, 0.3) && b[23] && b[24]) torso.push({ x: (b[23].x + b[24].x) / 2, y: (b[23].y + b[24].y) / 2 });
+        for (const i of [15, 16]) if (bv(b, i, 0.3) && b[i]) hands.push(b[i]);
+      }
+      for (const it of this.items) {
+        it.y += it.vy * dt; it.rot += dt * 2.5;
+        if (it.dead) continue;
+        if (it.coin) {
+          if ([...torso, ...hands].some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 24)) {
+            it.dead = true; this.coins++; award(it.x, it.y, 1, "#ffd166"); sfx.pop(it.x, true); burst(it.x, it.y, "#ffd166", 14);
+          }
+        } else if (this.inv <= 0 && torso.some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r * 0.85 + 8)) {
+          it.dead = true; this.lives--; this.inv = 1.5; this.flash = 1; combo = 0;
+          burst(it.x, it.y, "#ff6b4a", 26); sfx.crash();
+          if (this.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (this.lives > 1) speak("앗, 조심!");
+          if (this.lives <= 0) {
+            endGame();
+            return; // 🛡️ 사망 시 남은 루프 즉시 안전 탈출
+          }
+        }
+        if (!it.dead && it.y > H + it.r) { it.dead = true; if (!it.coin && b) { score += 1; popup(it.x, H - 60, "+1", "#9fe8ff"); } }
+      }
+      this.items = this.items.filter((it) => !it.dead);
+    } catch (err) {
+      console.warn("Dodge update safe catch:", err);
     }
-    this.items = this.items.filter((it) => !it.dead);
   },
   draw() {
-    if (!this.items) return;
-    const b = getBody();
-    for (const it of this.items) {
-      ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${it.r * 2}px serif`;
-      ctx.fillText(it.coin ? "🪙" : "🪨", 0, 0); ctx.restore();
+    try {
+      if (!this.items) return;
+      const b = getBody();
+      for (const it of this.items) {
+        ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${it.r * 2}px serif`;
+        ctx.fillText(it.coin ? "🪙" : "🪨", 0, 0); ctx.restore();
+      }
+      drawSkeleton(b, this.inv > 0 ? "#ff6b4a" : "#7df9ff", this.inv > 0 && ((this.inv * 10) | 0) % 2 ? 0.35 : 1);
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif";
+      ctx.fillText("❤️".repeat(Math.max(this.lives, 0)) + "🖤".repeat(3 - Math.max(this.lives, 0)), W / 2, 104);
+      if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+      bodyHint();
+    } catch (err) {
+      console.warn("Dodge draw safe catch:", err);
     }
-    drawSkeleton(b, this.inv > 0 ? "#ff6b4a" : "#7df9ff", this.inv > 0 && ((this.inv * 10) | 0) % 2 ? 0.35 : 1);
-    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif";
-    ctx.fillText("❤️".repeat(Math.max(this.lives, 0)) + "🖤".repeat(3 - Math.max(this.lives, 0)), W / 2, 104);
-    if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
-    bodyHint();
   },
 };
 
@@ -3226,157 +3255,162 @@ games.runner = {
   },
 
   update(dt) {
-    this.t += dt;
-    const { jump, duck } = this.sense(dt), e = elapsed(), hs = this.hs();
+    try {
+      this.t += dt;
+      const { jump, duck } = this.sense(dt), e = elapsed(), hs = this.hs();
 
-    if (this.phase === "calib") {
-      this.cal = this.seen ? this.cal + dt : 0;
-      if (this.cal >= 1.2) {
-        this.phase = "run";
-        speak("출발! 신나게 달려봐요!", true);
-        sfx.start();
-      }
-      return;
-    }
-
-    // 부스터 타이머 갱신
-    this.boostTimer = Math.max(0, this.boostTimer - dt);
-    const isBoosting = this.boostTimer > 0;
-
-    // 점프 물리
-    const g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
-    if (jump && this.jy <= 0) {
-      this.vy = v0;
-      this.jumpCount++;
-      tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
-      burst(this.cx(), this.gy() - 8, "#00d2ff", 16);
-      popup(this.cx(), this.gy() - hs * 0.8, "JUMP! 🦘", "#00d2ff");
-    }
-    this.jy += this.vy * dt;
-    this.vy -= g * dt;
-    if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
-
-    // 슬라이딩 앉기
-    const wasDuck = this.duck;
-    this.duck = duck && this.jy === 0;
-    if (!wasDuck && this.duck) {
-      this.duckCount++;
-      tone(220, ac().currentTime, 0.12, "sine", 0.15, 140);
-      popup(this.cx(), this.gy() - hs * 0.35, "SLIDE! ⚡", "#ffea00");
-    }
-
-    // 🚀 3단계 웨이브 & 부스터 연동 속도 계산
-    const waveMult = currentWave === 3 ? 1.55 : (currentWave === 2 ? 1.25 : 1.0);
-    const boostMult = isBoosting ? 1.50 : 1.0;
-    const v = W * 0.46 * waveMult * boostMult * (1 + e * 0.008);
-    this.dist += v * dt;
-
-    this.spawnT -= dt;
-    this.inv = Math.max(0, this.inv - dt);
-    this.flash = Math.max(0, this.flash - dt * 2);
-
-    // 🚀 스피드 라인 파티클 시뮬레이션
-    for (const line of this.speedLines) {
-      line.x -= line.spd * (isBoosting || currentWave === 3 ? 1.8 : 1.0) * dt;
-      if (line.x < -line.len) {
-        line.x = W + Math.random() * 80;
-        line.y = H * (0.2 + Math.random() * 0.55);
-      }
-    }
-
-    // 장애물 & 파워업 동적 스케줄링
-    if (this.spawnT <= 0) {
-      // 웨이브 단계가 높을수록 장애물 스폰 간격이 빨라짐
-      const baseInterval = currentWave === 3 ? 1.0 : (currentWave === 2 ? 1.25 : 1.5);
-      this.spawnT = Math.max(0.75, baseInterval - e * 0.01) * (0.85 + rng() * 0.4);
-      const r = rng(), x = W + 70;
-
-      if (r < 0.15 && !isBoosting) {
-        // 🚀 [신규] 하이퍼 부스터 링 (점프로 통과 시 무적 질주 가속!)
-        this.obs.push({ type: "ring", x, w: hs * 0.75, h: hs * 0.75, y0: hs * 0.45 });
-      } else if (r < 0.45) {
-        // [점프 허들] 네온 사이버 레이저 바리케이드
-        this.obs.push({ type: "rock", x, w: hs * 0.52, h: hs * 0.44, y0: 0 });
-      } else if (r < 0.75) {
-        // [슬라이딩 장애물] 고공 사이버 드론 & 하향 레이저 빔
-        this.obs.push({ type: "bar", x, w: hs * 0.72, h: hs * 0.52, y0: hs * 0.60 });
-      } else {
-        // [보너스] 3D 골든 스타 코인 3연속 트레일
-        const hi = rng() < 0.45;
-        for (let k = 0; k < 3; k++) {
-          this.obs.push({
-            type: "coin",
-            x: x + k * hs * 0.55,
-            w: hs * 0.32,
-            h: hs * 0.32,
-            y0: hi ? hs * 1.25 : hs * 0.22,
-            coinRot: k * 0.4
-          });
+      if (this.phase === "calib") {
+        this.cal = this.seen ? this.cal + dt : 0;
+        if (this.cal >= 1.2) {
+          this.phase = "run";
+          speak("출발! 신나게 달려봐요!", true);
+          sfx.start();
         }
+        return;
       }
-    }
 
-    const cx = this.cx(), cw = hs * 0.35, ch = this.duck ? hs * 0.52 : hs;
-    for (const o of this.obs) {
-      o.x -= v * dt;
-      if (o.type === "coin") o.coinRot = (o.coinRot || 0) + dt * 4;
+      // 부스터 타이머 갱신
+      this.boostTimer = Math.max(0, this.boostTimer - dt);
+      const isBoosting = this.boostTimer > 0;
 
-      const overlapX = o.x < cx + cw * 0.42 && o.x + o.w > cx - cw * 0.42;
-      const overlapY = o.y0 < this.jy + ch * 0.95 && o.y0 + o.h > this.jy + ch * 0.05;
+      // 점프 물리
+      const g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
+      if (jump && this.jy <= 0) {
+        this.vy = v0;
+        this.jumpCount++;
+        tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
+        burst(this.cx(), this.gy() - 8, "#00d2ff", 16);
+        popup(this.cx(), this.gy() - hs * 0.8, "JUMP! 🦘", "#00d2ff");
+      }
+      this.jy += this.vy * dt;
+      this.vy -= g * dt;
+      if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
 
-      if (!o.dead && overlapX && overlapY) {
-        if (o.type === "coin") {
-          // 🪙 골든 스타 코인 획득
-          o.dead = true;
-          this.coinsCollected++;
-          award(o.x, this.gy() - o.y0 - o.h, 2, "#ffd166");   // 콤보/피버 배수는 award()가 한 번만 처리
-          burst(o.x, this.gy() - o.y0 - o.h, "#ffd166", 12);
-          sfx.pop(o.x, true);
-        } else if (o.type === "ring") {
-          // 🚀 하이퍼 부스터 링 통과! (3.2초 무적 질주 모드 돌입)
-          o.dead = true;
-          this.boostTimer = 3.2;
-          score += 15;
-          sfx.levelUp();
-          burst(cx, this.gy() - hs * 0.6, "#00f0ff", 35);
-          popup(cx, this.gy() - hs * 1.1, "HYPER DASH!! 🚀 무적 질주!", "#00f0ff");
-          speak("하이퍼 부스터 질주!", true);
-        } else if (isBoosting) {
-          // 💥 무적 부스터 상태로 장애물 돌파 박살!
-          o.dead = true;
-          score += 8;
-          combo++;
-          burst(o.x, this.gy() - o.y0 - o.h * 0.5, "#ff0077", 26);
-          sfx.saber(o.x, true);
-          popup(o.x, this.gy() - o.y0 - o.h, "SMASH! +8 💥", "#ffea00");
-        } else if (this.inv <= 0) {
-          // 앗! 장애물 충돌 피격
-          o.dead = true;
-          this.lives--;
-          this.inv = 1.6;
-          this.flash = 1;
-          combo = 0;
-          burst(cx, this.gy() - hs / 2, "#ff2a4b", 25);
-          sfx.crash();
-          if (this.lives === 1) speak("한 번 더 부딪히면 끝이에요! 조심해요!");
-          else if (this.lives > 1) speak("앗, 조심해요!");
-          if (this.lives <= 0) { endGame(); return; }
+      // 슬라이딩 앉기
+      const wasDuck = this.duck;
+      this.duck = duck && this.jy === 0;
+      if (!wasDuck && this.duck) {
+        this.duckCount++;
+        tone(220, ac().currentTime, 0.12, "sine", 0.15, 140);
+        popup(this.cx(), this.gy() - hs * 0.35, "SLIDE! ⚡", "#ffea00");
+      }
+
+      // 🚀 3단계 웨이브 & 부스터 연동 속도 계산
+      const waveMult = currentWave === 3 ? 1.55 : (currentWave === 2 ? 1.25 : 1.0);
+      const boostMult = isBoosting ? 1.50 : 1.0;
+      const v = W * 0.46 * waveMult * boostMult * (1 + e * 0.008);
+      this.dist += v * dt;
+
+      this.spawnT -= dt;
+      this.inv = Math.max(0, this.inv - dt);
+      this.flash = Math.max(0, this.flash - dt * 2);
+
+      // 🚀 스피드 라인 파티클 시뮬레이션
+      for (const line of this.speedLines) {
+        line.x -= line.spd * (isBoosting || currentWave === 3 ? 1.8 : 1.0) * dt;
+        if (line.x < -line.len) {
+          line.x = W + Math.random() * 80;
+          line.y = H * (0.2 + Math.random() * 0.55);
         }
       }
 
-      // 점프/슬라이딩으로 장애물 회피 성공 채점
-      if (!o.dead && !o.counted && o.type !== "coin" && o.type !== "ring" && o.x + o.w < cx - cw * 0.4) {
-        o.counted = true;
-        award(cx, this.gy() - hs * 1.3, 3, "#a5e7ff");        // 콤보/피버 배수는 award()가 한 번만 처리
-        popup(cx, this.gy() - hs * 0.9, o.type === "rock" ? "JUMP CLEAR!" : "SLIDE CLEAR!", "#00d2ff");
-      }
-    }
+      // 장애물 & 파워업 동적 스케줄링
+      if (this.spawnT <= 0) {
+        // 웨이브 단계가 높을수록 장애물 스폰 간격이 빨라짐
+        const baseInterval = currentWave === 3 ? 1.0 : (currentWave === 2 ? 1.25 : 1.5);
+        this.spawnT = Math.max(0.75, baseInterval - e * 0.01) * (0.85 + rng() * 0.4);
+        const r = rng(), x = W + 70;
 
-    this.obs = this.obs.filter((o) => !o.dead && o.x > -o.w - 80);
+        if (r < 0.15 && !isBoosting) {
+          // 🚀 [신규] 하이퍼 부스터 링 (점프로 통과 시 무적 질주 가속!)
+          this.obs.push({ type: "ring", x, w: hs * 0.75, h: hs * 0.75, y0: hs * 0.45 });
+        } else if (r < 0.45) {
+          // [점프 허들] 네온 사이버 레이저 바리케이드
+          this.obs.push({ type: "rock", x, w: hs * 0.52, h: hs * 0.44, y0: 0 });
+        } else if (r < 0.75) {
+          // [슬라이딩 장애물] 고공 사이버 드론 & 하향 레이저 빔
+          this.obs.push({ type: "bar", x, w: hs * 0.72, h: hs * 0.52, y0: hs * 0.60 });
+        } else {
+          // [보너스] 3D 골든 스타 코인 3연속 트레일
+          const hi = rng() < 0.45;
+          for (let k = 0; k < 3; k++) {
+            this.obs.push({
+              type: "coin",
+              x: x + k * hs * 0.55,
+              w: hs * 0.32,
+              h: hs * 0.32,
+              y0: hi ? hs * 1.25 : hs * 0.22,
+              coinRot: k * 0.4
+            });
+          }
+        }
+      }
+
+      const cx = this.cx(), cw = hs * 0.35, ch = this.duck ? hs * 0.52 : hs;
+      for (const o of this.obs) {
+        o.x -= v * dt;
+        if (o.type === "coin") o.coinRot = (o.coinRot || 0) + dt * 4;
+
+        const overlapX = o.x < cx + cw * 0.42 && o.x + o.w > cx - cw * 0.42;
+        const overlapY = o.y0 < this.jy + ch * 0.95 && o.y0 + o.h > this.jy + ch * 0.05;
+
+        if (!o.dead && overlapX && overlapY) {
+          if (o.type === "coin") {
+            // 🪙 골든 스타 코인 획득
+            o.dead = true;
+            this.coinsCollected++;
+            award(o.x, this.gy() - o.y0 - o.h, 2, "#ffd166");   // 콤보/피버 배수는 award()가 한 번만 처리
+            burst(o.x, this.gy() - o.y0 - o.h, "#ffd166", 12);
+            sfx.pop(o.x, true);
+          } else if (o.type === "ring") {
+            // 🚀 하이퍼 부스터 링 통과! (3.2초 무적 질주 모드 돌입)
+            o.dead = true;
+            this.boostTimer = 3.2;
+            score += 15;
+            sfx.levelUp();
+            burst(cx, this.gy() - hs * 0.6, "#00f0ff", 35);
+            popup(cx, this.gy() - hs * 1.1, "HYPER DASH!! 🚀 무적 질주!", "#00f0ff");
+            speak("하이퍼 부스터 질주!", true);
+          } else if (isBoosting) {
+            // 💥 무적 부스터 상태로 장애물 돌파 박살!
+            o.dead = true;
+            score += 8;
+            combo++;
+            burst(o.x, this.gy() - o.y0 - o.h * 0.5, "#ff0077", 26);
+            sfx.saber(o.x, true);
+            popup(o.x, this.gy() - o.y0 - o.h, "SMASH! +8 💥", "#ffea00");
+          } else if (this.inv <= 0) {
+            // 앗! 장애물 충돌 피격
+            o.dead = true;
+            this.lives--;
+            this.inv = 1.6;
+            this.flash = 1;
+            combo = 0;
+            burst(cx, this.gy() - hs / 2, "#ff2a4b", 25);
+            sfx.crash();
+            if (this.lives === 1) speak("한 번 더 부딪히면 끝이에요! 조심해요!");
+            else if (this.lives > 1) speak("앗, 조심해요!");
+            if (this.lives <= 0) { endGame(); return; }
+          }
+        }
+
+        // 점프/슬라이딩으로 장애물 회피 성공 채점
+        if (!o.dead && !o.counted && o.type !== "coin" && o.type !== "ring" && o.x + o.w < cx - cw * 0.4) {
+          o.counted = true;
+          award(cx, this.gy() - hs * 1.3, 3, "#a5e7ff");        // 콤보/피버 배수는 award()가 한 번만 처리
+          popup(cx, this.gy() - hs * 0.9, o.type === "rock" ? "JUMP CLEAR!" : "SLIDE CLEAR!", "#00d2ff");
+        }
+      }
+
+      this.obs = this.obs.filter((o) => !o.dead && o.x > -o.w - 80);
+    } catch (err) {
+      console.warn("Runner update error:", err);
+    }
   },
 
   draw() {
-    if (!this.obs) return;
+    try {
+      if (!this.obs) return;
     const hs = this.hs(), gy = this.gy(), cx = this.cx();
     const isBoosting = this.boostTimer > 0;
 
@@ -3704,6 +3738,9 @@ games.runner = {
       topHud(useMouse ? "스페이스/클릭 = 점프, ↓ 키 = 앉기 슬라이드!" : "몸을 위로 점프하면 넘고, 숙여 앉으면 지나가요!");
     }
     bodyHint();
+    } catch (err) {
+      console.warn("Runner draw error:", err);
+    }
   },
 };
 
@@ -4146,10 +4183,16 @@ games.beat = {
     if (isReadyTime) return; // 5초 카운트다운 동안에는 사전 생성 대기
     const track = this.currentTrack || BEAT_TRACKS[0];
     const bpm = track.bpm || 132;
-    const beatSec = 60 / bpm;
+    const beatSec = Math.max(0.1, 60 / bpm);
     const firstBeat = track.firstBeat ?? 0.40;
     const approachTime = track.approachTime ?? 1.8;
     const horizonTime = songTime + approachTime;
+
+    // 🛡️ 시간 드리프트 보정: 탭 전환 등으로 songTime이 이미 앞서갔다면 누적된 과거 노트를 건너뜀
+    const expectedIdx = Math.floor((songTime - firstBeat) / beatSec);
+    if (this.nextBeatIdx < expectedIdx - 4) {
+      this.nextBeatIdx = Math.max(0, expectedIdx - 2);
+    }
 
     // 최대 24개 박자 앞까지 미래 노트 스케줄링 (무한루프 방지 Guard)
     let loopGuard = 0;
@@ -4236,7 +4279,8 @@ games.beat = {
   },
 
   update(dt) {
-    const judgeZ = 1.0; // 정확히 플레이어 눈앞 판정선
+    try {
+      const judgeZ = 1.0; // 정확히 플레이어 눈앞 판정선
     const now = performance.now();
     const swing = [false, false];
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
@@ -4480,9 +4524,13 @@ games.beat = {
       h.life -= 0.04;
     }
     this.halves = this.halves.filter((h) => h.life > 0);
+    } catch (err) {
+      console.warn("Beat update error:", err);
+    }
   },
   draw() {
-    const originX = W * 0.5, originY = H * 0.42;
+    try {
+      const originX = W * 0.5, originY = H * 0.42;
 
     ctx.save();
     if (this.screenShake > 0) {
@@ -4611,6 +4659,9 @@ games.beat = {
 
     ctx.restore(); // screenShake restore
     bodyHint();
+    } catch (err) {
+      console.warn("Beat draw error:", err);
+    }
   }
 };
 
@@ -6186,7 +6237,21 @@ function frame(now) {
         g.spawn();
         spawnTimer = g.interval() * waveMult * (0.6 + Math.random() * 0.8);
       }
-      g.update(dt); g.draw(); bgmTick();
+      try {
+        g.update(dt);
+      } catch (err) {
+        console.error("Game update error in " + mode, err);
+      }
+      try {
+        g.draw();
+      } catch (err) {
+        console.error("Game draw error in " + mode, err);
+      }
+      try {
+        bgmTick();
+      } catch (err) {
+        console.error("bgmTick error in " + mode, err);
+      }
       comboTimer -= dt; if (comboTimer <= 0) combo = 0;
       if (!g.noTimer) timeLeft -= dt;
       if (playing) {                                   // update 안에서 게임이 끝났을 수 있음
@@ -6196,16 +6261,22 @@ function frame(now) {
         if (timeLeft <= 0) endGame();
       }
     }
-  } else if (g) { g.draw(); }
+  } else if (g && playing) {
+    try { g.draw(); } catch {}
+  }
   if (playing) {
-    drawFx();
-    drawCombo();
-    // 👗 모든 인게임 모드에서 장착된 커스튬 파츠(모자, 날개, 의상, 무기, 오라) 실시간 렌더링
-    // (야구 모드는 좌측 타자 아바타 캐릭터가 커스튬을 100% 장착하고 출전하므로 중복 방지)
-    if (mode !== "baseball") {
-      drawEquippedCostumesOnBody(ctx, getBody(), pointers);
+    try {
+      drawFx();
+      drawCombo();
+      // 👗 모든 인게임 모드에서 장착된 커스튬 파츠(모자, 날개, 의상, 무기, 오라) 실시간 렌더링
+      // (야구 모드는 좌측 타자 아바타 캐릭터가 커스튬을 100% 장착하고 출전하므로 중복 방지)
+      if (mode !== "baseball") {
+        drawEquippedCostumesOnBody(ctx, getBody(), pointers);
+      }
+      if (g && !g.noCursor && mode !== "baseball") drawTrails(g.trail ?? "#fff");
+    } catch (fxErr) {
+      console.warn("In-game FX draw error:", fxErr);
     }
-    if (g && !g.noCursor && mode !== "baseball") drawTrails(g.trail ?? "#fff");
   } else {
     // 메인 게임 선택 화면에서는 캔버스를 완전히 비워 어떠한 모션 잔상/인식 포인트도 미표시
     ctx.clearRect(0, 0, W, H);
