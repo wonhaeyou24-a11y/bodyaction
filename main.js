@@ -7869,27 +7869,28 @@ async function renderCostumeShelf() {
 }
 
 function renderEquippedSlotsUI() {
-  const slotMap = {
-    face: $("slotFaceIcon"),
-    head: $("slotHeadIcon"),
-    body: $("slotBodyIcon"),
-    legs: $("slotLegsIcon"),
-    feet: $("slotFeetIcon"),
-    back: $("slotBackIcon"),
-    hand: $("slotHandIcon"),
-    aura: $("slotAuraIcon")
-  };
-  Object.entries(slotMap).forEach(([slot, el]) => {
-    if (!el) return;
-    const itemId = equippedCostume[slot];
-    if (itemId && COSTUME_ITEMS[itemId]) {
-      const it = COSTUME_ITEMS[itemId];
-      el.textContent = `${it.icon} ${it.name}`;
-      el.classList.add("has-item");
-    } else {
-      el.textContent = "비어있음";
-      el.classList.remove("has-item");
-    }
+  const chipsContainer = $("costumeEquippedChips");
+  if (!chipsContainer) return;
+
+  chipsContainer.innerHTML = "";
+  const equippedList = Object.entries(equippedCostume).filter(([_, id]) => id && COSTUME_ITEMS[id]);
+
+  if (equippedList.length === 0) {
+    chipsContainer.innerHTML = `<span class="cec-empty">아직 착용한 장비가 없습니다. (우측 진열장에서 터치하여 착용해보세요!)</span>`;
+    return;
+  }
+
+  equippedList.forEach(([slot, id]) => {
+    const item = COSTUME_ITEMS[id];
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "cec-chip";
+    chip.title = `클릭하면 [${item.name}] 벗기`;
+    chip.innerHTML = `<span>${item.icon}</span> <span>${escapeHtml(item.name)}</span> <span class="cec-chip-remove">✕</span>`;
+    chip.addEventListener("click", async () => {
+      await equipCostumeItem(item); // 토글(벗기)
+    });
+    chipsContainer.appendChild(chip);
   });
 }
 

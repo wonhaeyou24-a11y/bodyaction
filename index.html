@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261012_0600">
+<link rel="stylesheet" href="style.css?v=20261012_0610">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -960,6 +960,26 @@
       <span id="dragGhostIcon">👑</span>
       <small id="dragGhostLabel">아이템 잡는 중</small>
     </div>
+
+    <!-- ⚡ Stitch 하단 실시간 모션 HUD & 현재 착용 중인 단품 세트 콤보 바 -->
+    <div class="costume-bottom-hud">
+      <!-- 현재 착용 중인 단품 악세사리 칩들 -->
+      <div class="costume-equipped-combo-wrap">
+        <div class="cec-title">
+          <span class="cec-badge">CURRENT FIT</span>
+          <b>착용 중인 코디</b>
+        </div>
+        <div id="costumeEquippedChips" class="cec-chips">
+          <span class="cec-empty">아직 착용한 장비가 없습니다.</span>
+        </div>
+      </div>
+
+      <!-- 모션 센서 60 FPS 상태 표시등 -->
+      <div class="costume-sensor-status">
+        <span class="sensor-dot"></span>
+        <span class="sensor-text">MOTION SENSOR ACTIVE • 60 FPS • BODY CALIBRATED</span>
+      </div>
+    </div>
   </div>
 
   <!-- 2. 상단 미니멀 플로팅 헤더 바 -->
@@ -1016,6 +1036,6 @@
   </aside>
 </div>
 
-<script type="module" src="main.js?v=20261012_0600"></script>
+<script type="module" src="main.js?v=20261012_0610"></script>
 </body>
 </html>
