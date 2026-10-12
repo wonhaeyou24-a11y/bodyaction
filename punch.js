@@ -53,14 +53,20 @@ export const KICK_N = { HI: 3.0, LO: 1.4, FRAMES: 2, COOL: 0.35, RETRACT: 0.4 };
  * @param cfg 기준값 (기본 PUNCH_N, 발차기는 KICK_N)
  * @returns {{strike:boolean, intensity:number}}  intensity 1(보통) ~ 2.5(아주 센 펀치)
  */
-export function stepPunchN(f, vN, dt, cfg = PUNCH_N) {
+export const RETURN_STROKE = { WITHIN: 0.6, DOT: -0.2 };   // 휘두른 뒤 0.6초 안에 정반대 방향(내적 -0.2 미만)으로 빠르게 움직이면 "팔 거두기"로 봐요
+export function stepPunchN(f, vN, dt, cfg = PUNCH_N, dir = null) {
   const { HI, LO, FRAMES, COOL, RETRACT } = cfg;
   f.cool = Math.max(0, f.cool - dt);
   f.retractT = Math.max(0, f.retractT - dt);
+  f.since = (f.since ?? 99) + dt;
   if (f.state === "IDLE") {
     f.fast = vN > HI ? f.fast + 1 : 0;
     if (f.fast >= FRAMES && f.cool <= 0) {
       f.fast = 0; f.state = "RETRACT"; f.cool = COOL; f.retractT = RETRACT;
+      // 방금 휘두른 것의 반대 방향이면 되돌리는 동작: 상태는 쉬게 하되 한 번으로 세지 않아요
+      const back = dir && f.lastDir && f.since < RETURN_STROKE.WITHIN && (dir[0] * f.lastDir[0] + dir[1] * f.lastDir[1] + dir[2] * f.lastDir[2]) < RETURN_STROKE.DOT;
+      if (back) { f.lastDir = null; f.since = 0; return { strike: false, intensity: 1, back: true }; }
+      f.lastDir = dir ? dir.slice() : null; f.since = 0;
       return { strike: true, intensity: clamp(vN / HI, 1, 2.5) };
     }
   } else if (f.retractT <= 0 || (f.cool <= 0 && vN < LO)) {

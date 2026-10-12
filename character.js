@@ -106,3 +106,15 @@ export function skeletonToPx(sk, ox, oy, u) {
   out.hipMid = f([(sk.lh[0] + sk.rh[0]) / 2, (sk.lh[1] + sk.rh[1]) / 2]);
   return out;
 }
+
+/**
+ * 게임 안에서 캐릭터를 원하는 자리·크기로 옮겨 그리기: 뼈대 전체를 "엉덩이 중심 = hip, 몸통 길이 = u"가 되도록 옮기고 키워요.
+ * (내 몸의 위치/카메라와의 거리와 상관없이 캐릭터는 게임이 정한 자리에 같은 크기로 서고, 자세(각도)만 내 움직임을 따라 해요)
+ */
+export function skeletonRetarget(sk, hip, u) {
+  if (!sk || !(sk.u > 0) || !(u > 0)) return null;
+  const k = u / sk.u, c = sk.hipMid, f = (p) => [hip[0] + (p[0] - c[0]) * k, hip[1] + (p[1] - c[1]) * k];
+  const out = { u, est: sk.est, hipMid: [hip[0], hip[1]] };
+  for (const key of ["head", "neck", "ls", "rs", "le", "re", "lw", "rw", "lh", "rh", "lk", "rk", "la", "ra"]) out[key] = f(sk[key]);
+  return out;
+}

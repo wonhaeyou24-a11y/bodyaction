@@ -17,6 +17,12 @@ export class ArmVel {
     this.sw = this.sw * 0.7 + swPx * 0.3;
     this.xy.update(rx, ry, t); this.z.update(rz, 0, t); this.t = t;
   }
+  /** 움직이는 방향 (길이 1인 3차원 벡터 [x,y,z], 거의 안 움직이면 null) — 휘두른 뒤 팔을 거두는 동작(되돌림)을 구분하는 데 써요 */
+  dir(nowMs) {
+    if (nowMs - this.t > STALE_MS || !this.xy.ready) return null;
+    const x = this.xy.vx, y = this.xy.vy, z = Z_WEIGHT * this.z.vx, l = Math.hypot(x, y, z);
+    return l > 1e-6 ? [x / l, y / l, z / l] : null;
+  }
   /** 지금의 3차원 속도 (어깨너비/초) */
   vN(nowMs) {
     if (nowMs - this.t > STALE_MS || !this.xy.ready) return 0;

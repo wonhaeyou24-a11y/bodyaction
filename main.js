@@ -14,9 +14,12 @@ import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js
 import { bakeToon } from "./costume-toon.js?v=20261013_0900";
 import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_0900";
 import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
-import { CHARACTERS, loadCharacterId, saveCharacterId, characterById } from "./character.js?v=20261013_1300";
-import { skeletonToPx } from "./character.js?v=20261013_1300";
-import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1300";
+import { CHARACTERS, loadCharacterId, saveCharacterId, characterById, skeletonFromBody, skeletonRetarget } from "./character.js?v=20261013_1414";
+import { skeletonToPx } from "./character.js?v=20261013_1414";
+import { CRUN, createRun, stepRun } from "./crun-core.js?v=20261013_1414";
+import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1414";
+import { newLaneState, stepLane } from "./lane.js?v=20261013_1414";
+import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1414";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -399,6 +402,8 @@ const INTRO = {
   balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
   ninja: "과일을 날카롭게 베어내세요! 폭탄은 조심하세요!",
   space: "지구를 향해 쏟아지는 유성을 막아내세요! 가운데 말고 떨어질 곳으로 손을 뻗으세요!",
+  crun: "내 캐릭터가 달려요! 몸을 옆으로 기울여 길을 바꾸고, 점프로 넘고, 웅크려서 아래로 지나가요!",
+  cduel: "오른손으로 검을 휘두르고, 왼손을 올려 방패로 막아요! 적의 공격이 닿기 직전에 방패를 올리면 패링!",
   bballoon: "손·발·머리 어디로든 풍선을 터뜨리세요! 발로 차면 보너스! 검은 폭탄은 피해요!",
   bspace: "온몸으로 유성을 막아내세요! 점선으로 표시된 떨어질 곳으로 몸을 움직여요!",
   draw: "허공에 멋진 그림을 그려 보세요!",
@@ -571,6 +576,8 @@ const BGM = {
   ninja:   { bpm: 124, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "square", drums: "taiko", vol: 0.70 },
   bballoon:{ bpm: 118, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.65 },
   bspace:  { bpm: 96, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone", vol: 0.65 },
+  crun:    { bpm: 140, root: 220, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
+  cduel:   { bpm: 124, root: 196, scale: [0, 2, 3, 7, 8], prog: [0, 0, 5, 7], wave: "sawtooth", drums: "taiko", vol: 0.68 },
   space:   { bpm: 92, root: 130.81, scale: [0, 3, 5, 7, 10], prog: [0, 0, 8, 5], wave: "sine", drums: "drone", vol: 0.65 },
   draw:    { bpm: 76, root: 196, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "sine", drums: "none", vol: 0.5 },
   dodge:   { bpm: 132, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 3, 5, 7], wave: "square", drums: "pop", vol: 0.65 },
@@ -920,8 +927,8 @@ function updatePointers() {
       // ⚡ 포즈 모드 및 피팅룸에서도 손목(15, 16)을 pointers로 추출하여 손/주먹 상호작용 지원
       if (body && body[15] && body[16]) {
         pts = [
-          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy, vN: armVel[0].vN(now) },
-          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy, vN: armVel[1].vN(now) }
+          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy, vN: armVel[0].vN(now), dirN: armVel[0].dir(now) },
+          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy, vN: armVel[1].vN(now), dirN: armVel[1].dir(now) }
         ];
       }
     }
@@ -952,6 +959,7 @@ function updatePointers() {
       speed: curSpeed,
       vps: ptrVps[i],
       vN: p.vN,                       // 어깨너비/초 단위 3차원 속도 (몸 인식일 때만; 샌드백 펀치 판정)
+      dirN: p.dirN,                   // 그 움직임의 방향 (팔 거두기 구분용)
       fist: useMouse ? !mouse.down : !!lastFist[i],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
       punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 240 && ptrVps[i] > Math.min(W, H) * 0.55),
@@ -2971,7 +2979,8 @@ function mockBody(x) {
   set(23, -35, 0.78); set(24, 35, 0.78); set(25, -35, 0.9); set(26, 35, 0.9); set(27, -35, 0.98); set(28, 35, 0.98);
   return b;
 }
-const getBody = () => (useMouse ? mockBody(mouse.x || W / 2) : body);
+let forcedBody = null;     // (측정용) ?bench 에서만 설정: 가짜 몸을 게임에 넣어 입력 코드를 시험해요. 평소엔 null
+const getBody = () => (forcedBody ? forcedBody() : useMouse ? mockBody(mouse.x || W / 2) : body);
 const bv = (b, i, min = 0.5) => !!(b && b[i] && b[i].v >= min);
 function drawSkeleton(b, color = "#7df9ff", alpha = 1) {
   if (!b || (playerSettings && playerSettings.skeleton === false)) return;
@@ -5028,7 +5037,7 @@ games.box = {
     pointers.forEach((p, i) => {
       const fsm = this.fistFSM[i] ?? (this.fistFSM[i] = newPunchState());
       const isLeftFist = p.x < W / 2;
-      const hit = p.vN !== undefined ? stepPunchN(fsm, p.vN, dt) : stepPunch(fsm, p.vps ?? p.speed * 60, !!p.punch, dt, Math.min(W, H));
+      const hit = p.vN !== undefined ? stepPunchN(fsm, p.vN, dt, undefined, p.dirN) : stepPunch(fsm, p.vps ?? p.speed * 60, !!p.punch, dt, Math.min(W, H));
       if (hit.strike) {
         strikeOccurred = true;
         strikeSideLeft = isLeftFist;
@@ -6155,7 +6164,15 @@ function drawBackground(color, camAlpha = 0.20) {
 
   // 3. 실시간 플레이어 웹캠 비디오 (방 안 잡동사니 노출 완전 차단 -> 은은한 네온 실루엣 0.12 알파로 아바타처럼 일체화)
   // (야구 모드는 우측 듀얼 뷰포트에서 전신 스켈레톤과 함께 독립 렌더링하므로 제외)
-  if (!useMouse && video && video.readyState >= 2 && mode !== "baseball") {
+  const pip = !!games[mode]?.camPip;                 // 캐릭터 게임: 카메라는 구석에 작게
+  if (pip && !useMouse && video && video.readyState >= 2) {
+    const pw = Math.max(120, Math.min(W * 0.17, 260)), ph = pw * 0.75, px = W - pw - 14, py = H - ph - 14;
+    // 카메라 화면 (구석에 작게): 영상 비율을 그대로 맞춰서(자르지 않고) 그리면 클리핑 없이 한 번에 그려져 가벼워요
+    try { const vw = video.videoWidth || 640, vh = video.videoHeight || 480, k = Math.min(pw / vw, ph / vh), dw = vw * k, dh = vh * k, dx = px + pw - dw, dy = py + ph - dh;
+      ctx.fillStyle = "rgba(125,249,255,.8)"; ctx.fillRect(dx - 2, dy - 2, dw + 4, dh + 4);
+      ctx.save(); ctx.translate(dx + dw, dy); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, dw, dh); ctx.restore(); } catch {}
+  }
+  if (!pip && !useMouse && video && video.readyState >= 2 && mode !== "baseball") {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save();
@@ -6297,7 +6314,7 @@ function frame(now) {
       drawCombo();
       // 👗 모든 인게임 모드에서 장착된 커스튬 파츠(모자, 날개, 의상, 무기, 오라) 실시간 렌더링
       // (야구 모드는 좌측 타자 아바타 캐릭터가 커스튬을 100% 장착하고 출전하므로 중복 방지)
-      if (mode !== "baseball") {
+      if (mode !== "baseball" && !g?.noCostume) {        // 캐릭터 게임(noCostume)은 고른 캐릭터가 주인공이라 몸 위에 커스튬을 덧입히지 않아요
         drawEquippedCostumesOnBody(ctx, getBody(), pointers);
       }
       if (g && !g.noCursor && mode !== "baseball") drawTrails(g.trail ?? "#fff");
@@ -6373,6 +6390,8 @@ const RANK_THRESHOLDS = {
   space:   [26, 68, 230, 560, 920],
   bballoon: [90, 170, 330, 560, 820],        // 몸 풍선: 규칙(스폰·콤보·피버)을 시뮬레이션한 값 (손 풍선보다 낮음: 몸으로는 덜 맞힘)
   bspace:  [6, 11, 26, 120, 800],            // 몸 유성: 시뮬레이션 값 (실력이 낮으면 방어막이 먼저 바닥나 점수가 작아요)
+  crun:    [32, 118, 163, 191, 205],
+  cduel:   [150, 750, 920, 1010, 1230],     // 캐릭터 러너/검 배틀: 봇 시뮬레이션(test/sim-ranks.mjs)으로 계산
   kungfu:  [13, 30, 81, 210, 470],
   brick:   [9, 25, 55, 110, 360],
   dodge:   [30, 54, 86, 110, 130],
@@ -6582,7 +6601,7 @@ function toMenu() {
 }
 async function showBest() {
   const modesList = [
-    ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"], ["bballoon", "몸풍선"], ["bspace", "몸유성"],
+    ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"], ["bballoon", "몸풍선"], ["bspace", "몸유성"], ["crun", "캐릭터런"], ["cduel", "검방패"],
     ["brick", "벽돌"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
     ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"],
     ["keeper", "골키퍼"], ["box", "펀치백"], ["baseball", "야구"]
@@ -9447,7 +9466,308 @@ addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("characterModa
 document.addEventListener("profile:changed", () => { currentCharacterId = loadCharacterId(localStorage, recKey("character_v1")); refreshCharacterButton(); document.querySelectorAll(".character-card").forEach((el) => el.classList.toggle("selected", el.dataset.id === currentCharacterId)); });
 refreshCharacterButton();
 
+// ============================================================================
+// 🧑‍🎤 캐릭터 게임 2종: 캐릭터 러너(트랩 탈출) / 검 & 방패 배틀
+// 규칙은 crun-core.js · duel-core.js (순수 로직, 봇 시뮬레이션 테스트), 좌우 이동은 lane.js, 점프·앉기는 jump.js,
+// 검 휘두르기는 armtrack.js+punch.js(어깨 기준 3D 속도)를 그대로 재사용해요. 여기는 "내 몸 → 입력"과 "그림"만 맡아요.
+// 캐릭터는 고른 캐릭터(currentCharacterId)가 내 자세를 따라 하고, 카메라는 구석에 작게 보여요.
+// 마우스 모드/키보드(테스트·보조): 러너 ←→ 길 바꾸기 · Space/↑ 점프 · ↓ 웅크리기 / 배틀 클릭·Space 검 · Shift/S 방패 · U 필살기
+// ============================================================================
+const ckeys = new Set();
+addEventListener("keydown", (e) => { ckeys.add(e.key.toLowerCase()); });
+addEventListener("keyup", (e) => { ckeys.delete(e.key.toLowerCase()); });
+const IDLE_ANGLES = anglesOf({ arms: [100, 100, 80, 80], legs: null });
+const staticLayers = new Map();   // 이름 -> { key: "가로x세로", cv }
+/** 안 변하는 배경을 화면 크기별로 한 번만 그려서 보관해요 (draw(c)는 새 캔버스의 2D 컨텍스트를 받아요) */
+function staticLayer(name, draw) {
+  const key = W + "x" + H; let e = staticLayers.get(name);
+  if (!e || e.key !== key) { const cv = document.createElement("canvas"); cv.width = W; cv.height = H; draw(cv.getContext("2d")); e = { key, cv }; staticLayers.set(name, e); }
+  return e.cv;
+}
+/** 게임이 정한 자리(hipX,hipY)·크기(u)에 캐릭터 뼈대를 만들어요: 내 몸이 보이면 내 자세를, 안 보이면 서 있는 자세를 */
+function gameCharacterSkeleton(hipX, hipY, u) {
+  const b = getBody(), sk = b ? skeletonFromBody(b) : null;
+  return sk ? skeletonRetarget(sk, [hipX, hipY], u) : skeletonToPx(skeletonFromAngles(IDLE_ANGLES), hipX, hipY - u, u);
+}
+function drawGameCharacter(sk, t, mood) { try { drawCharacter(ctx, currentCharacterId, sk, { t, mood, shadow: false }); } catch {} }
+function prepareCharacter() {
+  currentCharacterId = loadCharacterId(localStorage, recKey("character_v1"));
+  const c = characterById(currentCharacterId); if (c?.art) preloadPuppet(c.id);
+}
+const kbEdge = (st, k) => { const v = ckeys.has(k), p = st[k]; st[k] = v; return v && !p; };
+function heartsLine(n, max) { ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "30px serif"; ctx.fillText("❤️".repeat(Math.max(n, 0)) + "🖤".repeat(Math.max(0, max - Math.max(n, 0))), W / 2, 104); ctx.restore(); }
+function hintText(t, y, sec, since) {
+  if (since > sec) return;
+  ctx.save(); ctx.globalAlpha = Math.min(1, (sec - since) / 1.2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `800 ${Math.max(15, Math.min(W * 0.028, H * 0.04))}px sans-serif`;
+  ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.65)"; ctx.fillStyle = "#ffd166"; ctx.strokeText(t, W / 2, y); ctx.fillText(t, W / 2, y); ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// 🏃 캐릭터 러너 (crun)
+// ---------------------------------------------------------------------------
+games.crun = {
+  bg: "#0b0b22", camAlpha: 0, camPip: true, noCostume: true, body: true, noCursor: true, manual: true,
+  init() {
+    prepareCharacter();
+    this.run = createRun({ rng }); this.ls = newLaneState(); this.js = newJumpState(); this.t = 0; this.flash = 0; this.kp = {}; this.kbLane = null; this.kbT = -1e9; this.dist10 = 0; this.milestone = 0; this.src = "body";
+  },
+  result() { return ` · ${Math.round(this.run.dist)}m · 코인 ${this.run.coinCount} · 맞은 횟수 ${this.run.hits}`; },
+  update(dt) {
+    this.t += dt; this.flash = Math.max(0, this.flash - dt * 2.2);
+    const now = performance.now(), run = this.run;
+    // 키보드 (마우스 모드 · 보조)
+    let jump = false, duck = false;
+    if (kbEdge(this.kp, "arrowleft") || kbEdge(this.kp, "a")) { this.kbLane = Math.max(0, (this.kbLane ?? run.lane) - 1); this.kbT = now; }
+    if (kbEdge(this.kp, "arrowright") || kbEdge(this.kp, "d")) { this.kbLane = Math.min(2, (this.kbLane ?? run.lane) + 1); this.kbT = now; }
+    if (kbEdge(this.kp, " ") || kbEdge(this.kp, "arrowup") || kbEdge(this.kp, "w")) { jump = true; this.kbT = now; }
+    if (ckeys.has("arrowdown") || ckeys.has("s")) { duck = true; this.kbT = now; }
+    const kbOn = useMouse || now - this.kbT < 800;
+    // 몸 입력: 길 = lane.js (몸 중심/어깨너비), 점프·웅크리기 = jump.js
+    let lane = run.lane, bodyJump = false, bodyDuck = false;
+    const b = !useMouse ? getBody() : null, sk = b ? skeletonFromBody(b) : null;
+    if (sk) {
+      const sw = Math.hypot(sk.rs[0] - sk.ls[0], sk.rs[1] - sk.ls[1]);
+      lane = stepLane(this.ls, ((sk.ls[0] + sk.rs[0]) / 2) / sw, dt, (((bodyTracks[11]?.vx ?? 0) + (bodyTracks[12]?.vx ?? 0)) / 2) * 1000 / sw) + 1;
+      const sm = jumpSample(b); if (sm) { const r = stepJump(this.js, sm, dt, now); bodyJump = r.jump; bodyDuck = r.duck; }
+    }
+    if (kbOn) { if (this.kbLane != null) lane = this.kbLane; } else { jump = bodyJump; duck = bodyDuck; }
+    const speedMul = currentWave === 3 ? 1.1 : currentWave === 2 ? 1.05 : 1;
+    const ev = stepRun(run, { lane, jump, duck }, dt, speedMul);
+    const px = W / 2 + (run.laneX - 1) * W * 0.2, py = H * 0.55;
+    for (const e of ev) {
+      if (e.type === "jump") { tone(480, ac().currentTime, 0.14, "triangle", 0.16, 900); burst(px, H * 0.9, "#00d2ff", 10); }
+      else if (e.type === "coin") { award(px, py - 40, 1, "#ffd166"); sfx.pop(px, true); }
+      else if (e.type === "pass") { award(px, py - 60, e.obs === "wall" ? 2 : 3, "#7df9ff"); }
+      else if (e.type === "hit") { combo = 0; this.flash = 1; sfx.crash(); addShake?.(0.18, 8); popup(px, py - 40, "쾅! 💥", "#ff6b6b"); if (run.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (run.lives > 1) speak("앗, 조심!"); }
+      else if (e.type === "life") { popup(px, py - 80, "❤️ 목숨 회복!", "#ff9ad5"); sfx.levelUp(); }
+      else if (e.type === "over") { endGame(); return; }
+    }
+    const d10 = Math.floor(run.dist / 10); if (d10 > this.dist10) { score += d10 - this.dist10; this.dist10 = d10; }       // 달린 거리 10m마다 1점
+    if (Math.floor(run.dist / 200) > this.milestone) { this.milestone++; popup(W / 2, H * 0.32, `${this.milestone * 200}m 돌파! 🏁`, "#ffd166"); sfx.levelUp(); }
+  },
+  draw() {
+    const run = this.run; if (!run) return;
+    const hz = H * 0.26, gy = H * 0.93, laneSp = W * 0.2, S = (d) => 1 / (1 + d * 0.075), X = (lane, d) => W / 2 + (lane - 1) * laneSp * S(d), Y = (d) => hz + (gy - hz) * S(d);
+    // 하늘 + 멀리 보이는 도시 + 바닥색: 안 변하는 그림이라 한 번만 그려 두고 매 프레임 한 장으로 찍어요 (화면 크기가 바뀔 때만 다시)
+    ctx.drawImage(staticLayer("crun", (c) => {
+      const sky = c.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, "#0b0b22"); sky.addColorStop(1, "#5a2a8a"); c.fillStyle = sky; c.fillRect(0, 0, W, hz + 1);
+      c.fillStyle = "rgba(20,8,50,.85)"; for (let i = 0; i < 16; i++) { const bw = W / 14, bh = H * (0.05 + 0.07 * ((i * 37) % 7) / 7); c.fillRect(i * bw - 20, hz - bh, bw - 6, bh); }
+      const floor = c.createLinearGradient(0, hz, 0, H); floor.addColorStop(0, "#2a1450"); floor.addColorStop(1, "#120a2c"); c.fillStyle = floor; c.fillRect(0, hz, W, H - hz);
+    }), 0, 0, W, H);
+    // 길(레인) 선 + 흘러가는 점선
+    ctx.strokeStyle = "rgba(125,249,255,.45)"; ctx.lineWidth = 2.5;
+    for (const off of [-1.5, -0.5, 0.5, 1.5]) { ctx.beginPath(); ctx.moveTo(W / 2 + off * laneSp * S(CRUN.D_MAX + 20), Y(CRUN.D_MAX + 20)); ctx.lineTo(W / 2 + off * laneSp * S(-3), Y(-3)); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 3;
+    for (let i = 0; i < 12; i++) { const d = i * 5 - (run.dist % 5); if (d < 0) continue; for (const k of [0.5, 1.5]) { const s1 = S(d), s2 = S(d + 1.6); ctx.beginPath(); ctx.moveTo(W / 2 + (k - 1) * laneSp * s1, hz + (gy - hz) * s1); ctx.lineTo(W / 2 + (k - 1) * laneSp * s2, hz + (gy - hz) * s2); ctx.stroke(); } }
+    // 길가의 네온 기둥
+    for (let i = 0; i < 9; i++) { const d = i * 8 - (run.dist % 8); if (d < 0.5) continue; for (const sgn of [-1, 1]) { const s = S(d), x = W / 2 + sgn * laneSp * 2.0 * s, y = hz + (gy - hz) * s; ctx.fillStyle = sgn < 0 ? "#00d2ff" : "#ff3377"; ctx.fillRect(x - 3 * s, y - H * 0.26 * s, 6 * s, H * 0.26 * s); ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y - H * 0.26 * s, 14 * s, 0, 7); ctx.fill(); ctx.globalAlpha = 1; } }
+    // 코인 + 장애물 (먼 것부터)
+    for (const c of run.coins) { if (c.d > CRUN.D_MAX || c.d < -1) continue; const s = S(Math.max(c.d, 0)), x = X(c.lane, Math.max(c.d, 0)), y = Y(Math.max(c.d, 0)) - (0.2 + c.h) * H * 0.14 * s; ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#a86b00"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 14 * s + 3, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.beginPath(); ctx.arc(x - 4 * s, y - 4 * s, 4 * s + 1, 0, 7); ctx.fill(); }
+    for (const o of [...run.obs].sort((a, b) => b.d - a.d)) { if (o.d > CRUN.D_MAX) continue; const d = Math.max(o.d, -0.5), s = S(d), x = X(o.lane, d), yb = Y(d), w = laneSp * 0.8 * s; drawCrunObstacle(o.type, x, yb, w, s, o.d < 14 ? 1 : 0.85); }
+    // 캐릭터
+    const u = H * 0.122, ux = W / 2 + (run.laneX - 1) * laneSp, feetY = H * 0.9 - run.y * H * 0.14, hipY = feetY - 1.72 * u;
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(ux, H * 0.9 + 4, u * (0.9 - run.y * 0.3), u * 0.12, 0, 0, 7); ctx.fill();
+    ctx.save(); if (run.inv > 0 && Math.floor(this.t * 14) % 2) ctx.globalAlpha = 0.4;
+    drawGameCharacter(gameCharacterSkeleton(ux, hipY, u), this.t, run.y > 0.4 ? "happy" : "normal"); ctx.restore();
+    // 점선 위험 표시는 생략, 안내/상태
+    heartsLine(run.lives, CRUN.LIVES);
+    ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = "900 22px sans-serif"; ctx.fillStyle = "#fff"; ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.6)";
+    const dm = `🏃 ${Math.round(run.dist)}m   🪙 ${run.coinCount}`; ctx.strokeText(dm, 16, H * 0.2); ctx.fillText(dm, 16, H * 0.2); ctx.restore();
+    if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.35})`; ctx.fillRect(0, 0, W, H); }
+    hintText(useMouse ? "← → 길 바꾸기 · Space 점프 · ↓ 웅크리기" : "몸을 옆으로 기울여 길 바꾸기 · 점프로 넘기 · 웅크려서 아래로!", H * 0.4, 9, this.t);
+    bodyHint();
+  },
+};
+function drawCrunObstacle(type, x, yb, w, s, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.lineJoin = "round"; const lw = Math.max(1.5, 3 * s);
+  if (type === "low") {                                    // 낮은 장애물 (점프)
+    const h = H * 0.07 * (0.9 + CRUN.LOW_H) * s * 1.6; ctx.fillStyle = "#ffb703"; ctx.strokeStyle = "#3a2200"; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.roundRect(x - w * 0.45, yb - h, w * 0.9, h, 4 * s); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.clip(); ctx.fillStyle = "#2a1a00"; for (let i = -3; i < 7; i++) { ctx.beginPath(); ctx.moveTo(x - w * 0.45 + i * w * 0.2, yb); ctx.lineTo(x - w * 0.45 + i * w * 0.2 + w * 0.1, yb); ctx.lineTo(x - w * 0.45 + i * w * 0.2 + w * 0.3, yb - h); ctx.lineTo(x - w * 0.45 + i * w * 0.2 + w * 0.2, yb - h); ctx.fill(); } ctx.restore();
+  } else if (type === "high") {                            // 높은 장애물 (웅크려서 아래로)
+    const ph = H * 0.34 * s, bh = H * 0.07 * s; ctx.fillStyle = "#6a6a88"; ctx.strokeStyle = "#1a1a2e"; ctx.lineWidth = lw;
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.roundRect(x + sg * w * 0.46 - w * 0.04, yb - ph, w * 0.08, ph, 2); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = "#ff4d5e"; ctx.beginPath(); ctx.roundRect(x - w * 0.5, yb - ph, w, bh, 3 * s); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.clip(); ctx.fillStyle = "#fff"; for (let i = -2; i < 8; i++) { ctx.beginPath(); ctx.moveTo(x - w * 0.5 + i * w * 0.18, yb - ph + bh); ctx.lineTo(x - w * 0.5 + i * w * 0.18 + w * 0.09, yb - ph + bh); ctx.lineTo(x - w * 0.5 + i * w * 0.18 + w * 0.2, yb - ph); ctx.lineTo(x - w * 0.5 + i * w * 0.18 + w * 0.11, yb - ph); ctx.fill(); } ctx.restore();
+  } else {                                                 // 벽 (길을 바꿔야 함)
+    const h = H * 0.30 * s; const g = ctx.createLinearGradient(0, yb - h, 0, yb); g.addColorStop(0, "#9b5cff"); g.addColorStop(1, "#4a2a9a"); ctx.fillStyle = g; ctx.strokeStyle = "#1c1040"; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.roundRect(x - w * 0.46, yb - h, w * 0.92, h, 6 * s); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = `900 ${h * 0.5}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", x, yb - h * 0.5);
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// ⚔️ 검 & 방패 배틀 (cduel)
+// ---------------------------------------------------------------------------
+function drawEnemyArt(id, x, feetY, S, t, o) {              // x: 가운데, feetY: 발 위치, S: 키(px)
+  ctx.save(); ctx.translate(x, feetY); ctx.lineJoin = "round"; const OUT = "#2a1a3a", lw = Math.max(2, S * 0.022);
+  if (o.dead) ctx.globalAlpha = 0.45;
+  const lunge = o.lunge || 0; ctx.translate(-lunge, 0);
+  if (o.hurt > 0) ctx.translate((Math.random() - 0.5) * S * 0.04, 0);
+  const body = (c1, c2) => { const g = ctx.createLinearGradient(0, -S, 0, 0); g.addColorStop(0, c1); g.addColorStop(1, c2); return g; };
+  ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.ellipse(0, 4, S * 0.42, S * 0.06, 0, 0, 7); ctx.fill();
+  const eye = (ex, ey, r) => { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex, ey, r, 0, 7); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.7; ctx.stroke(); ctx.fillStyle = "#1a1030"; ctx.beginPath(); ctx.arc(ex - r * 0.25, ey + r * 0.1, r * 0.5, 0, 7); ctx.fill(); };
+  if (id === "slime") {
+    const sq = 1 + Math.sin(t * 4) * 0.06 + (o.windup || 0) * 0.15; ctx.scale(1 / sq, sq);
+    ctx.fillStyle = body("#9dff8a", "#2fbf55"); ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(-S * 0.42, 0); ctx.bezierCurveTo(-S * 0.5, -S * 0.5, -S * 0.2, -S * 0.7, 0, -S * 0.7); ctx.bezierCurveTo(S * 0.2, -S * 0.7, S * 0.5, -S * 0.5, S * 0.42, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    eye(-S * 0.14, -S * 0.36, S * 0.075); eye(S * 0.14, -S * 0.36, S * 0.075);
+    ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(0, -S * 0.22, S * 0.1, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.ellipse(-S * 0.22, -S * 0.55, S * 0.08, S * 0.04, -0.6, 0, 7); ctx.fill();
+  } else if (id === "goblin") {
+    ctx.fillStyle = "#7a5230"; ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.beginPath(); ctx.roundRect(-S * 0.2, -S * 0.52, S * 0.4, S * 0.4, S * 0.08); ctx.fill(); ctx.stroke();           // 몸
+    ctx.fillStyle = "#3f6b3a"; for (const sg of [-1, 1]) { ctx.beginPath(); ctx.roundRect(sg * S * 0.12 - S * 0.07, -S * 0.14, S * 0.14, S * 0.14, 4); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = body("#a8e063", "#56ab2f"); for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sg * S * 0.28, -S * 0.82); ctx.lineTo(sg * S * 0.62, -S * 0.9); ctx.lineTo(sg * S * 0.3, -S * 0.66); ctx.closePath(); ctx.fill(); ctx.stroke(); }   // 귀
+    ctx.beginPath(); ctx.arc(0, -S * 0.72, S * 0.3, 0, 7); ctx.fill(); ctx.stroke(); eye(-S * 0.11, -S * 0.74, S * 0.07); eye(S * 0.11, -S * 0.74, S * 0.07);
+    ctx.strokeStyle = OUT; ctx.beginPath(); ctx.moveTo(-S * 0.12, -S * 0.6); ctx.lineTo(S * 0.12, -S * 0.62); ctx.stroke();
+    ctx.strokeStyle = "#6a4a20"; ctx.lineWidth = lw * 1.5; ctx.beginPath(); ctx.arc(-S * 0.3, -S * 0.36, S * 0.28, -1.2, 1.2); ctx.stroke(); ctx.lineWidth = lw * 0.5; ctx.beginPath(); ctx.moveTo(-S * 0.3 + Math.cos(-1.2) * S * 0.28, -S * 0.36 + Math.sin(-1.2) * S * 0.28); ctx.lineTo(-S * 0.3 + Math.cos(1.2) * S * 0.28, -S * 0.36 + Math.sin(1.2) * S * 0.28); ctx.stroke();    // 활
+  } else if (id === "skeleton") {
+    ctx.fillStyle = "#f4f1e6"; ctx.strokeStyle = OUT; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.arc(0, -S * 0.74, S * 0.27, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.roundRect(-S * 0.15, -S * 0.52, S * 0.3, S * 0.12, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#1a1030"; for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * S * 0.1, -S * 0.76, S * 0.07, S * 0.09, 0, 0, 7); ctx.fill(); }
+    ctx.fillStyle = "#ff4d5e"; for (const sg of [-1, 1]) { ctx.beginPath(); ctx.arc(sg * S * 0.1, -S * 0.75, S * 0.025, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = "#f4f1e6"; ctx.lineWidth = S * 0.05; ctx.lineCap = "round"; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-S * 0.18, -S * 0.38 + i * S * 0.07); ctx.lineTo(S * 0.18, -S * 0.38 + i * S * 0.07); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(0, -S * 0.4); ctx.lineTo(0, -S * 0.1); ctx.moveTo(-S * 0.08, -S * 0.1); ctx.lineTo(-S * 0.1, 0); ctx.moveTo(S * 0.08, -S * 0.1); ctx.lineTo(S * 0.1, 0); ctx.stroke();
+    ctx.fillStyle = o.guarding ? "#7df9ff" : "#9aa7c7"; ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.beginPath(); ctx.ellipse(-S * 0.3, -S * 0.3, S * 0.18, S * 0.24, 0, 0, 7); ctx.fill(); ctx.stroke();                          // 방패
+  } else {                                                                              // dragon
+    ctx.fillStyle = body("#ff7b5c", "#b8242c"); ctx.strokeStyle = OUT; ctx.lineWidth = lw;
+    const flap = Math.sin(t * 3) * S * 0.04;
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sg * S * 0.2, -S * 0.55); ctx.quadraticCurveTo(sg * S * 0.75, -S * (0.95 + flap / S), sg * S * 0.7, -S * 0.3); ctx.quadraticCurveTo(sg * S * 0.45, -S * 0.42, sg * S * 0.2, -S * 0.3); ctx.closePath(); ctx.fillStyle = "#c93a4a"; ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = body("#ff8a6c", "#b8242c"); ctx.beginPath(); ctx.ellipse(0, -S * 0.34, S * 0.34, S * 0.34, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffd9a8"; ctx.beginPath(); ctx.ellipse(0, -S * 0.26, S * 0.2, S * 0.24, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = body("#ff8a6c", "#d03a44"); ctx.beginPath(); ctx.ellipse(-S * 0.18, -S * 0.78, S * 0.3, S * 0.24, 0, 0, 7); ctx.fill(); ctx.stroke();      // 머리(왼쪽을 봄)
+    ctx.fillStyle = "#ffd84a"; for (const sg of [0.12, 0.34]) { ctx.beginPath(); ctx.moveTo(-S * 0.18 + sg * S, -S * 0.98); ctx.lineTo(-S * 0.1 + sg * S, -S * 1.12); ctx.lineTo(-S * 0.02 + sg * S, -S * 0.96); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    eye(-S * 0.3, -S * 0.82, S * 0.06); ctx.fillStyle = "#1a1030"; ctx.beginPath(); ctx.arc(-S * 0.44, -S * 0.72, S * 0.02, 0, 7); ctx.fill();
+    if ((o.windup || 0) > 0) { ctx.fillStyle = `rgba(255,170,40,${0.4 + 0.5 * o.windup})`; ctx.beginPath(); ctx.arc(-S * 0.46, -S * 0.7, S * (0.05 + 0.08 * o.windup), 0, 7); ctx.fill(); }
+  }
+  if (o.hurt > 0) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = `rgba(255,255,255,${Math.min(0.7, o.hurt * 3)})`; ctx.fillRect(-S, -S * 1.3, S * 2, S * 1.4); }
+  ctx.restore();
+}
+games.cduel = {
+  bg: "#14102b", camAlpha: 0, camPip: true, noCostume: true, body: true, noCursor: true, manual: true,
+  init() {
+    prepareCharacter();
+    this.d = createDuel({ rng }); this.fsm = newPunchState(); this.t = 0; this.kp = {}; this.sUp = false; this.ultT = 0; this.lastSwing = -9; this.flash = 0; this.parryFx = 0; this.hurtFx = 0; this.mouseWas = false; this.src = "";
+    this.hudT = 0;
+  },
+  result() { const d = this.d; return ` · 처치 ${d.kills} · 패링 ${d.parries} · 막기 ${d.blocks}`; },
+  update(dt) {
+    this.t += dt; this.flash = Math.max(0, this.flash - dt * 2.5); this.parryFx = Math.max(0, this.parryFx - dt * 2.5); this.hurtFx = Math.max(0, this.hurtFx - dt * 2.2);
+    const now = performance.now(), d = this.d;
+    let swing = 0, shield = false, ultIn = false;
+    // 키보드/마우스 (테스트 · 보조)
+    const mdown = useMouse && mouse.down; if (mdown && !this.mouseWas) swing = 1.4; this.mouseWas = !!mdown;
+    if (kbEdge(this.kp, " ") || kbEdge(this.kp, "j")) swing = Math.max(swing, 1.4);
+    if (ckeys.has("shift") || ckeys.has("s")) shield = true;
+    if (ckeys.has("u")) ultIn = true;
+    // 몸 입력: 오른손 휘두르기 = 어깨 기준 3D 속도(armtrack+punch), 왼손 올리기 = 방패, 양손 번쩍 = 필살기
+    const b = !useMouse ? getBody() : null, sk = b ? skeletonFromBody(b) : null;
+    if (sk) {
+      const hit = stepPunchN(this.fsm, armVel[0].vN(now), dt, undefined, armVel[0].dir(now)); if (hit.strike) swing = Math.max(swing, hit.intensity);
+      const lwVis = b[15] && b[15].v >= 0.4, rwVis = b[16] && b[16].v >= 0.4;
+      const dyL = (sk.lw[1] - sk.ls[1]) / sk.u;                                  // 왼손목이 왼어깨보다 얼마나 아래인지 (몸통 길이 단위)
+      this.sUp = lwVis && (this.sUp ? dyL < 0.6 : dyL < 0.32);                   // 올릴 때 0.32, 내릴 때 0.6 (덜덜거림 방지)
+      if (this.sUp) shield = true;
+      const above = lwVis && rwVis && sk.lw[1] < sk.head[1] && sk.rw[1] < sk.head[1];
+      this.ultT = above ? this.ultT + dt : 0; if (this.ultT > 0.25) ultIn = true;
+    }
+    if (swing > 0) this.lastSwing = this.t;
+    const ev = stepDuel(d, { swing, shield, ult: ultIn }, dt);
+    const ex = W * 0.72, ey = H * 0.5, cx = W * 0.28;
+    for (const e of ev) {
+      switch (e.type) {
+        case "enemyAttack": sfx.incoming?.(ex); if (e.kind === "melee") speak("가까이 와요! 칼로 끊거나 방패!"); break;
+        case "enemyHit": { const pts = e.src === "swing" ? Math.round(e.amount * 2) : 0; if (pts) award(ex, ey - 80, pts, "#ffd166"); burst(ex, ey - 40, e.src === "ult" ? "#ffd84a" : "#ff6b6b", e.src === "ult" ? 40 : 14); sfx.slice?.(ex); break; }
+        case "clang": sfx.chip(ex); popup(ex, ey - 120, "CLANG!", "#9fe8ff"); break;
+        case "guardBreak": award(ex, ey - 100, 4, "#7df9ff"); popup(ex, ey - 140, "방어 깨짐!", "#7df9ff"); sfx.levelUp(); break;
+        case "interrupt": award(ex, ey - 100, 5, "#80ed99"); popup(ex, ey - 140, "공격 끊기! ✂️", "#80ed99"); sfx.chip(ex); break;
+        case "block": award(cx + 80, ey - 40, 2, "#7df9ff"); popup(cx + 80, ey - 90, "BLOCK 🛡️", "#7df9ff"); sfx.chip(cx); burst(cx + 80, ey - 40, "#7df9ff", 14); this.parryFx = 0.4; break;
+        case "parry": award(cx + 80, ey - 40, 10, "#ffd84a"); popup(cx + 80, ey - 100, "PARRY!! ⚡", "#ffd84a"); sfx.levelUp(); sfx.pop(cx, true); burst(cx + 80, ey - 40, "#ffd84a", 30); this.parryFx = 1; addShake?.(0.12, 6); break;
+        case "hit": combo = 0; this.hurtFx = 1; sfx.crash(); addShake?.(0.2, 8); popup(cx, ey - 100, `-${e.dmg}`, "#ff6b6b"); if (d.hp === 1) speak("한 번 더 맞으면 끝이에요!"); else speak("앗!"); break;
+        case "shieldBreak": popup(cx, ey - 120, "방패 지침! 😵", "#ff9a9a"); sfx.chip(cx); break;
+        case "ultimate": award(ex, ey - 100, 30, "#ffd84a"); popup(W / 2, H * 0.3, "필살기!!! 💥", "#ffd84a"); sfx.levelUp(); sfx.bomb?.(ex); addShake?.(0.3, 14); this.flash = 1; break;
+        case "enemyDown": award(ex, ey - 80, 20 * (e.stage + 1), "#ffd166"); burst(ex, ey - 40, "#ffd84a", 40); sfx.levelUp(); speak(e.boss ? "보스를 쓰러뜨렸어요!" : "쓰러뜨렸어요!"); break;
+        case "stage": triggerWaveBanner(`STAGE ${e.stage + 1}`, d.enemy.name, false); break;
+        case "over": endGame(); return;
+      }
+    }
+  },
+  draw() {
+    const d = this.d; if (!d) return; const e = d.enemy, t = this.t;
+    const gy = H * 0.9, ex = W * 0.72, S = H * 0.36, cx = W * 0.28, u = H * 0.16;
+    // 배경: 어두운 성 안 + 바닥
+    ctx.drawImage(staticLayer("cduel", (c) => {
+      const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#1a1240"); bg.addColorStop(0.62, "#3a1f66"); bg.addColorStop(0.63, "#1e1236"); bg.addColorStop(1, "#120a24"); c.fillStyle = bg; c.fillRect(0, 0, W, H);
+      c.fillStyle = "rgba(255,255,255,.06)"; for (let i = 0; i < 5; i++) { const x = W * (0.1 + i * 0.2); c.beginPath(); c.roundRect(x - 40, H * 0.16, 80, H * 0.42, [40, 40, 0, 0]); c.fill(); }
+    }), 0, 0, W, H);
+    for (const x of [W * 0.08, W * 0.92]) { ctx.fillStyle = "#ffb347"; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t * 7 + x); ctx.beginPath(); ctx.arc(x, H * 0.4, 14, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = "#3a2a1a"; ctx.fillRect(x - 3, H * 0.4, 6, H * 0.5); }
+    // 적
+    const atk = d.atk, wp = atk ? Math.min(1, atk.t / atk.T) : 0;
+    const lunge = atk && atk.kind === "melee" ? Math.max(0, wp - 0.7) / 0.3 * (ex - cx) * 0.3 : 0;
+    if (!e.dead || d.pause > 0.6) drawEnemyArt(e.id, ex, gy, S, t, { hurt: e.hurt, dead: e.dead, guarding: e.guarding > 0, windup: atk ? wp : 0, lunge });
+    // 적 체력
+    const bw = W * 0.2, bx = ex - bw / 2, by = H * 0.31; ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.beginPath(); ctx.roundRect(bx - 3, by - 3, bw + 6, 20, 8); ctx.fill(); ctx.fillStyle = e.stun > 0 ? "#7df9ff" : "#ff5d73"; ctx.beginPath(); ctx.roundRect(bx, by, bw * Math.max(0, e.hp) / e.maxHp, 14, 6); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "800 15px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(`${e.name}  ·  STAGE ${d.stage + 1}${e.stun > 0 ? "  😵" : e.guarding > 0 ? "  🛡️" : ""}`, ex, by - 6);
+    // 적 공격 표시 (화살/불꽃/슬라임 탄) + 준비 동작 경고
+    if (atk) {
+      const mx = ex - S * 0.42, my = gy - S * 0.6, tx = cx + 70, ty = gy - H * 0.2;
+      if (atk.kind === "melee") { ctx.fillStyle = `rgba(255,80,80,${0.25 + 0.35 * Math.abs(Math.sin(t * 10))})`; ctx.beginPath(); ctx.arc(ex, gy - S * 0.5, S * 0.55 * (0.6 + wp * 0.5), 0, 7); ctx.fill(); ctx.font = `900 ${S * 0.3}px sans-serif`; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", ex, gy - S * 1.15); }
+      else {
+        const px = mx + (tx - mx) * wp, arc = atk.kind === "lob" ? Math.sin(Math.PI * wp) * H * 0.22 : 0, py = my + (ty - my) * wp - arc;
+        ctx.save(); ctx.translate(px, py);
+        if (atk.kind === "arrow") { ctx.rotate(Math.atan2(ty - my, tx - mx)); ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(20, 0); ctx.stroke(); ctx.fillStyle = "#ff4d5e"; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(14, -9); ctx.lineTo(14, 9); ctx.fill(); }
+        else if (atk.kind === "fire") { for (let i = 3; i >= 0; i--) { ctx.fillStyle = `rgba(255,${120 + i * 30},40,${0.9 - i * 0.2})`; ctx.beginPath(); ctx.arc(i * 14, 0, 26 - i * 4, 0, 7); ctx.fill(); } }
+        else { ctx.fillStyle = "#6bff8a"; ctx.strokeStyle = "#1f7a38"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, 22, 0, 7); ctx.fill(); ctx.stroke(); }
+        ctx.restore();
+        // 도착 지점 표시 (방패를 올릴 타이밍): 가까워질수록 또렷하게, 패링 구간에서는 금색
+        const inParry = atk.T - atk.t <= DUEL.PARRY_WINDOW + DUEL.LAG;
+        ctx.strokeStyle = inParry ? "#ffd84a" : "rgba(255,255,255,.45)"; ctx.lineWidth = inParry ? 6 : 3; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.arc(tx, ty, 54 + (1 - wp) * 26, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+    // 캐릭터 + 검 + 방패
+    const hipY = gy - 1.72 * u, sk = gameCharacterSkeleton(cx, hipY, u);
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(cx, gy + 4, u * 0.9, u * 0.12, 0, 0, 7); ctx.fill();
+    ctx.save(); if (this.hurtFx > 0 && Math.floor(t * 20) % 2) ctx.globalAlpha = 0.5;
+    drawGameCharacter(sk, t, d.shieldUp || this.t - this.lastSwing < 0.3 ? "happy" : "normal"); ctx.restore();
+    this.drawWeapons(sk, d);
+    // 검 휘두른 궤적
+    if (t - this.lastSwing < 0.22) { const k = (t - this.lastSwing) / 0.22; ctx.save(); ctx.strokeStyle = `rgba(255,255,255,${1 - k})`; ctx.lineWidth = 10 * (1 - k); ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(cx + u * 0.5, gy - u * 2.2, u * (1.4 + k * 1.2), -1.1 + k * 0.5, 0.3 + k * 0.6); ctx.stroke(); ctx.restore(); }
+    // 플레이어 상태: 하트, 필살기 게이지, 방패 스태미나
+    heartsLine(d.hp, d.maxHp);
+    const gx = 18, gy2 = H * 0.2; ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "800 14px sans-serif";
+    const bar = (label, v, col, y) => { ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.beginPath(); ctx.roundRect(gx, y, 160, 16, 8); ctx.fill(); ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(gx, y, Math.max(0, 160 * v), 16, 8); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillText(label, gx + 168, y + 8); };
+    bar(d.gauge >= DUEL.GAUGE_MAX ? "필살기 준비! 양손 번쩍!" : "필살기", d.gauge / DUEL.GAUGE_MAX, d.gauge >= DUEL.GAUGE_MAX ? "#ffd84a" : "#c77dff", gy2); bar(d.broken > 0 ? "방패 지침" : "방패", d.stamina, d.broken > 0 ? "#ff9a9a" : "#4cc9f0", gy2 + 24); ctx.restore();
+    if (this.flash > 0) { ctx.fillStyle = `rgba(255,230,120,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+    if (this.hurtFx > 0) { ctx.fillStyle = `rgba(255,50,50,${this.hurtFx * 0.3})`; ctx.fillRect(0, 0, W, H); }
+    hintText(useMouse ? "클릭/Space 검 · Shift 방패 · U 필살기" : "오른손 휘두르기 = 검 · 왼손 올리기 = 방패 · 양손 번쩍 = 필살기", H * 0.4, 10, t);
+    bodyHint();
+  },
+  drawWeapons(sk, d) {
+    const u = sk.u; ctx.save(); ctx.lineJoin = "round"; ctx.lineCap = "round";
+    // 검: 오른손(화면 오른쪽) 손목에서 팔 방향으로 뻗기
+    const rw = sk.rw, re = sk.re; let ang = Math.atan2(rw[1] - re[1], rw[0] - re[0]); if (!Number.isFinite(ang)) ang = -1.2;
+    const swing = this.t - this.lastSwing < 0.2; const len = u * 1.25;
+    ctx.translate(rw[0], rw[1]); ctx.rotate(ang);
+    ctx.fillStyle = "#8a5a2a"; ctx.fillRect(-u * 0.12, -u * 0.04, u * 0.22, u * 0.08);
+    ctx.fillStyle = "#ffd84a"; ctx.strokeStyle = "#3a2a00"; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(u * 0.08, -u * 0.17, u * 0.07, u * 0.34, 3); ctx.fill(); ctx.stroke();
+    const g = ctx.createLinearGradient(0, -u * 0.06, 0, u * 0.06); g.addColorStop(0, "#fff"); g.addColorStop(1, "#9fb4d8"); ctx.fillStyle = g; ctx.strokeStyle = swing ? "#fff" : "#1a2a4a"; ctx.lineWidth = swing ? 5 : 3;
+    ctx.beginPath(); ctx.moveTo(u * 0.15, -u * 0.06); ctx.lineTo(len, -u * 0.02); ctx.lineTo(len + u * 0.12, 0); ctx.lineTo(len, u * 0.02); ctx.lineTo(u * 0.15, u * 0.06); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    // 방패: 왼손(화면 왼쪽) 앞에 둥근 방패. 올리면 커지고 빛나요
+    const lw = sk.lw, up = d.shieldUp, R = u * (up ? 0.62 : 0.42); ctx.save(); ctx.translate(lw[0] - u * 0.1, lw[1] - u * 0.1);
+    ctx.globalAlpha = d.broken > 0 ? 0.4 : 1; const sg = ctx.createRadialGradient(-R * 0.3, -R * 0.3, R * 0.1, 0, 0, R); sg.addColorStop(0, "#9fe8ff"); sg.addColorStop(1, up ? "#2a7ad8" : "#3a5a9a");
+    ctx.fillStyle = sg; ctx.strokeStyle = up ? "#fff" : "#1a2a4a"; ctx.lineWidth = up ? 6 : 4; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#ffd84a"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, R * 0.62, 0, 7); ctx.stroke(); ctx.fillStyle = "#ffd84a"; ctx.font = `900 ${R * 0.7}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("★", 0, R * 0.04);
+    if (this.parryFx > 0) { ctx.strokeStyle = `rgba(255,216,74,${this.parryFx})`; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, 0, R * (1.1 + (1 - this.parryFx) * 0.9), 0, 7); ctx.stroke(); }
+    ctx.restore(); ctx.restore();
+  },
+};
+GAME_HUD_META.crun = { theme: "beat", badge: "CHARACTER RUN", title: "TRAP ESCAPE RUN", sub: "TILT · JUMP · SLIDE", guideIcon: "🏃", guideMain: "LEAN TO SWITCH LANES, JUMP OR SLIDE!", guideSub: "몸을 기울여 길 바꾸기 · 점프로 넘기 · 웅크려서 아래로 통과!", leftName: "LANE", rightName: "DISTANCE", leftUnit: "LANE", rightUnit: "M", leftDesc: "LEAN SENSOR", rightDesc: "RUN METER", odTitle: "🏃 TURBO RUN (터보 질주)", showHearts: true,
+  getMetrics: (g) => [{ label: "DISTANCE", val: `${Math.round(g?.run?.dist ?? 0)}m` }, { label: "COINS", val: g?.run?.coinCount ?? 0 }, { label: "LIVES", val: `x${g?.run?.lives ?? 0}` }] };
+GAME_HUD_META.cduel = { theme: "space", badge: "SWORD & SHIELD", title: "PARRY BATTLE", sub: "SLASH · BLOCK · PARRY", guideIcon: "⚔️", guideMain: "SWING RIGHT, RAISE LEFT TO PARRY!", guideSub: "오른손 휘두르기=검 · 왼손 올리기=방패 · 양손 번쩍=필살기!", leftName: "SWORD ARM", rightName: "SHIELD ARM", leftUnit: "HIT", rightUnit: "PARRY", leftDesc: "SLASH SENSOR", rightDesc: "PARRY TIMING", odTitle: "⚔️ HERO ULTIMATE (필살기)", showHearts: true,
+  getMetrics: (g) => [{ label: "KILLS", val: g?.d?.kills ?? 0 }, { label: "PARRY", val: g?.d?.parries ?? 0 }, { label: "STAGE", val: (g?.d?.stage ?? 0) + 1 }] };
+
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
-  window.__kk = { games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+  window.__kk = { setForcedBody: (fn) => { forcedBody = fn; }, games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
 }

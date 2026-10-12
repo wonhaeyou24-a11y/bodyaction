@@ -60,7 +60,7 @@ export function stepJump(s, sm, dt, now) {
 
   let low = y; for (const h of s.hist) if (h.y > low) low = h.y;
   const rise = low - y;                                               // 최근 0.4초 중 가장 낮은 곳에서 올라온 높이
-  const up = !s.ducking && now - s.lastDuck > STAND_UP_BLOCK_MS && s.vUp > JUMP_V * tl && rise > JUMP_RISE * tl;
+  const up = !s.ducking && now - s.lastDuck > STAND_UP_BLOCK_MS && s.vUp > JUMP_V * tl && rise > JUMP_RISE * tl;   // 웅크렸다 일어서는 동작(0.25초)은 점프가 아니에요
   s.upFrames = up ? s.upFrames + 1 : 0;                               // 한 프레임 튐은 무시: 연속 2프레임 이어져야 해요
   const fire = s.upFrames >= 2 && !s.prevUp && now - s.lastJump > COOLDOWN_MS;
   if (fire) s.lastJump = now;

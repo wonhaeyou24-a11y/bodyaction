@@ -1,5 +1,5 @@
 // 캐릭터 시스템 테스트: node test/character.test.js
-import { CHARACTERS, DEFAULT_CHARACTER_ID, cleanCharacterId, characterById, loadCharacterId, saveCharacterId, skeletonFromBody, skeletonToPx } from "../character.js";
+import { CHARACTERS, DEFAULT_CHARACTER_ID, cleanCharacterId, characterById, loadCharacterId, saveCharacterId, skeletonFromBody, skeletonToPx, skeletonRetarget } from "../character.js";
 import { anglesOf, skeletonFromAngles } from "../poses.js";
 
 let pass = 0, fail = 0;
@@ -74,5 +74,12 @@ t("skeletonToPx: 각도 뼈대를 화면 크기로 옮김 (어깨 중앙=기준�
   ok(Math.abs(sk.lh[1] - 400) < 1e-6 && sk.u === 100 && sk.hipMid && sk.est, "엉덩이/필드");
 });
 
+t("skeletonRetarget: 엉덩이가 원하는 자리, 몸통 길이가 원하는 크기로, 자세(각도)는 그대로", () => {
+  const sk = skeletonFromBody(body()); const r = skeletonRetarget(sk, [100, 300], 80);
+  ok(Math.abs(r.hipMid[0] - 100) < 1e-9 && r.u === 80, "자리/크기");
+  const mid = [(r.ls[0] + r.rs[0]) / 2, (r.ls[1] + r.rs[1]) / 2]; ok(Math.abs(Math.hypot(mid[0] - r.hipMid[0], mid[1] - r.hipMid[1]) - 80) < 1, "몸통 길이");
+  const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]); ok(Math.abs(ang(sk.ls, sk.le) - ang(r.ls, r.le)) < 1e-9 && Math.abs(ang(sk.rk, sk.ra) - ang(r.rk, r.ra)) < 1e-9, "각도 유지");
+  ok(skeletonRetarget(null, [0, 0], 10) === null && skeletonRetarget(sk, [0, 0], 0) === null, "잘못된 입력");
+});
 console.log(`캐릭터: ${pass}/${pass + fail} 통과`);
 if (fail) process.exit(1);
