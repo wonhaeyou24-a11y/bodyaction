@@ -2639,3 +2639,15 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 }
 
 
+
+/* ✊ 손(주먹) 클릭 하이라이트 */
+.costume-card.hand-hover, .c-tab.hand-hover, .btn-costume-tool.hand-hover, .cec-chip.hand-hover {
+  outline: 3px solid #22c55e; outline-offset: 2px;
+  box-shadow: 0 0 22px rgba(34, 197, 94, 0.75);
+  transform: scale(1.05); z-index: 2;
+}
+.costume-card.hand-click, .c-tab.hand-click, .btn-costume-tool.hand-click, .cec-chip.hand-click {
+  outline-color: #ff2e93; box-shadow: 0 0 30px rgba(255, 46, 147, 0.9); transform: scale(0.96);
+}
+
+.costume-card-icon img { width: 64px; height: 64px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }

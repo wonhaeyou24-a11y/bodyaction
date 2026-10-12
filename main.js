@@ -7410,6 +7410,227 @@ const buddyEngine = {
 };
 
 
+// 5-0. 아이템별 PNG 일러스트 (assets/costumes/<id>.png) — 있으면 PNG, 없으면 아래 벡터 그림으로 자동 대체
+const costumeImgs = {};
+function loadCostumeImages() {
+  for (const id of Object.keys(COSTUME_ITEMS)) {
+    if (!/^[a-z0-9_]+$/.test(id)) continue;                 // 입력 검증: 안전한 ID만 경로로 사용 (경로 조작 차단)
+    const im = new Image();
+    im.decoding = "async";
+    im.onload = () => { costumeImgs[id] = im; if (isCostumeRoomOpen) renderCostumeShelf(); };
+    im.onerror = () => { /* PNG 없음: 벡터 대체 */ };
+    im.src = `assets/costumes/${id}.png`;
+  }
+}
+const costumeImg = (id) => { const im = costumeImgs[id]; return im && im.naturalWidth > 0 ? im : null; };
+const HAND_TALL = new Set(["hand_toy_hammer", "hand_drumstick", "bat_gold", "hand_sabers", "hand_katana", "hand_wand", "hand_laserpaddle"]);
+
+/** PNG 한 장을 슬롯별 위치/크기 규칙으로 그림 (좌표는 drawCostumePiece 앵커 기준 로컬 단위) */
+function drawCostumeImage(ctx, item, im) {
+  const ar = im.naturalWidth / im.naturalHeight, id = item.id;
+  let x, y, w, h;
+  switch (item.slot) {
+    case "head":  w = 84; h = w / ar; x = -w / 2; y = 8 - h; break;                       // 모자: 밑동이 이마에 걸치게
+    case "face": {
+      w = id === "face_clown_nose" ? 30 : (id === "face_mustache" ? 58 : 84); h = w / ar;
+      const cy = id === "face_mustache" ? 8 : (id === "face_thug_glasses" ? -14 : -4);
+      x = -w / 2; y = cy - h / 2; break;
+    }
+    case "body":  w = 98; h = 86; x = -w / 2; y = -20; break;                            // 몸통(앵커가 가로·세로 따로 늘어남)
+    case "legs":  w = 92; h = 74; x = -w / 2; y = -4; break;
+    case "feet":  w = 58; h = w / ar; x = -w / 2; y = 8 - h / 2; break;
+    case "back":
+      if (ar > 1.3) { w = 190; h = w / ar; x = -w / 2; y = 20 - h / 2; }                 // 날개
+      else { w = 120; h = w / ar; x = -w / 2; y = 4; }                                  // 망토/제트팩/풍선
+      break;
+    case "aura":  w = 260; h = w / ar; x = -w / 2; y = -h / 2; ctx.globalAlpha = 0.9; break;
+    case "hand":
+    default:
+      if (HAND_TALL.has(id)) { h = id === "hand_wand" ? 110 : 140; w = h * ar; x = -w / 2; y = 30 - h; }   // 손잡이가 손에, 끝이 위로
+      else { w = id === "hand_shield" ? 84 : 66; h = w / ar; x = -w / 2; y = -h / 2; }
+  }
+  ctx.drawImage(im, x, y, w, h);
+}
+
+// 5-1. 전용 그림이 없는 아이템용 슬롯별 벡터 렌더러 (이모티콘 대체, 아이템 색상 반영)
+function drawGenericCostume(ctx, item, col) {
+  const slot = item.slot, id = item.id;
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.fillStyle = col;
+  const t = performance.now() * 0.004;
+
+  // ---- 아이템 개별 디자인 ----
+  switch (id) {
+    case "face_mustache": {
+      ctx.fillStyle = col; ctx.strokeStyle = "#2a160a"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 8);
+      ctx.bezierCurveTo(-10, -2, -30, 0, -40, 14); ctx.bezierCurveTo(-26, 24, -10, 18, 0, 15);
+      ctx.bezierCurveTo(10, 18, 26, 24, 40, 14); ctx.bezierCurveTo(30, 0, 10, -2, 0, 8);
+      ctx.fill(); ctx.stroke(); return;
+    }
+    case "face_clown_nose": {
+      ctx.fillStyle = "#ff2e4c"; ctx.beginPath(); ctx.arc(0, 0, 14, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.beginPath(); ctx.arc(-5, -5, 4, 0, 7); ctx.fill(); return;
+    }
+    case "face_thug_glasses": {
+      ctx.fillStyle = "#0b0b14"; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.roundRect(-42, -22, 36, 20, 3); ctx.roundRect(6, -22, 36, 20, 3); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-6, -16); ctx.lineTo(6, -16); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.fillRect(-36, -18, 8, 4); ctx.fillRect(12, -18, 8, 4); return;
+    }
+    case "head_poop": {
+      ctx.fillStyle = "#ffd700"; ctx.strokeStyle = "#a86b00";
+      [[0, 4, 36, 14], [0, -10, 26, 12], [0, -22, 15, 10]].forEach(([x, y, rx, ry]) => {
+        ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); ctx.fill(); ctx.stroke();
+      }); return;
+    }
+    case "head_chicken": {
+      ctx.fillStyle = "#ff3344"; ctx.strokeStyle = "#fff";
+      [[-16, 0, 13], [0, -10, 15], [16, 0, 13]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke(); });
+      return;
+    }
+    case "head_chef": {
+      ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#cfd6e4";
+      [[-22, -14, 17], [0, -26, 21], [22, -14, 17]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke(); });
+      ctx.beginPath(); ctx.roundRect(-30, -8, 60, 22, 4); ctx.fill(); ctx.stroke(); return;
+    }
+    case "head_frog": {
+      [-24, 24].forEach((x) => {
+        ctx.fillStyle = "#3ddc6a"; ctx.beginPath(); ctx.arc(x, -10, 17, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x, -10, 10, 0, 7); ctx.fill();
+        ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(x, -9, 5, 0, 7); ctx.fill();
+      }); return;
+    }
+    case "head_cat_neon": {
+      ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 20, 40, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      [-1, 1].forEach((s) => {
+        ctx.fillStyle = col; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(s * 40, -4); ctx.lineTo(s * 34, -38); ctx.lineTo(s * 10, -18); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffb3d1"; ctx.beginPath(); ctx.moveTo(s * 33, -10); ctx.lineTo(s * 31, -28); ctx.lineTo(s * 18, -17); ctx.closePath(); ctx.fill();
+      }); return;
+    }
+    case "hand_toy_hammer": {
+      ctx.fillStyle = "#a8662b"; ctx.beginPath(); ctx.roundRect(-5, -40, 10, 66, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.roundRect(-30, -68, 60, 32, 10); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ff4d6d"; ctx.fillRect(-30, -56, 60, 8); return;
+    }
+    case "hand_drumstick": {
+      ctx.fillStyle = "#fff3d6"; ctx.beginPath(); ctx.roundRect(-4, -12, 8, 44, 3); ctx.fill(); ctx.stroke();
+      [-6, 6].forEach((x) => { ctx.beginPath(); ctx.arc(x, 34, 6, 0, 7); ctx.fill(); ctx.stroke(); });
+      ctx.fillStyle = "#d98030"; ctx.beginPath(); ctx.ellipse(0, -34, 22, 28, 0, 0, 7); ctx.fill(); ctx.stroke(); return;
+    }
+    case "hand_rubber_gloves": {
+      ctx.fillStyle = "#ff7fb6"; ctx.beginPath(); ctx.roundRect(-18, -14, 36, 34, 12); ctx.fill(); ctx.stroke();
+      [-14, -5, 4, 13].forEach((x, i) => { ctx.beginPath(); ctx.roundRect(x - 4, -36 - (i % 3 === 1 ? 6 : 0), 9, 26, 5); ctx.fill(); ctx.stroke(); });
+      ctx.fillStyle = "#ffd1e6"; ctx.fillRect(-20, 18, 40, 10); return;
+    }
+    case "hand_katana": {
+      ctx.strokeStyle = "#e9f2ff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -92); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#222"; ctx.fillRect(-12, 4, 24, 5); ctx.fillStyle = "#7a1020"; ctx.fillRect(-4, 8, 8, 28); return;
+    }
+    case "hand_laserpaddle": {
+      ctx.fillStyle = "rgba(0,210,255,.45)"; ctx.strokeStyle = col; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(0, -40, 30, 40, 0, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 30); ctx.stroke(); return;
+    }
+    case "body_rainbow_tee": {
+      ctx.save(); ctx.beginPath(); ctx.moveTo(-44, -18); ctx.lineTo(44, -18); ctx.lineTo(34, 52); ctx.lineTo(-34, 52); ctx.closePath(); ctx.clip();
+      ["#ff3b5c", "#ff9f1c", "#ffe14d", "#38d996", "#3ba7ff", "#9b5cff"].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(-50, -18 + i * 12, 100, 12); });
+      ctx.restore(); ctx.beginPath(); ctx.moveTo(-44, -18); ctx.lineTo(44, -18); ctx.lineTo(34, 52); ctx.lineTo(-34, 52); ctx.closePath(); ctx.stroke(); return;
+    }
+    case "body_hawaiian": {
+      ctx.fillStyle = "#1fb5a8"; ctx.beginPath(); ctx.moveTo(-44, -18); ctx.lineTo(44, -18); ctx.lineTo(34, 52); ctx.lineTo(-34, 52); ctx.closePath(); ctx.fill(); ctx.stroke();
+      [[-22, 0], [18, 8], [-8, 30], [24, 36], [-26, 38]].forEach(([x, y]) => { ctx.fillStyle = "#ff5e8a"; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); ctx.fillStyle = "#ffe14d"; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 7); ctx.fill(); });
+      return;
+    }
+    case "body_belt": {
+      ctx.fillStyle = "#1a1330"; ctx.fillRect(-40, 30, 80, 16); ctx.strokeRect(-40, 30, 80, 16);
+      ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.roundRect(-18, 26, 36, 24, 6); ctx.fill(); ctx.stroke(); return;
+    }
+    case "legs_boxer_shorts": {
+      ctx.fillStyle = "#ff2e4c"; ctx.beginPath();
+      ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.lineTo(46, 50); ctx.lineTo(6, 50); ctx.lineTo(0, 30); ctx.lineTo(-6, 50); ctx.lineTo(-46, 50); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff"; [[-26, 12], [-12, 30], [24, 14], [30, 36], [-34, 38]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); }); return;
+    }
+    case "legs_disco_pants": {
+      const g = ctx.createLinearGradient(0, 0, 0, 80); g.addColorStop(0, col); g.addColorStop(1, "#7c5cff"); ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.lineTo(66, 82); ctx.lineTo(8, 82); ctx.lineTo(0, 30); ctx.lineTo(-8, 82); ctx.lineTo(-66, 82); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff"; for (let i = 0; i < 6; i++) { const a = Math.sin(t * 2 + i) * 0.5 + 0.5; ctx.globalAlpha = a; ctx.fillRect(-50 + i * 18, 14 + (i % 3) * 22, 4, 4); } ctx.globalAlpha = 1; return;
+    }
+    case "feet_slippers": {
+      ctx.fillStyle = "#2fcf6a"; ctx.beginPath(); ctx.roundRect(-24, -6, 48, 22, 10); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; [-8, 0, 8].forEach((x) => { ctx.beginPath(); ctx.moveTo(x - 4, -4); ctx.lineTo(x + 4, 14); ctx.stroke(); }); return;
+    }
+    case "feet_duck_shoes": {
+      ctx.fillStyle = "#ffd23f"; ctx.beginPath(); ctx.ellipse(0, 4, 24, 14, 0, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ff8a1f"; ctx.beginPath(); ctx.ellipse(18, 8, 14, 6, 0, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(-4, -2, 3, 0, 7); ctx.fill(); return;
+    }
+    case "back_pixel_wings": {
+      [-1, 1].forEach((s) => { for (let r = 0; r < 5; r++) for (let c = 0; c < 6 - r; c++) {
+        ctx.fillStyle = (r + c) % 2 ? "#ffffff" : col; ctx.fillRect(s > 0 ? 12 + c * 14 : -26 - c * 14, -8 + r * 14, 14, 14); } });
+      return;
+    }
+    case "aura_fireworks": {
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + t, r = 70 + 20 * Math.sin(t * 3 + i);
+        ctx.fillStyle = ["#ff3b5c", "#ffe14d", "#3ba7ff", "#38d996"][i % 4]; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r * 0.9, 5, 0, 7); ctx.fill();
+      } return;
+    }
+  }
+
+  // ---- 슬롯별 기본 디자인 (아이템 색상 사용) ----
+  switch (slot) {
+    case "head": {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 4, 36, 30, 0, Math.PI, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.beginPath(); ctx.ellipse(0, 4, 50, 8, 0, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, -16, 6, 0, 7); ctx.fill(); return;
+    }
+    case "face": {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(-40, -22, 80, 20, 8); ctx.fill(); ctx.stroke(); return;
+    }
+    case "body": {
+      const g = ctx.createLinearGradient(0, -18, 0, 52); g.addColorStop(0, col); g.addColorStop(1, "#1b1140"); ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(-44, -18); ctx.lineTo(44, -18); ctx.lineTo(34, 52); ctx.lineTo(-34, 52); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-14, -18); ctx.lineTo(0, 0); ctx.lineTo(14, -18); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, 22, 6, 0, 7); ctx.fill(); return;
+    }
+    case "legs": {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.lineTo(46, 50); ctx.lineTo(6, 50); ctx.lineTo(0, 30); ctx.lineTo(-6, 50); ctx.lineTo(-46, 50); ctx.closePath(); ctx.fill(); ctx.stroke(); return;
+    }
+    case "feet": {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(-24, -8, 48, 22, 10); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.fillRect(-26, 12, 52, 5); return;
+    }
+    case "back": {
+      if (/wing/.test(id)) {
+        ctx.globalAlpha = 0.55; ctx.fillStyle = col;
+        [-1, 1].forEach((s) => { ctx.beginPath(); ctx.moveTo(s * 10, 0); ctx.bezierCurveTo(s * 50, -50, s * 90, -30, s * 110, 20); ctx.bezierCurveTo(s * 70, 35, s * 40, 20, s * 10, 0); ctx.fill(); });
+        ctx.globalAlpha = 1;
+        [-1, 1].forEach((s) => { ctx.beginPath(); ctx.moveTo(s * 10, 0); ctx.bezierCurveTo(s * 50, -50, s * 90, -30, s * 110, 20); ctx.bezierCurveTo(s * 70, 35, s * 40, 20, s * 10, 0); ctx.stroke(); });
+      } else if (/prop/.test(id)) {
+        ctx.strokeStyle = col; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -20); ctx.stroke();
+        ctx.save(); ctx.translate(0, -24); ctx.scale(1, 0.25); ctx.rotate(t * 8); ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(-60, -6, 120, 12); ctx.restore();
+      } else {
+        ctx.globalAlpha = 0.85; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-34, 0); ctx.lineTo(34, 0);
+        ctx.bezierCurveTo(64, 60, 70, 100, 52, 128 + Math.sin(t * 3) * 6); ctx.lineTo(-52, 128 + Math.sin(t * 3 + 1) * 6); ctx.bezierCurveTo(-70, 100, -64, 60, -34, 0);
+        ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+      } return;
+    }
+    case "aura": {
+      for (let i = 0; i < 3; i++) { ctx.globalAlpha = 0.65 - i * 0.18; ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); const r = 60 + i * 16 + Math.sin(t * 3 + i) * 4; ctx.ellipse(0, 0, r, r * 1.15, 0, 0, 7); ctx.stroke(); }
+      ctx.globalAlpha = 1; ctx.fillStyle = "#fff";
+      for (let i = 0; i < 6; i++) { const a = t * 1.5 + i * 1.05; ctx.beginPath(); ctx.arc(Math.cos(a) * 76, Math.sin(a) * 88, 4, 0, 7); ctx.fill(); } return;
+    }
+    case "hand":
+    default: {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, 22, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 12, 0, 7); ctx.stroke(); return;
+    }
+  }
+}
+
 // 6. 커스튬 개별 파츠 정밀 2D 벡터 렌더러
 function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
   if (!item || !anchor) return;
@@ -7417,11 +7638,20 @@ function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
   ctx.save();
   ctx.translate(x, y);
   if (angle) ctx.rotate(angle);
-  ctx.scale(scale, scale);
+  ctx.scale(anchor.sx ?? scale, anchor.sy ?? scale);   // 몸통/하의는 가로·세로를 따로 맞춰요
 
   const col = item.color || "#00d2ff";
   ctx.shadowColor = col;
   ctx.shadowBlur = isBuddy ? 6 : 16;
+
+  // 🖼️ PNG 일러스트가 있으면 그걸 쓰고, 없으면 아래 벡터로
+  const png = costumeImg(item.id);
+  if (png) {
+    ctx.shadowBlur = isBuddy ? 4 : 10;
+    drawCostumeImage(ctx, item, png);
+    ctx.restore();
+    return;
+  }
 
   switch (item.id) {
     case "head_crown": // 네온 골든 크라운
@@ -7643,11 +7873,8 @@ function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
       }
       break;
 
-    default: // 기본 렌더링
-      ctx.font = "36px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(item.icon, 0, 0);
+    default: // 전용 그림이 없으면 슬롯별 벡터로 (이모티콘 사용 안 함)
+      drawGenericCostume(ctx, item, col);
       break;
   }
 
@@ -7671,23 +7898,46 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
     let headAnchor = null, faceAnchor = null, chestAnchor = null, backAnchor = null, handAnchors = [], legsAnchor = null, feetAnchors = [];
 
     if (skel && skel[0] && skel[11] && skel[12]) {
-      // MediaPipe 전신 포즈 기준
+      // MediaPipe 전신 포즈 기준 — 모든 위치/크기를 "내 몸 크기"에 비례해서 계산
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
       const midShoulder = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 };
-      headAnchor = { x: skel[0].x, y: skel[0].y - 35, scale: 1.1 };
-      faceAnchor = { x: skel[0].x, y: skel[0].y + 12, scale: 1.0 }; // 코 밑/입가 (콧수염 & 안경)
-      chestAnchor = { x: midShoulder.x, y: midShoulder.y + 35, scale: 1.15 };
-      backAnchor = { x: midShoulder.x, y: midShoulder.y, scale: 1.25 };
+      const sw = Math.max(40, dist(skel[11], skel[12]));                       // 어깨 폭(px)
+      const kb = cl(sw / 80, 0.4, 4);                                          // 몸 기준 배율
+      const earD = (skel[7] && skel[8]) ? dist(skel[7], skel[8]) : sw * 0.42;   // 머리 폭(px)
+      const kh = cl(earD / 55, 0.4, 4);                                        // 머리 기준 배율
+      const hasHip = skel[23] && skel[24];
+      const midHip = hasHip ? { x: (skel[23].x + skel[24].x) / 2, y: (skel[23].y + skel[24].y) / 2 } : null;
+      const torso = midHip ? dist(midShoulder, midHip) : sw * 1.35;            // 몸통 길이(px)
 
-      if (skel[15]) handAnchors.push({ x: skel[15].x, y: skel[15].y, scale: 1.0 });
-      if (skel[16]) handAnchors.push({ x: skel[16].x, y: skel[16].y, scale: 1.0 });
+      // 신체 기울기 각도 (어깨선, 머리/귀, 골반 기울기)
+      const shoulderAngle = Math.atan2(skel[12].y - skel[11].y, skel[12].x - skel[11].x);
+      const headAngle = (skel[7] && skel[8]) ? Math.atan2(skel[8].y - skel[7].y, skel[8].x - skel[7].x) : shoulderAngle * 0.7;
+      const hipAngle = (skel[23] && skel[24]) ? Math.atan2(skel[24].y - skel[23].y, skel[24].x - skel[23].x) : shoulderAngle;
 
-      // 하의/바지 앵커 (골반 중심)
-      if (skel[23] && skel[24]) {
-        legsAnchor = { x: (skel[23].x + skel[24].x) / 2, y: (skel[23].y + skel[24].y) / 2 + 15, scale: 1.1 };
+      headAnchor = { x: skel[0].x, y: skel[0].y - earD * 0.62, scale: kh * 1.05, angle: headAngle };
+      faceAnchor = { x: skel[0].x, y: skel[0].y + earD * 0.1, scale: kh, angle: headAngle };      // 코 기준 (콧수염/안경)
+      const bodySy = torso / 72;
+      chestAnchor = { x: midShoulder.x, y: midShoulder.y + 14 * bodySy, scale: kb, sx: (sw * 1.2) / 88, sy: bodySy, angle: shoulderAngle };
+      backAnchor = { x: midShoulder.x, y: midShoulder.y + 8 * kb, scale: kb * 1.15, angle: shoulderAngle };
+
+      const kHand = cl(sw / 150, 0.5, 2.5);
+      if (skel[15]) handAnchors.push({ x: skel[15].x, y: skel[15].y, scale: kHand, angle: shoulderAngle });
+      if (skel[16]) handAnchors.push({ x: skel[16].x, y: skel[16].y, scale: kHand, angle: shoulderAngle });
+
+      // 하의/바지 앵커 (골반 중심, 허벅지 길이에 맞춰 세로 늘임)
+      if (midHip) {
+        const hw = dist(skel[23], skel[24]);
+        const thigh = (skel[25] && skel[26])
+          ? dist(midHip, { x: (skel[25].x + skel[26].x) / 2, y: (skel[25].y + skel[26].y) / 2 }) : torso * 0.9;
+        legsAnchor = { x: midHip.x, y: midHip.y - 6, scale: kb, sx: Math.max(hw * 1.7, sw * 0.9) / 88, sy: thigh / 62, angle: hipAngle };
       }
-      // 신발/슬리퍼 앵커 (발목/발)
-      if (skel[27]) feetAnchors.push({ x: skel[27].x, y: skel[27].y + 10, scale: 1.0 });
-      if (skel[28]) feetAnchors.push({ x: skel[28].x, y: skel[28].y + 10, scale: 1.0 });
+      // 신발/슬리퍼 앵커 (발목)
+      const kFoot = cl(sw / 190, 0.5, 2.5);
+      if (skel[27]) feetAnchors.push({ x: skel[27].x, y: skel[27].y + 6 * kFoot, scale: kFoot, angle: hipAngle });
+      if (skel[28]) feetAnchors.push({ x: skel[28].x, y: skel[28].y + 6 * kFoot, scale: kFoot, angle: hipAngle });
+      // 오라는 몸 중심에서 크게
+      chestAnchor.auraX = midShoulder.x; chestAnchor.auraY = midShoulder.y + torso * 0.5; chestAnchor.auraK = kb * 1.5;
     } else if (pointers && pointers.length > 0) {
       // 손 인식 기반 (상체 중심 추정)
       const avgX = pointers.reduce((s, p) => s + p.x, 0) / pointers.length;
@@ -7717,7 +7967,12 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
     // 1. 오라 (가장 뒷면 레이어)
     if (equippedCostume.aura && isSlotReady("aura")) {
       const item = COSTUME_ITEMS[equippedCostume.aura];
-      if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
+      if (item) {
+        const aa = chestAnchor.auraK
+          ? { x: chestAnchor.auraX, y: chestAnchor.auraY, scale: chestAnchor.auraK }
+          : chestAnchor;
+        drawCostumePiece(ctx, item, aa, isBuddy);
+      }
     }
 
     // 2. 등 / 날개 / 가방
@@ -7775,24 +8030,66 @@ let costumeDragItem = null; // 현재 주먹으로 쥐고 있는 아이템
 let costumeDragPos = { x: 0, y: 0 };
 let currentCostumeTab = "all";
 
+// 피팅룸 비전 부팅 상태 (화면 배너에 표시 — 메뉴가 가려져 있어도 진행 상황을 볼 수 있게)
+const costumeVision = { stage: "camera", msg: "" };
+let costumeBootToken = 0;
+
+// 카메라 → 몸 인식 모델 순서로 준비. 실패하면 지수 백오프(0.8s, 1.6s, 3.2s)로 최대 3회 재시도 (무한 루프 방지)
+async function costumeVisionBoot() {
+  const token = ++costumeBootToken;
+  const alive = () => isCostumeRoomOpen && token === costumeBootToken;
+  for (let attempt = 0; attempt < 3 && alive(); attempt++) {
+    try {
+      costumeVision.stage = "camera"; costumeVision.msg = "📷 카메라 연결 중… (브라우저에서 카메라 허용을 눌러 주세요)";
+      if (!useMouse && !(await ensureVideo())) throw new Error("카메라 연결 실패");
+      if (!alive()) return;
+      visionAI.setActive(useMouse ? null : "pose");
+      costumeVision.stage = "pose"; costumeVision.msg = "🧍 몸 인식 준비 중… (처음에는 몇 초 걸려요)";
+      if (!useMouse && !(await ensureModel("pose"))) throw new Error("몸 인식 모델 로드 실패");
+      if (!alive()) return;
+      costumeVision.stage = "ready"; costumeVision.msg = "";
+      ensureModel("hand").catch(() => {});          // 손(주먹) 모델은 뒤에서 — 몸 인식은 바로 시작
+      return;
+    } catch (e) {
+      console.warn(`피팅룸 비전 준비 실패(${attempt + 1}/3):`, e);
+      costumeVision.stage = "error"; costumeVision.msg = `⚠️ 연결 재시도 중… (${attempt + 1}/3)`;
+      await new Promise((r) => setTimeout(r, 800 * 2 ** attempt));
+    }
+  }
+  if (alive()) { costumeVision.stage = "error"; costumeVision.msg = "❌ 카메라/인식 모델을 불러오지 못했어요. 카메라 허용·인터넷 연결 확인 후 다시 열어 주세요."; }
+}
+
+// 화면 상단 중앙 상태 배너 (부팅 진행/전신 미인식/손 모델 준비 안내)
+function drawCostumeStatusBanner(ctx, cw, ch, skel) {
+  let msg = costumeVision.msg;
+  if (!msg && !useMouse && !(skel && skel[11] && skel[12])) msg = "🧍 전신이 화면에 보이도록 한 걸음 뒤로 물러서 주세요";
+  else if (!msg && !useMouse && !(visionAI.ready("hand") || handLandmarker)) msg = "✊ 주먹 인식 준비 중… (잠시 후 손을 올려 보세요)";
+  if (!msg) return;
+  ctx.save();
+  ctx.font = "bold 20px 'Rubik', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const tw = ctx.measureText(msg).width + 48, x = cw / 2 - tw / 2, y = 84;
+  ctx.fillStyle = costumeVision.stage === "error" ? "rgba(120,20,40,.88)" : "rgba(15,8,35,.82)";
+  ctx.strokeStyle = costumeVision.stage === "error" ? "#ff5470" : "#00d2ff"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x, y - 24, tw, 48, 24); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#fff"; ctx.fillText(msg, cw / 2, y);
+  ctx.restore();
+}
+
 async function openCostumeRoom() {
   isCostumeRoomOpen = true;
   $("costumeRoom")?.classList.remove("hidden");
   $("menu")?.classList.add("hidden");
 
-  // ⚡ 1. 비전 AI 포즈 & 신체 랜드마크 즉시 활성화!
-  try {
-    ensureVideo();
-    visionAI.setActive("pose");
-  } catch (e) {
-    console.warn("비전 활성화:", e);
-  }
+  // ⚡ 1. 카메라 + 포즈(몸) 먼저, 손(주먹) 모델은 뒤에서 — 단계 표시 + 재시도
+  costumeSliceKind = "pose"; costumeSliceT = performance.now();
+  costumeHand.seen = 0; costumeHand.votes = 0; costumeHand.stable = false; costumeHand.prevStable = false;
+  costumeVisionBoot();
 
-  // ⚡ 2. 캔버스 해상도 1280x720 고정 (메인 게임과 1:1 좌표계 동기화)
+  // ⚡ 2. 캔버스 = 화면 크기 1:1 (인식 좌표계 W×H와 동일 → 옷이 몸에 정확히 붙어요)
   const cvs = $("costumeCanvas");
   if (cvs) {
-    cvs.width = 1280;
-    cvs.height = 720;
+    cvs.width = innerWidth;
+    cvs.height = innerHeight;
   }
 
   // 🔒 1등 뺏김 검사: 순위가 밀린 옷이 있다면 자동 회수 및 알림
@@ -7810,6 +8107,7 @@ async function openCostumeRoom() {
 function closeCostumeRoom() {
   isCostumeRoomOpen = false;
   costumeDragItem = null;
+  costumeHand.hoverEl?.classList.remove("hand-hover"); costumeHand.hoverEl = null;
   $("costumeRoom")?.classList.add("hidden");
   $("menu")?.classList.remove("hidden");
   // 메인 메뉴 복귀 시 비전 인식 대기 모드로 전환
@@ -7822,7 +8120,7 @@ function closeCostumeRoom() {
 async function renderCostumeShelf() {
   const listEl = $("costumeItemList");
   if (!listEl) return;
-  listEl.innerHTML = "";
+  const frag = document.createDocumentFragment();   // 완성 후 한 번에 교체 (깜빡임/스크롤 초기화 방지)
 
   const items = Object.values(COSTUME_ITEMS).filter((it) => currentCostumeTab === "all" || it.slot === currentCostumeTab);
 
@@ -7835,6 +8133,8 @@ async function renderCostumeShelf() {
     const card = document.createElement("div");
     card.className = `costume-card ${isEq ? "equipped" : ""} ${isOwned ? "owned" : ""}`;
     card.dataset.itemId = it.id;
+    card.dataset.owned = isOwned ? "1" : "0";
+    card.dataset.price = String(price);
 
     const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 패션" };
     const tierBadge = `<span class="card-tier-badge tier-${it.tier}">${tierLabels[it.tier] || "일반"}</span>`;
@@ -7865,7 +8165,7 @@ async function renderCostumeShelf() {
         ${tierBadge}
         ${priceBadge}
       </div>
-      <div class="costume-card-icon">${it.icon}</div>
+      <div class="costume-card-icon">${costumeImg(it.id) ? `<img src="assets/costumes/${it.id}.png" alt="${escapeHtml(it.name)}" draggable="false">` : it.icon}</div>
       <div class="costume-card-name">${escapeHtml(it.name)}</div>
       <div class="costume-card-desc">${escapeHtml(it.desc)}</div>
       ${statusNote}
@@ -7904,8 +8204,11 @@ async function renderCostumeShelf() {
       }
     });
 
-    listEl.appendChild(card);
+    frag.appendChild(card);
   }
+  const keepScroll = listEl.scrollTop;
+  listEl.replaceChildren(frag);
+  listEl.scrollTop = keepScroll;
 }
 
 function renderEquippedSlotsUI() {
@@ -7960,189 +8263,255 @@ async function equipCostumeItem(item) {
   renderEquippedSlotsUI();
 }
 
-// 가상 피팅 룸 전용 렌더 루프 (1280x720 고정 해상도 & 비디오 종횡비 무왜곡 렌더링)
+// ✊ 피팅룸 손 입력 엔진 — 진열장 위에 손을 올리고 "주먹을 쥐면" 클릭(착용/해제/탭 선택)
+// 포즈 모델은 손가락 모양(주먹/손바닥)을 읽지 못해서, 손 모델과 번갈아 돌려 주먹 여부를 정확히 읽어요.
+const costumeHand = {
+  x: 0, y: 0, fist: false, seen: 0, votes: 0, stable: false, prevStable: false,
+  lastClick: 0, hoverEl: null, hoverLast: null, hoverAt: 0, dwellEl: null, dwellT: 0, pendingBuy: null
+};
+let costumeSliceKind = "pose", costumeSliceT = 0, costumeHandInferT = 0;
+const COSTUME_CLICK_SELECTOR = ".costume-card, .c-tab, .btn-costume-tool, .cec-chip";
+
+// ✊ 노트북LM 최적화 권장사항 반영: 단일 트래커 파이프라인 (Single Tracker Pipeline)
+// 모델 모드를 핑퐁 스위칭하지 않고 전신 Pose 33개 랜드마크에서 손목/손끝을 100% 실시간(60 FPS) 추출!
+function costumeReadHand(now, skel) {
+  if (useMouse) return;
+  if (!skel || !skel[11] || !skel[12]) {
+    // 🛡️ 300ms Grace Window: 일시적으로 포즈가 끊겨도 직전 손 위치와 상태 유지 (노트북LM 권장 규격)
+    if (now - costumeHand.seen > 300) {
+      costumeHand.votes = 0;
+      costumeHand.stable = false;
+    }
+    return;
+  }
+
+  // 양손 후보 분석: 왼손(15:손목, 17:새끼, 19:검지), 오른손(16:손목, 18:새끼, 20:검지)
+  const sw = Math.hypot(skel[12].x - skel[11].x, skel[12].y - skel[11].y) || 80; // 어깨 너비(px) 기준 척도
+  const hands = [];
+
+  if (skel[16] && skel[16].v >= 0.4) {
+    // 오른손 (사용자 기준 또는 미러 기준 화면 우측 UI 조작에 가장 가까운 손)
+    const wrist = skel[16];
+    const index = skel[20] || wrist;
+    const pinky = skel[18] || wrist;
+    const span = Math.hypot(index.x - wrist.x, index.y - wrist.y);
+    const spanPinky = Math.hypot(pinky.x - wrist.x, pinky.y - wrist.y);
+    const ratio = Math.max(span, spanPinky) / sw;
+    // 검지나 손끝이 손목 쪽으로 말려들어가면 주먹 (손을 펴면 0.28 이상, 쥐면 0.20 이하)
+    const isFist = ratio < 0.21;
+    hands.push({ x: (wrist.x + index.x) / 2, y: (wrist.y + index.y) / 2, fist: isFist, side: "right" });
+  }
+
+  if (skel[15] && skel[15].v >= 0.4) {
+    // 왼손
+    const wrist = skel[15];
+    const index = skel[19] || wrist;
+    const pinky = skel[17] || wrist;
+    const span = Math.hypot(index.x - wrist.x, index.y - wrist.y);
+    const spanPinky = Math.hypot(pinky.x - wrist.x, pinky.y - wrist.y);
+    const ratio = Math.max(span, spanPinky) / sw;
+    const isFist = ratio < 0.21;
+    hands.push({ x: (wrist.x + index.x) / 2, y: (wrist.y + index.y) / 2, fist: isFist, side: "left" });
+  }
+
+  if (hands.length === 0) {
+    if (now - costumeHand.seen > 300) { costumeHand.votes = 0; costumeHand.stable = false; }
+    return;
+  }
+
+  // 화면 우측 사이드바(진열장)에 더 가까운 손 또는 더 높은 손을 우선 타겟팅
+  hands.sort((a, b) => b.x - a.x);
+  const activeHand = hands[0];
+
+  // 📍 EMA 스무딩 (alpha = 0.45) 적용으로 손 떨림(Jitter) 완벽 제거
+  const alpha = now - costumeHand.seen > 300 ? 1.0 : 0.45;
+  costumeHand.x = costumeHand.x * (1 - alpha) + activeHand.x * alpha;
+  costumeHand.y = costumeHand.y * (1 - alpha) + activeHand.y * alpha;
+  costumeHand.seen = now;
+  costumeHand.fist = activeHand.fist;
+
+  // 2프레임 연속 감지 시 안정적 판정 (깜빡임 노이즈 방어)
+  costumeHand.votes = activeHand.fist ? Math.min(3, costumeHand.votes + 1) : 0;
+  if (costumeHand.votes >= 2) costumeHand.stable = true;
+  else if (costumeHand.votes === 0) costumeHand.stable = false;
+}
+
+// 주먹 클릭 실행: 미소장 아이템은 실수 구매 방지를 위해 "3.5초 안에 한 번 더" 쥐어야 구매돼요
+function costumeFistActivate(el, now) {
+  try {
+    if (!el || !el.isConnected) return;
+    if (el.classList.contains("costume-card") && el.dataset.owned === "0" && playerCoins >= Number(el.dataset.price || 0)) {
+      const id = el.dataset.itemId;
+      const pb = costumeHand.pendingBuy;
+      if (pb && pb.id === id && now - pb.t < 3500) {
+        costumeHand.pendingBuy = null;
+      } else {
+        costumeHand.pendingBuy = { id, t: now };
+        const nm = COSTUME_ITEMS[id]?.name || "아이템";
+        popup(W / 2, H * 0.45, `🪙 [${nm}] 구매하려면 3초 안에 주먹을 한 번 더!`, "#ffd166");
+        sfx.tick();
+        return;
+      }
+    }
+    el.click();
+    el.classList.add("hand-click");
+    setTimeout(() => el.classList.remove("hand-click"), 380);
+  } catch (e) {
+    console.warn("주먹 클릭 처리 예외(무시):", e);
+  }
+}
+
+// 손 포인터 그리기 + 진열장 호버/스크롤/주먹 클릭 처리
+function costumeHandUiTick(ctx, cvs, rect, now) {
+  // 1) 포인터 결정: 손 모델(주먹 판정 가능) > 포즈 손목(주먹 판정 불가, 체류 클릭) > 마우스
+  let ptr = null, fromHand = false;
+  if (useMouse) {
+    ptr = { x: (mouse.x - rect.left) * cvs.width / (rect.width || cvs.width), y: (mouse.y - rect.top) * cvs.height / (rect.height || cvs.height), fist: !!mouse.down };
+  } else if (now - costumeHand.seen < 700) {
+    ptr = { x: costumeHand.x, y: costumeHand.y, fist: costumeHand.stable }; fromHand = true;
+  } else if (pointers && pointers.length > 0) {
+    ptr = { x: pointers[0].x, y: pointers[0].y, fist: false };
+  }
+  if (!ptr) {
+    costumeHand.hoverEl?.classList.remove("hand-hover"); costumeHand.hoverEl = null; costumeHand.dwellEl = null;
+    costumeHand.prevStable = false;
+    return;
+  }
+  const sx = rect.left + ptr.x * (rect.width || cvs.width) / cvs.width;
+  const sy = rect.top + ptr.y * (rect.height || cvs.height) / cvs.height;
+  costumeDragPos = { x: ptr.x, y: ptr.y };
+
+  // 2) 손 아래 UI 찾기 + 하이라이트
+  const el = document.elementFromPoint(sx, sy)?.closest?.(COSTUME_CLICK_SELECTOR) || null;
+  if (el !== costumeHand.hoverEl) {
+    costumeHand.hoverEl?.classList.remove("hand-hover");
+    el?.classList.add("hand-hover");
+    costumeHand.hoverEl = el;
+    if (el && !useMouse) sfx.tick();
+  }
+  if (el) { costumeHand.hoverAt = now; costumeHand.hoverLast = el; }
+
+  // 3) 진열장 위/아래 가장자리에 손을 두면 자동 스크롤
+  const grid = $("costumeItemList");
+  if (grid && !useMouse) {
+    const gr = grid.getBoundingClientRect();
+    if (sx >= gr.left && sx <= gr.right && sy >= gr.top && sy <= gr.bottom) {
+      const edge = Math.min(90, gr.height * 0.18);
+      if (sy < gr.top + edge) grid.scrollTop -= (1 - (sy - gr.top) / edge) * 16;
+      else if (sy > gr.bottom - edge) grid.scrollTop += (1 - (gr.bottom - sy) / edge) * 16;
+    }
+  }
+
+  // 4) 클릭 판정: 주먹을 "쥐는 순간"(펴짐→쥠) / 손 모델이 없으면 1.5초 체류
+  const rising = costumeHand.stable && !costumeHand.prevStable;
+  costumeHand.prevStable = costumeHand.stable;
+  const target = el || (now - costumeHand.hoverAt < 250 ? costumeHand.hoverLast : null);
+  let dwellP = 0;
+  if (!useMouse && !fromHand && el) {
+    if (costumeHand.dwellEl !== el) { costumeHand.dwellEl = el; costumeHand.dwellT = now; }
+    dwellP = Math.min(1, (now - costumeHand.dwellT) / 1500);
+    if (dwellP >= 1 && now - costumeHand.lastClick > 700) {
+      costumeHand.lastClick = now; costumeHand.dwellT = now + 900; costumeFistActivate(el, now);
+    }
+  } else {
+    costumeHand.dwellEl = null;
+  }
+  if (!useMouse && fromHand && rising && target && now - costumeHand.lastClick > 700) {
+    costumeHand.lastClick = now;
+    costumeFistActivate(target, now);
+    burst(ptr.x, ptr.y, "#ff2e93", 18);
+  }
+
+  // 5) 포인터 링 + 안내 문구
+  ctx.save();
+  const hot = !!el;
+  const col = ptr.fist ? "#ff2e93" : (hot ? "#22c55e" : "#00d2ff");
+  ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 16; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(ptr.x, ptr.y, ptr.fist ? 22 : 32, 0, Math.PI * 2); ctx.stroke();
+  if (dwellP > 0) { ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 42, -Math.PI / 2, -Math.PI / 2 + dwellP * Math.PI * 2); ctx.stroke(); }
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 5, 0, Math.PI * 2); ctx.fill();
+  let label = "✋ 진열장 위에 손을 올리세요";
+  if (ptr.fist) label = "✊ 쥠!";
+  else if (el?.classList.contains("costume-card")) {
+    const owned = el.dataset.owned === "1";
+    label = el.classList.contains("equipped") ? "✊ 주먹 → 벗기" : (owned ? "✊ 주먹 → 착용" : "✊ 주먹 → 구매/시착");
+  } else if (el) label = "✊ 주먹 → 선택";
+  if (!fromHand && !useMouse && hot) label = "⏳ 잠시 가만히… (자동 선택)";
+  ctx.font = "bold 17px 'Rubik', sans-serif"; ctx.textAlign = "center"; ctx.shadowBlur = 6; ctx.shadowColor = "#000";
+  ctx.fillStyle = "#fff"; ctx.fillText(label, ptr.x, ptr.y - 48);
+  ctx.restore();
+}
+
+// 가상 피팅 룸 전용 렌더 루프 (캔버스 = 화면 크기 1:1 → 인식 좌표와 옷 위치가 정확히 일치)
 function costumeRoomUpdateAndDraw(now, dt) {
   const cvs = $("costumeCanvas");
   if (!cvs || !isCostumeRoomOpen) return;
-  const ctx = cvs.getContext("2d");
+  try {
+    const ctx = cvs.getContext("2d");
+    const cw = innerWidth, ch = innerHeight;
+    if (cvs.width !== cw || cvs.height !== ch) { cvs.width = cw; cvs.height = ch; }
+    const rect = cvs.getBoundingClientRect();
 
-  // 해상도 1280x720 동기화 (메인 게임과 동일 해상도 유지)
-  if (cvs.width !== 1280 || cvs.height !== 720) {
-    cvs.width = 1280;
-    cvs.height = 720;
-  }
-
-  const rect = cvs.getBoundingClientRect();
-  const scaleX = 1280 / (rect.width || 1280);
-  const scaleY = 720 / (rect.height || 720);
-
-  // 1. 웹캠 미러 비디오 왜곡 없이 중앙 비율 맞춤(Cover) 렌더링
-  if (video && video.readyState >= 2) {
-    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-    const s = Math.max(1280 / vw, 720 / vh);
-    ctx.save();
-    ctx.translate(1280, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, (1280 - vw * s) / 2, (720 - vh * s) / 2, vw * s, vh * s);
-    ctx.restore();
-
-    // 부드러운 사이버 피팅 미러 틴트 (플레이어 및 옷이 화사하게 돋보임)
-    ctx.fillStyle = "rgba(10, 6, 24, 0.32)";
-    ctx.fillRect(0, 0, 1280, 720);
-  } else {
-    ctx.fillStyle = "#0c0618";
-    ctx.fillRect(0, 0, 1280, 720);
-    ctx.fillStyle = "#00d2ff";
-    ctx.font = "bold 26px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("📷 카메라 영상 로딩 중...", 640, 360);
-  }
-
-  // 2. 신체 앵커 영역 계산 (머리, 가슴, 손목)
-  const skel = getBody();
-  let headA = { x: 640, y: 190 };
-  let chestA = { x: 640, y: 370 };
-  let handA = { x: 800, y: 460 };
-
-  if (skel && skel[0] && skel[11] && skel[12]) {
-    headA = { x: skel[0].x, y: skel[0].y - 35 };
-    chestA = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 + 25 };
-    if (skel[16]) handA = { x: skel[16].x, y: skel[16].y };
-
-    // ⚡ [내 몸 인식 시각화] 거울 위에 부드러운 네온 사이버 관절 트래킹 라인 렌더링
-    ctx.save();
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
-    ctx.lineWidth = 3;
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 10;
-    const bones = [
-      [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // 상체 & 양팔
-      [11, 23], [12, 24], [23, 24],                      // 몸통 & 골반
-      [23, 25], [25, 27], [24, 26], [26, 28]             // 다리 & 발목
-    ];
-    bones.forEach(([i, j]) => {
-      if (skel[i] && skel[j]) {
-        ctx.beginPath();
-        ctx.moveTo(skel[i].x, skel[i].y);
-        ctx.lineTo(skel[j].x, skel[j].y);
-        ctx.stroke();
-      }
-    });
-
-    // 주요 관절 펄스 노드 점
-    ctx.fillStyle = "#00d2ff";
-    [0, 11, 12, 15, 16, 23, 24, 27, 28].forEach((idx) => {
-      if (skel[idx]) {
-        ctx.beginPath();
-        ctx.arc(skel[idx].x, skel[idx].y, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-    ctx.restore();
-  } else if (pointers && pointers.length > 0) {
-    chestA = { x: pointers[0].x, y: pointers[0].y };
-    headA = { x: pointers[0].x, y: Math.max(80, pointers[0].y - 140) };
-    handA = { x: pointers[0].x, y: pointers[0].y };
-  }
-
-  // 3. 실시간 장착된 파츠 신체 렌더링 (1280x720 좌표계로 1:1 완벽 밀착)
-  drawEquippedCostumesOnBody(ctx, skel, pointers);
-
-  // 4. 포인터 (손 인식 or 마우스) 추출
-  let ptr = null;
-  if (useMouse) {
-    ptr = { x: (mouse.x - rect.left) * scaleX, y: (mouse.y - rect.top) * scaleY, fist: mouse.down };
-  } else if (pointers && pointers.length > 0) {
-    ptr = { x: pointers[0].x, y: pointers[0].y, fist: !!pointers[0].fist };
-  }
-
-  // 5. ✊ 주먹으로 집기 & ✋ 손 펴서 마그네틱 장착 인터랙션
-  if (ptr) {
-    costumeDragPos = { x: ptr.x, y: ptr.y };
-    const handScreenX = useMouse ? mouse.x : ((ptr.x / scaleX) + rect.left);
-    const handScreenY = useMouse ? mouse.y : ((ptr.y / scaleY) + rect.top);
-
-    // 손 포인트 시각화 (주먹이면 빨간 링, 펼치면 푸른 링)
-    ctx.strokeStyle = ptr.fist ? "#ff2e93" : "#00d2ff";
-    ctx.lineWidth = 4;
-    ctx.shadowColor = ctx.strokeStyle;
-    ctx.shadowBlur = 14;
-    ctx.beginPath();
-    ctx.arc(ptr.x, ptr.y, ptr.fist ? 22 : 30, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // 텍스트 라벨
-    ctx.font = "bold 15px 'Rubik', sans-serif";
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.fillText(ptr.fist ? "✊ GRABBING" : "✋ OPEN HAND", ptr.x, ptr.y - 36);
-
-    // [A] 주먹을 쥐었을 때: 진열장 아이템 픽업 판정 (손 스크린 픽셀 좌표 기준)
-    if (ptr.fist && !costumeDragItem) {
-      const cards = document.querySelectorAll(".costume-card");
-      for (const c of cards) {
-        const cRect = c.getBoundingClientRect();
-        if (handScreenX >= cRect.left && handScreenX <= cRect.right && handScreenY >= cRect.top && handScreenY <= cRect.bottom) {
-          const itId = c.dataset.itemId;
-          if (itId && COSTUME_ITEMS[itId]) {
-            costumeDragItem = COSTUME_ITEMS[itId];
-            sfx.tick();
-            $("dragGhost")?.classList.remove("hidden");
-            $("dragGhostIcon").textContent = costumeDragItem.icon;
-            $("dragGhostLabel").textContent = costumeDragItem.name;
-            break;
-          }
-        }
-      }
+    // 1. 웹캠 거울 영상 (인식 좌표 변환 videoToScreen과 동일한 Cover + 미러 규칙)
+    if (video && video.readyState >= 2) {
+      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+      const s = Math.max(cw / vw, ch / vh);
+      const isMirror = playerSettings ? playerSettings.mirror !== false : true;
+      ctx.save();
+      if (isMirror) { ctx.translate(cw, 0); ctx.scale(-1, 1); }
+      ctx.drawImage(video, (cw - vw * s) / 2, (ch - vh * s) / 2, vw * s, vh * s);
+      ctx.restore();
+      ctx.fillStyle = "rgba(10, 6, 24, 0.32)";
+      ctx.fillRect(0, 0, cw, ch);
+    } else {
+      ctx.fillStyle = "#0c0618";
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.fillStyle = "#00d2ff";
+      ctx.font = "bold 26px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("📷 카메라 영상 로딩 중...", cw / 2, ch / 2);
     }
 
-    // [B] 드래그 중인 상태
-    if (costumeDragItem) {
-      const ghost = $("dragGhost");
-      if (ghost) {
-        // 고스트는 뷰포트 절대 픽셀 좌표 기준 배치
-        ghost.style.left = `${handScreenX}px`;
-        ghost.style.top = `${handScreenY}px`;
-      }
+    // 2. 신체 관절 시각화 & Pose 기반 손 제스처 처리
+    const skel = getBody();
+    costumeReadHand(now, skel);
 
-      // 슬롯 앵커와의 거리 계산
-      const targetAnchor = costumeDragItem.slot === "head" ? headA : (costumeDragItem.slot === "hand" ? handA : chestA);
-      const dist = Math.hypot(ptr.x - targetAnchor.x, ptr.y - targetAnchor.y);
-
-      // 마그네틱 흡착 가이드선 및 펄스 링
-      if (dist < 180) {
-        ctx.strokeStyle = "rgba(0, 210, 255, 0.85)";
-        ctx.setLineDash([8, 8]);
-        ctx.beginPath();
-        ctx.moveTo(ptr.x, ptr.y);
-        ctx.lineTo(targetAnchor.x, targetAnchor.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.strokeStyle = "#22c55e";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(targetAnchor.x, targetAnchor.y, 50, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.font = "bold 16px 'Rubik', sans-serif";
-        ctx.fillStyle = "#22c55e";
-        ctx.fillText("✋ 손을 펴서 착용!", targetAnchor.x, targetAnchor.y - 62);
-      }
-
-      // [C] 손을 폈을 때 (p.fist === false): 마그네틱 결합 완료!
-      if (!ptr.fist) {
-        $("dragGhost")?.classList.add("hidden");
-        if (dist < 220) {
-          equipCostumeItem(costumeDragItem);
+    if (skel && skel[0] && skel[11] && skel[12]) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "#00d2ff";
+      ctx.shadowBlur = 10;
+      const bones = [
+        [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+        [11, 23], [12, 24], [23, 24],
+        [23, 25], [25, 27], [24, 26], [26, 28]
+      ];
+      bones.forEach(([i, j]) => {
+        if (skel[i] && skel[j]) {
+          ctx.beginPath();
+          ctx.moveTo(skel[i].x, skel[i].y);
+          ctx.lineTo(skel[j].x, skel[j].y);
+          ctx.stroke();
         }
-        costumeDragItem = null;
-      }
+      });
+      ctx.restore();
     }
-  }
 
-  // 6. 나를 따라 움직이는 미니 버디 아바타 업데이트
-  buddyEngine.updateAndDraw(dt, skel, pointers);
+    // 3. 실시간 장착 파츠 (신체 기울기에 1:1 완벽 밀착)
+    drawEquippedCostumesOnBody(ctx, skel, pointers);
+
+    // 4. ✊ 손 포인터 + 진열장 주먹 클릭
+    costumeHandUiTick(ctx, cvs, rect, now);
+
+    // 5. 상단 비전 상태 안내 배너 (로딩 진행 상황 및 물러서기 안내)
+    drawCostumeStatusBanner(ctx, cw, ch, skel);
+
+    // 6. 미니 버디
+    buddyEngine.updateAndDraw(dt, skel, pointers);
+  } catch (err) {
+    console.warn("피팅룸 렌더 예외(자동 복구):", err);   // 🛡️ Zero-Crash: 한 프레임 실패해도 다음 프레임 계속
+  }
 }
 
 // 9. 커스튬 룸 이벤트 리스너 바인딩
@@ -8227,7 +8596,10 @@ function setupCostumeRoomEvents() {
 }
 
 // 커스튬 룸 초기화 실행
+loadCostumeImages();
 setupCostumeRoomEvents();
+// 🔥 마우스를 버튼 위에 올리면 몸 인식 모델을 미리 로드 (피팅룸 진입 시 기다림 최소화)
+$("btnCostumeRoom")?.addEventListener("pointerenter", () => { if (!useMouse) ensureModel("pose").catch(() => {}); }, { once: true });
 
 // 메인 루프에서 커스튬 룸 전용 프레임 틱 호출 연동
 const origFrame = frame;
