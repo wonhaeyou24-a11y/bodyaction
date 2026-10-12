@@ -36,6 +36,7 @@ export function createVisionClient({ video }) {
     for (const k of ["hand", "pose"]) { state[k].ready = false; waiters[k].splice(0).forEach((w) => w.resolve(false)); }
   }
 
+  let errStreak = 0;
   function onMessage(e) {
     const m = e.data;
     if (m.type === "ready") {
@@ -46,12 +47,19 @@ export function createVisionClient({ video }) {
       waiters[m.kind].splice(0).forEach((w) => w.resolve(false));
     } else if (m.type === "result") {
       busy = false;
-      if (m.landmarks) {
+      if (m.error) {
+        errStreak++;
+        if (errStreak >= 4) {
+          console.warn("AI 작업자 연속 오류 발생 -> 메인 스레드 모드로 자동 복구 전환");
+          fail("작업자 연속 오류");
+        }
+      } else {
+        errStreak = 0;
         const s = state[m.kind];
-        s.latest = { ts: m.ts, result: { landmarks: m.landmarks }, inferMs: m.inferMs };
+        s.latest = { ts: m.ts, result: { landmarks: m.landmarks || [] }, inferMs: m.inferMs || 0 };
         s.fresh = true;
         stats.results++;
-        stats.inferMs = stats.inferMs ? stats.inferMs * 0.85 + m.inferMs * 0.15 : m.inferMs;
+        if (m.inferMs) stats.inferMs = stats.inferMs ? stats.inferMs * 0.85 + m.inferMs * 0.15 : m.inferMs;
         stats.latencyMs = stats.latencyMs ? stats.latencyMs * 0.85 + (performance.now() - m.ts) * 0.15 : performance.now() - m.ts;
       }
     }
@@ -87,14 +95,17 @@ export function createVisionClient({ video }) {
   async function send() {
     if (!active || !worker || !state[active].ready || video.readyState < 2) return;
     if (busy) {
-      if (performance.now() - busySince < 1500) return;      // 혹시 응답을 잃어버렸으면 1.5초 뒤 다시 보냄
+      if (performance.now() - busySince < 350) return;      // 350ms 이상 응답 없으면 강제 잠금 해제
     }
+    if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
     busy = true; busySince = performance.now();
     const kind = active, ts = performance.now();
     try {
       const bitmap = await createImageBitmap(video);
       worker.postMessage({ type: "detect", kind, ts, bitmap }, [bitmap]);
-    } catch { busy = false; }
+    } catch (e) {
+      busy = false;
+    }
   }
   pump();
 

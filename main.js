@@ -226,6 +226,34 @@ const sfx = {
     tone(180, t, 0.12, "sine", 0.38, 30, p);
     noise(t, 0.08, 0.28, 2200, p);
   },
+  batSwing(x) {
+    const t = ac().currentTime, p = panOf(x);
+    // 바람을 가르는 날카로운 스윙 풍압음
+    noise(t, 0.12, 0.28, 1900, p);
+    tone(360, t, 0.11, "sawtooth", 0.10, 110, p);
+  },
+  homeRun(x) {
+    const t = ac().currentTime, p = panOf(x);
+    // '딱!' 하는 맑고 강력한 배트 스냅 타격음 + 폭발 저음
+    tone(1900, t, 0.07, "triangle", 0.45, 420, p);
+    tone(210, t, 0.28, "sine", 0.50, 32, p);
+    noise(t, 0.16, 0.40, 1400, p);
+    setTimeout(() => { try { sfx.fanfare(); } catch {} }, 120);
+  },
+  kungfuGuard(x) {
+    const t = ac().currentTime, p = panOf(x);
+    // '챙!' 하고 맑게 튕겨내는 금속/기공 가드 방어음
+    tone(2400, t, 0.09, "sine", 0.45, 1200, p);
+    tone(1600, t + 0.02, 0.12, "triangle", 0.35, 600, p);
+    noise(t, 0.06, 0.25, 3200, p);
+  },
+  kungfuDragon(x) {
+    const t = ac().currentTime, p = panOf(x);
+    // 화염 용오름 포효 (저주파 럼블 + 라이징 신스)
+    tone(85, t, 0.45, "sawtooth", 0.55, 380, p);
+    tone(60, t + 0.05, 0.60, "sine", 0.60, 25, p);
+    noise(t, 0.50, 0.45, 450, p);
+  },
   stamp() {
     const t = ac().currentTime;
     // 랭크 스탬프 슬램 충격음
@@ -291,6 +319,30 @@ const sfx = {
     tone(heavy ? 95 : 135, t, 0.18, "square", 0.35, 45, p);
     noise(t, 0.1, heavy ? 0.35 : 0.22, 1200, p);
   },
+  costumeEquip() {
+    const t = ac().currentTime;
+    tone(440, t, 0.06, "sine", 0.25, 880);
+    tone(880, t + 0.05, 0.09, "triangle", 0.3, 1760);
+    noise(t + 0.03, 0.05, 0.15, 2400);
+  },
+  costumeUnequip() {
+    const t = ac().currentTime;
+    tone(660, t, 0.06, "sine", 0.2, 330);
+    tone(330, t + 0.05, 0.08, "triangle", 0.18, 165);
+  },
+  nanoSuitUp(phase = 1) {
+    const t = ac().currentTime;
+    const baseFreq = 220 * Math.pow(1.22, phase);
+    tone(baseFreq, t, 0.14, "sawtooth", 0.28, baseFreq * 2.2);
+    tone(baseFreq * 1.5, t + 0.04, 0.18, "triangle", 0.25);
+    noise(t, 0.12, 0.22, 1800);
+  },
+  repulsorBeam(x) {
+    const t = ac().currentTime, p = panOf(x || W / 2);
+    tone(980, t, 0.24, "sine", 0.4, 180, p);
+    tone(1480, t + 0.03, 0.22, "sawtooth", 0.35, 240, p);
+    noise(t, 0.25, 0.3, 3200, p);
+  },
 };
 
 // 음성 안내 (브라우저 내장 한국어 음성)
@@ -320,6 +372,7 @@ const INTRO = {
   beat: "음악에 맞춰 날아오는 네온 큐브를 온몸으로 시원하게 베어내세요!",
   keeper: "골대를 향해 날아오는 공을 온몸과 손으로 막아내세요!",
   box: "샌드백을 향해 양주먹으로 신나게 펀치를 연타하세요!",
+  baseball: "타석에 서서 날아오는 공을 배트로 힘차게 휘둘러 홈런을 날리세요!",
 };
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
@@ -488,6 +541,7 @@ const BGM = {
   beat:    { ...BEAT_TRACKS[0] },
   keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
   box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.70 },
+  baseball:{ bpm: 128, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 0], wave: "sawtooth", drums: "pop", vol: 0.70 },
 };
 const ARP = [0, 2, 1, 3, 2, 4, 3, 1];
 let bgmNext = 0, bgmStep = 0;
@@ -711,31 +765,39 @@ function updatePointers() {
   const frameDt = lastPointerUpdateTime > 0 ? Math.max(0.008, (now - lastPointerUpdateTime) / 1000) : 0.016;   // 실제 프레임 간격(초)
   lastPointerUpdateTime = now;
 
+  // 비디오가 예기치 않게 멈췄을 때 자동 재생 복구 (Zero-Freeze Guard)
+  if (!useMouse && video && video.srcObject && video.paused) {
+    try { video.play(); } catch {}
+  }
+
   if (useMouse) {
     pts = [{ x: mouse.x, y: mouse.y }];
   } else if (games[mode]?.body) {                      // 몸 게임: 전신 포즈 인식
     const poseWorker = visionAI.ready("pose");
     if ((poseLandmarker || poseWorker) && video.readyState >= 2 && !isDetectingBody) {
-      // 작업자 방식: 새 인식 결과가 도착했을 때만 처리 (화면은 멈추지 않음)
-      // 예전 방식: 추론 종료 후 최소 38ms 동안은 메인 스레드가 렌더링에만 전념하도록 휴식 시간 보장
       const wr = poseWorker ? visionAI.take("pose") : null;
-      const shouldInfer = poseWorker ? !!wr : (now - lastPoseInferEndTime >= 38);
+      // 🛡️ 작업자 지연 감지: 워커에서 220ms 이상 새 결과가 없으면 메인 스레드 직접 인식으로 즉시 폴백!
+      const workerStalled = poseWorker && (now - lastPoseInferEndTime > 220);
+      const shouldInfer = wr ? true : (poseWorker ? (workerStalled && !!poseLandmarker) : (now - lastPoseInferEndTime >= 38));
+
+      // 워커가 지연되고 메인 모델이 없으면 비동기로 메인 모델도 대비 로드
+      if (workerStalled && !poseLandmarker && !isDetectingBody) {
+        ensureModel("pose").catch(() => {});
+      }
+
       if (shouldInfer) {
         isDetectingBody = true;
         const inferStart = performance.now();
         try {
-          const t0 = wr ? Math.max(wr.ts, lastDetectTimestamp + 1) : Math.max(now, lastDetectTimestamp + 1);   // 작업자: 카메라 프레임을 찍은 시각
+          const t0 = wr ? Math.max(wr.ts, lastDetectTimestamp + 1) : Math.max(now, lastDetectTimestamp + 1);
           lastDetectTimestamp = t0;
-          const r = wr ? wr.result : poseLandmarker.detectForVideo(video, t0);
+          const r = wr ? wr.result : (poseLandmarker ? poseLandmarker.detectForVideo(video, t0) : null);
           if (!wr) mainInfers++;
           detectMs = detectMs * 0.85 + (wr ? wr.inferMs : performance.now() - inferStart) * 0.15;
-          // 결과 간격이 들쭉날쭉해도 속도가 항상 "33ms당 이동량"이 되도록 맞추고, 인식 지연(찍은 뒤 지난 시간)만큼 앞으로 당겨요
           const kP = 33 / Math.max(16, Math.min(150, t0 - (lastPoseT0 || t0 - 33)));
           lastPoseT0 = t0;
-          const leadP = Math.min(2.5, Math.max(0, (performance.now() - t0) / 33)) * 0.8;
-          if (r.landmarks && r.landmarks.length) {
+          if (r && r.landmarks && r.landmarks.length) {
             bodySeen = t0;
-            // 관절마다 추적기에 "이 시각에 여기서 봤어요"를 알려 줘요 (화면 위치는 아래에서 매 프레임 계산)
             r.landmarks[0].forEach((l, i) => {
               const p = videoToScreen(l);
               (bodyTracks[i] ??= new AlphaBeta(BODY_AB)).update(p.x, p.y, t0);
@@ -743,14 +805,14 @@ function updatePointers() {
             });
             bodyTracks.length = r.landmarks[0].length;
             bodyHave = true;
-          } else if (t0 - bodySeen > 400) {
+          } else if (t0 - bodySeen > 600) {
             body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset());
           }
         } catch (err) {
-          console.warn("포즈 인식 예외:", err);
+          console.warn("포즈 인식 예외 (자동 복구):", err);
         } finally {
           isDetectingBody = false;
-          lastPoseInferEndTime = performance.now(); // 추론이 끝난 시점 기준으로 쿨다운 기록!
+          lastPoseInferEndTime = performance.now();
         }
       }
     }
@@ -807,16 +869,22 @@ function detectHandsNow() {
   if (!playing || !mode || isDetectingHands || (!handLandmarker && !handWorker) || video.readyState < 2) return;
   const now = performance.now();
   const wr = handWorker ? visionAI.take("hand") : null;
-  if (handWorker) { if (!wr) return; }                  // 작업자 방식: 새 인식 결과가 도착했을 때만 처리 (그 사이엔 외삽)
-  else if (now - lastHandInferEndTime < 35) return;     // 예전 방식: 추론 종료 후 35ms 휴식 보장
+  const workerStalled = handWorker && (now - lastHandInferEndTime > 200);
+
+  if (handWorker && !wr) {
+    if (!workerStalled || !handLandmarker) return;
+  } else if (!handWorker && now - lastHandInferEndTime < 35) {
+    return;
+  }
 
   isDetectingHands = true;
   const inferStart = performance.now();
   try {
-    const t0 = wr ? Math.max(wr.ts, lastDetectTimestamp + 1) : Math.max(now, lastDetectTimestamp + 1);   // 작업자: 카메라 프레임을 찍은 시각
+    const t0 = wr ? Math.max(wr.ts, lastDetectTimestamp + 1) : Math.max(now, lastDetectTimestamp + 1);
     lastDetectTimestamp = t0;
 
-    const r = wr ? wr.result : handLandmarker.detectForVideo(video, t0);
+    const r = wr ? wr.result : (handLandmarker ? handLandmarker.detectForVideo(video, t0) : null);
+    if (!r) return;
     if (!wr) mainInfers++;
     detectMs = detectMs * 0.85 + (wr ? wr.inferMs : performance.now() - inferStart) * 0.15;
 
@@ -1202,23 +1270,23 @@ const GAME_HUD_META = {
   },
   kungfu: {
     theme: "kungfu",
-    badge: "BLACK BELT 4단",
-    title: "KUNG FU PUNCH DOJO",
-    sub: "MARTIAL ARTS ARENA",
-    guideIcon: "🥊",
-    guideMain: "PUNCH TARGETS WITH BOTH HANDS! (AVOID BOMBS)",
-    guideSub: "다가오는 표적을 양손 주먹으로 신속하게 가격하세요! (폭탄 주의)",
-    leftName: "LEFT JAB FORCE",
-    rightName: "RIGHT HOOK IMPACT",
-    leftUnit: "PSI",
+    badge: "GRANDMASTER DOJO 60 FPS",
+    title: "KUNG FU MASTER COMBAT",
+    sub: "MARTIAL ARTS DOJO",
+    guideIcon: "🥋",
+    guideMain: "STRIKE TARGETS & GUARD INCOMING ATTACKS!",
+    guideSub: "주먹을 뻗어 적을 타격하고, 양손을 모아 철벽 가드로 방어하세요!",
+    leftName: "CHI ENERGY",
+    rightName: "STRIKE FORCE",
+    leftUnit: "%",
     rightUnit: "PSI",
-    leftDesc: "SPEED STRIKE • READY",
-    rightDesc: "POWER STRIKE • READY",
-    odTitle: "🐯 TIGER SPIRIT IMPACT (호랑이 진각 맹타)",
+    leftDesc: "DRAGON GAUGE",
+    rightDesc: "FIST ACCELERATION",
+    odTitle: "🐉 DRAGON AWAKENING (용오름 각성 피버)",
     getMetrics: (g) => [
-      { label: "JABS", val: Math.floor(score * 0.55) },
-      { label: "HOOKS", val: Math.floor(score * 0.45) },
-      { label: "IMPACT", val: `${Math.min(99, 88 + combo)}%` }
+      { label: "KO", val: g?.koCount ?? score },
+      { label: "CHI", val: `${Math.floor(g?.chi ?? Math.min(100, combo * 8))}%` },
+      { label: "COMBO", val: `${combo}x` }
     ]
   },
   box: {
@@ -1366,6 +1434,27 @@ const GAME_HUD_META = {
       { label: "POPPED", val: score },
       { label: "STREAK", val: `${combo}x` },
       { label: "BURST", val: "MAX" }
+    ]
+  },
+  baseball: {
+    theme: "space",
+    badge: "CYBER SLUGGER 60 FPS",
+    title: "NEON SLAM BASEBALL",
+    sub: "HOME RUN DERBY",
+    guideIcon: "⚾",
+    guideMain: "SWING THE ENERGY BAT & HIT HOME RUNS!",
+    guideSub: "홈플레이트로 날아오는 마구를 배트로 타이밍 맞춰 힘차게 휘두르세요!",
+    leftName: "BAT SPEED",
+    rightName: "LAUNCH DISTANCE",
+    leftUnit: "KM/H",
+    rightUnit: "M",
+    leftDesc: "ANGULAR VELOCITY",
+    rightDesc: "PROJECTED FLIGHT",
+    odTitle: "🔥 GRAND SLAM FEVER (만루 홈런 피버)",
+    getMetrics: (g) => [
+      { label: "HITS", val: g?.hits ?? 0 },
+      { label: "HOMERUN", val: g?.homeRuns ?? 0 },
+      { label: "LONGEST", val: `${g?.maxDist ?? 0}m` }
     ]
   }
 };
@@ -1860,6 +1949,32 @@ const Art = {
         ctx.fillStyle = "#fff";
         ctx.beginPath(); ctx.moveTo(-r * 0.22, r * 0.55); ctx.lineTo(-r * 0.16, r * 0.28); ctx.lineTo(-r * 0.1, r * 0.55); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.moveTo(r * 0.1, r * 0.55); ctx.lineTo(r * 0.16, r * 0.28); ctx.lineTo(r * 0.22, r * 0.55); ctx.closePath(); ctx.fill();
+      } else if (o.type === "dummy") {
+        // 목인장 훈련 인형 (단단한 원목 기둥 + 네온 타겟 링)
+        ctx.fillStyle = "#8b4513";
+        ctx.beginPath(); ctx.roundRect(-r * 0.45, -r * 0.95, r * 0.9, r * 1.9, 12); ctx.fill();
+        ctx.strokeStyle = "#d4a373"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#a0522d";
+        ctx.fillRect(-r * 1.1, -r * 0.35, r * 2.2, r * 0.22);
+      } else if (o.type === "shuriken") {
+        // 회전하는 4각 네온 수리검
+        ctx.rotate(o.rot || 0);
+        ctx.fillStyle = "#00d2ff";
+        ctx.shadowColor = "#00d2ff"; ctx.shadowBlur = 15;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(-r * 0.28, -r * 0.28);
+          ctx.lineTo(0, -r * 1.1);
+          ctx.lineTo(r * 0.28, -r * 0.28);
+          ctx.closePath();
+          ctx.fill();
+          ctx.rotate(Math.PI / 2);
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2); ctx.fill();
       } else {
         // 폭탄
         this.drawFruit(0, 0, r, "💣", 0, 0);
@@ -3293,100 +3408,229 @@ games.runner = {
       ctx.restore();
     }
 
-    // 3. 고품질 장애물 & 파워업 그래픽 렌더링
+    // 3. 고품질 장애물 & 파워업 그래픽 렌더링 (명확한 액션 인지 디자인)
     for (const o of this.obs) {
       const y = gy - o.y0 - o.h;
 
       if (o.type === "coin") {
-        // 🪙 3D 회전하는 홀로그램 골든 스타
+        // 🪙 3D 회전하는 홀로그램 골든 스타 코인
         ctx.save();
-        const coinCenterX = o.x + o.w / 2;
-        const coinCenterY = y + o.h / 2;
-        const rot = o.coinRot || 0;
-        ctx.translate(coinCenterX, coinCenterY);
-        // 회전 스케일
+        const cx = o.x + o.w / 2, cy = y + o.h / 2;
+        const rot = (o.coinRot || 0) + this.t * 3;
+        ctx.translate(cx, cy);
+
+        // 외곽 황금빛 아우라
+        const aura = ctx.createRadialGradient(0, 0, 5, 0, 0, o.w * 0.9);
+        aura.addColorStop(0, "rgba(255, 215, 0, 0.45)");
+        aura.addColorStop(1, "rgba(255, 180, 0, 0)");
+        ctx.fillStyle = aura;
+        ctx.beginPath(); ctx.arc(0, 0, o.w * 0.9, 0, Math.PI * 2); ctx.fill();
+
+        // 3D 회전 코인 본체
         ctx.scale(Math.cos(rot), 1);
-
-        // 후광
-        ctx.fillStyle = "rgba(255, 215, 0, 0.35)";
-        ctx.beginPath(); ctx.arc(0, 0, o.w * 0.8, 0, Math.PI * 2); ctx.fill();
-
-        // 5각 골든 스타
         ctx.fillStyle = "#ffd166";
         ctx.strokeStyle = "#e59b00";
-        ctx.lineWidth = 2.5;
-        const rOuter = o.w * 0.55, rInner = o.w * 0.26;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#ffd166"; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(0, 0, o.w * 0.48, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        // 코인 내부 스타 각인
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffffff";
+        const rOuter = o.w * 0.35, rInner = o.w * 0.16;
         ctx.beginPath();
         for (let i = 0; i < 10; i++) {
-          const angle = (i * Math.PI) / 5 - Math.PI / 2;
+          const a = (i * Math.PI) / 5 - Math.PI / 2;
           const r = i % 2 === 0 ? rOuter : rInner;
-          const px = Math.cos(angle) * r, py = Math.sin(angle) * r;
+          const px = Math.cos(a) * r, py = Math.sin(a) * r;
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
-        ctx.closePath();
-        ctx.fill(); ctx.stroke();
+        ctx.closePath(); ctx.fill();
         ctx.restore();
       } else if (o.type === "ring") {
-        // 🚀 하이퍼 부스터 링 (Torus Neon Energy Ring)
+        // 🚀 하이퍼 부스터 링 (에너지 가속 포털)
         ctx.save();
         const rx = o.x + o.w / 2, ry = y + o.h / 2;
-        ctx.shadowColor = "#00f0ff";
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = "#00f0ff";
-        ctx.lineWidth = 7;
-        ctx.beginPath(); ctx.ellipse(rx, ry, o.w * 0.45, o.h * 0.52, 0, 0, Math.PI * 2); ctx.stroke();
-        // 내부 코어 링
-        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(rx, ry, o.w * 0.32, o.h * 0.38, 0, 0, Math.PI * 2); ctx.stroke();
-        // 부스터 라벨
+        const pulse = 1.0 + Math.sin(this.t * 8) * 0.08;
+        ctx.translate(rx, ry);
+        ctx.scale(pulse, pulse);
+
+        // 외곽 네온 글로우 링
+        ctx.strokeStyle = "#00d2ff";
+        ctx.shadowColor = "#00d2ff"; ctx.shadowBlur = 25;
+        ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.ellipse(0, 0, o.w * 0.48, o.h * 0.52, 0, 0, Math.PI * 2); ctx.stroke();
+
+        // 내부 고출력 화이트 코어 링
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3.5;
+        ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.ellipse(0, 0, o.w * 0.36, o.h * 0.40, 0, 0, Math.PI * 2); ctx.stroke();
+
+        // 회전하는 4점 가속 노즐
+        ctx.fillStyle = "#ffd166";
+        for (let i = 0; i < 4; i++) {
+          const a = this.t * 4 + (i * Math.PI) / 2;
+          const nx = Math.cos(a) * o.w * 0.48, ny = Math.sin(a) * o.h * 0.52;
+          ctx.beginPath(); ctx.arc(nx, ny, 5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // 상단 부스터 안내 뱃지
         ctx.shadowBlur = 0;
-        ctx.fillStyle = "#00f0ff"; ctx.font = "900 13px 'Rubik', sans-serif"; ctx.textAlign = "center";
-        ctx.fillText("BOOST!", rx, ry - o.h * 0.55);
+        ctx.fillStyle = "rgba(0, 210, 255, 0.25)";
+        ctx.strokeStyle = "#00d2ff"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(-48, -o.h * 0.68 - 14, 96, 26, 13); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "900 13px 'Rubik', sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("🚀 BOOST!", 0, -o.h * 0.68);
         ctx.restore();
       } else if (o.type === "rock") {
-        // ⚡ [네온 사이버 허들] 점프로 뛰어넘는 장애물
+        // ⚡ [점프 허들] 사이버 스파이크 바리케이드 & 플라즈마 펜스
         ctx.save();
-        // 좌우 기둥
-        ctx.fillStyle = "#2d184c";
-        ctx.strokeStyle = "#ff9900";
-        ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.roundRect(o.x, y + 4, o.w * 0.22, o.h - 4, 4); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.roundRect(o.x + o.w * 0.78, y + 4, o.w * 0.22, o.h - 4, 4); ctx.fill(); ctx.stroke();
+        const bounce = Math.sin(this.t * 10) * 4;
 
-        // 지글거리는 레이저 빔 허들
-        ctx.shadowColor = "#ffaa00"; ctx.shadowBlur = 14;
-        ctx.strokeStyle = "#ffcc00"; ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.15, y + o.h * 0.35); ctx.lineTo(o.x + o.w * 0.85, y + o.h * 0.35); ctx.stroke();
-        ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.15, y + o.h * 0.7); ctx.lineTo(o.x + o.w * 0.85, y + o.h * 0.7); ctx.stroke();
+        // 1. 바닥 위험 예고 스트라이프 (Hazard Warning Strip)
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 170, 0, 0.35)";
+        ctx.fillRect(o.x - 15, gy - 6, o.w + 30, 6);
+        ctx.strokeStyle = "#ffaa00"; ctx.lineWidth = 2;
+        ctx.strokeRect(o.x - 15, gy - 6, o.w + 30, 6);
+        ctx.restore();
 
-        // 중앙 점프 경고 뱃지
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#ffaa00"; ctx.font = "900 12px 'Rubik', sans-serif"; ctx.textAlign = "center";
-        ctx.fillText("▲ JUMP", o.x + o.w / 2, y - 6);
+        // 2. 바리케이드 하단 베이스 블록 (경고 빗금 무늬)
+        const baseH = o.h * 0.45;
+        const baseY = gy - baseH;
+        ctx.fillStyle = "#221439";
+        ctx.strokeStyle = "#fbb500";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#fbb500"; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.roundRect(o.x, baseY, o.w, baseH, 6); ctx.fill(); ctx.stroke();
+
+        // 빗금 경고 무늬 (Hazard Lines)
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = "rgba(251, 181, 0, 0.45)"; ctx.lineWidth = 5;
+        for (let lx = o.x - baseH; lx < o.x + o.w + baseH; lx += 18) {
+          ctx.beginPath(); ctx.moveTo(lx, gy); ctx.lineTo(lx + baseH, baseY); ctx.stroke();
+        }
+        ctx.restore();
+
+        // 3. 상단 솟구치는 네온 플라즈마 스파이크 (3연속 침)
+        const spikeCount = 3;
+        const spikeW = o.w / spikeCount;
+        for (let i = 0; i < spikeCount; i++) {
+          const sx = o.x + i * spikeW;
+          const grad = ctx.createLinearGradient(0, y, 0, baseY);
+          grad.addColorStop(0, "#ffffff");
+          grad.addColorStop(0.3, "#ff3366");
+          grad.addColorStop(1, "#fbb500");
+          ctx.fillStyle = grad;
+          ctx.strokeStyle = "#ff0055"; ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(sx + 3, baseY);
+          ctx.lineTo(sx + spikeW / 2, y);
+          ctx.lineTo(sx + spikeW - 3, baseY);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+        }
+
+        // 지글거리는 고전압 번개 아크
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.moveTo(o.x + 8, y + 8);
+        ctx.lineTo(o.x + o.w * 0.35, y + 2);
+        ctx.lineTo(o.x + o.w * 0.65, y + 10);
+        ctx.lineTo(o.x + o.w - 8, y + 4);
+        ctx.stroke();
+
+        // 4. 🔥 직관적 초대형 점프 액션 뱃지 (▲ 점프! JUMP)
+        const badgeY = y - 30 + bounce;
+        const badgeW = 110, badgeH = 30;
+        const badgeX = o.x + o.w / 2 - badgeW / 2;
+
+        ctx.shadowColor = "#fbb500"; ctx.shadowBlur = 20;
+        ctx.fillStyle = "#1e1035";
+        ctx.strokeStyle = "#fbb500"; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 15); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = "#fbb500";
+        ctx.shadowColor = "#fbb500"; ctx.shadowBlur = 8;
+        ctx.font = "900 15px 'Rubik', sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("▲ 점프! JUMP", o.x + o.w / 2, badgeY + badgeH / 2);
         ctx.restore();
       } else if (o.type === "bar") {
-        // 🛸 [고공 사이버 드론 & 하향 레이저] 앉아서 지나가는 장애물
+        // 🛸 [슬라이딩 허들] 고공 사이버 드론 & 플라즈마 레이저 커튼
         ctx.save();
-        // 허공에 떠 있는 드론 본체
-        const droneH = o.h * 0.38;
-        ctx.fillStyle = "#1e1035";
-        ctx.strokeStyle = "#ff2e93";
-        ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.roundRect(o.x, y, o.w, droneH, 8); ctx.fill(); ctx.stroke();
-        // 드론 센서 경고 눈빛
-        ctx.fillStyle = "#ff0055"; ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 10;
-        ctx.beginPath(); ctx.arc(o.x + o.w / 2, y + droneH / 2, 5, 0, Math.PI * 2); ctx.fill();
+        const droneH = o.h * 0.34;
+        const droneY = y;
+        const bounce = Math.sin(this.t * 8) * 3;
+
+        // 1. 드론 좌/우 회전 터빈
+        ctx.fillStyle = "#3c2e54";
+        ctx.strokeStyle = "#e1037d"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(o.x - 8, droneY + 4, 12, droneH - 8, 4); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(o.x + o.w - 4, droneY + 4, 12, droneH - 8, 4); ctx.fill(); ctx.stroke();
+
+        // 2. 드론 본체 (메탈릭 다크 쉘)
+        ctx.fillStyle = "#14062b";
+        ctx.strokeStyle = "#e1037d"; ctx.lineWidth = 3;
+        ctx.shadowColor = "#e1037d"; ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.roundRect(o.x, droneY, o.w, droneH, 8); ctx.fill(); ctx.stroke();
+
+        // 드론 중앙 붉은 센서 코어 (펄스 점멸)
+        ctx.fillStyle = "#ff0055"; ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.arc(o.x + o.w / 2, droneY + droneH / 2, 7, 0, Math.PI * 2); ctx.fill();
+
+        // 3. 빽빽한 전자기 플라즈마 레이저 커튼 (위에서 아래로 쏟아짐)
+        const curtainTop = droneY + droneH;
+        const curtainBottom = y + o.h;
+
+        // 반투명 레이저 위험 필름
+        const filmGrad = ctx.createLinearGradient(0, curtainTop, 0, curtainBottom);
+        filmGrad.addColorStop(0, "rgba(225, 3, 125, 0.45)");
+        filmGrad.addColorStop(1, "rgba(255, 0, 85, 0.15)");
+        ctx.fillStyle = filmGrad;
+        ctx.fillRect(o.x + 4, curtainTop, o.w - 8, curtainBottom - curtainTop);
+
+        // 5줄의 고압 전자기 레이저 빔
+        ctx.shadowColor = "#ff2e93"; ctx.shadowBlur = 12;
+        ctx.strokeStyle = "#ff2e93"; ctx.lineWidth = 3.5;
+        for (let i = 0; i < 5; i++) {
+          const bx = o.x + 8 + i * ((o.w - 16) / 4);
+          ctx.beginPath(); ctx.moveTo(bx, curtainTop); ctx.lineTo(bx, curtainBottom); ctx.stroke();
+        }
+
+        // 레이저 하단 지글거리는 불꽃 스파크
+        ctx.fillStyle = "#ffffff"; ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 8;
+        for (let i = 0; i < 5; i++) {
+          const bx = o.x + 8 + i * ((o.w - 16) / 4);
+          ctx.beginPath(); ctx.arc(bx, curtainBottom, 3, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // 4. 하단 안전 통과 구역 표시 (SAFE SLIDE CLEARANCE)
         ctx.shadowBlur = 0;
+        ctx.strokeStyle = "rgba(0, 210, 255, 0.6)"; ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(o.x - 10, curtainBottom + 6); ctx.lineTo(o.x + o.w + 10, curtainBottom + 6); ctx.stroke();
+        ctx.setLineDash([]);
 
-        // 아래로 내리꽂히는 플라즈마 레이저 커튼
-        ctx.strokeStyle = "rgba(255, 46, 147, 0.75)"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.2, y + droneH); ctx.lineTo(o.x + o.w * 0.2, y + o.h); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(o.x + o.w * 0.8, y + droneH); ctx.lineTo(o.x + o.w * 0.8, y + o.h); ctx.stroke();
+        // 5. 🔥 직관적 초대형 슬라이딩 액션 뱃지 (▼ 숙여요! SLIDE)
+        const badgeY = curtainBottom + 12 + bounce;
+        const badgeW = 114, badgeH = 28;
+        const badgeX = o.x + o.w / 2 - badgeW / 2;
 
-        // 슬라이딩 유도 화살표
-        ctx.fillStyle = "#ff2e93"; ctx.font = "900 12px 'Rubik', sans-serif"; ctx.textAlign = "center";
-        ctx.fillText("▼ DUCK", o.x + o.w / 2, y + o.h + 16);
+        ctx.fillStyle = "#1e1035";
+        ctx.strokeStyle = "#e1037d"; ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#e1037d"; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 14); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = "#ff2e93";
+        ctx.shadowColor = "#ff2e93"; ctx.shadowBlur = 8;
+        ctx.font = "900 15px 'Rubik', sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("▼ 숙여요! SLIDE", o.x + o.w / 2, badgeY + badgeH / 2);
         ctx.restore();
       }
     }
@@ -3443,39 +3687,195 @@ games.runner = {
   },
 };
 
-// 🥊 쿵푸·펀치: 다가오는 적을 손으로 쳐서 물리쳐요. 💣은 치면 안 돼요!
+// ============================================================================
+// 🥋 쿵푸 마스터 대전 (KUNG FU MASTER COMBAT) - 3D 모션 무협 액션 엔진
+// ============================================================================
 games.kungfu = {
-  bg: "#2b1b17", camAlpha: 0.5,
-  init() { this.lives = 3; this.shake = 0; this.flash = 0; this.fx = []; this.t = 0; this.used = new Set(); },
-  spawn() {
-    const r = Math.random(), type = r < 0.6 ? "ninja" : r < 0.85 ? "oni" : "bomb";
-    objs.push({ type, hp: type === "oni" ? 2 : 1, z: 0.05, speed: (0.2 + elapsed() * 0.004) * (type === "oni" ? 0.8 : 1), cool: 0,
-      sx: W * (0.25 + 0.5 * Math.random()), sy: H * 0.4, ex: W * (0.1 + 0.8 * Math.random()), ey: H * (0.55 + 0.3 * Math.random()) });
+  bg: "#160714",
+  camAlpha: 0.42,
+  trail: "#ff5500",
+  init() {
+    this.lives = 3;
+    this.shake = 0;
+    this.flash = 0;
+    this.fx = [];
+    this.t = 0;
+    this.used = new Set();
+    this.chi = 0; // 기(氣) 게이지 0 ~ 100%
+    this.koCount = 0;
+    this.guardActive = false;
+    this.guardTimer = 0;
+    this.dragonMode = false;
+    this.dragonTimer = 0;
+    this.dojoLanterns = Array.from({ length: 6 }, (_, i) => ({
+      x: W * (0.15 + i * 0.14),
+      y: H * 0.18,
+      phase: Math.random() * Math.PI * 2
+    }));
   },
-  interval: () => Math.max(0.5, 1.2 - elapsed() * 0.01),
+  spawn() {
+    const waveMult = currentWave === 3 ? 1.3 : currentWave === 2 ? 1.15 : 1.0;
+    const r = Math.random();
+    // dummy: 목인장(3연타 훈련), ninja: 닌자, oni: 오니 거인, shuriken: 비도/수리검, bomb: 폭탄
+    let type = "ninja";
+    let hp = 1;
+
+    if (isFeverTime || this.dragonMode) {
+      type = r < 0.45 ? "dummy" : r < 0.85 ? "ninja" : "oni";
+      hp = type === "oni" ? 2 : 1;
+    } else {
+      if (r < 0.35) { type = "ninja"; hp = 1; }
+      else if (r < 0.58) { type = "dummy"; hp = 2; }
+      else if (r < 0.78) { type = "shuriken"; hp = 1; }
+      else if (r < 0.90) { type = "oni"; hp = 3; }
+      else { type = "bomb"; hp = 1; }
+    }
+
+    const speed = (0.22 + elapsed() * 0.005) * waveMult * (type === "oni" ? 0.75 : type === "shuriken" ? 1.35 : 1.0);
+    const sx = W * (0.25 + 0.5 * Math.random());
+    const sy = H * 0.38;
+    const ex = W * (0.12 + 0.76 * Math.random());
+    const ey = H * (0.55 + 0.32 * Math.random());
+
+    objs.push({
+      type, hp, maxHp: hp, z: 0.05, speed, cool: 0,
+      sx, sy, ex, ey, rot: 0, dead: false
+    });
+  },
+  interval: () => Math.max(0.48, 1.15 - elapsed() * 0.01),
   pos(o) { return { x: o.sx + (o.ex - o.sx) * o.z, y: o.sy + (o.ey - o.sy) * o.z }; },
-  size(o) { return Math.min(W, H) * 0.12 * (0.15 + o.z * 1.1) * (o.type === "oni" ? 1.2 : 1); },
+  size(o) {
+    const base = Math.min(W, H) * 0.12 * (0.15 + o.z * 1.1);
+    if (o.type === "oni") return base * 1.3;
+    if (o.type === "shuriken") return base * 0.65;
+    if (o.type === "dummy") return base * 1.15;
+    return base;
+  },
   update(dt) {
-    this.t += dt; this.shake = Math.max(0, this.shake - dt); this.flash = Math.max(0, this.flash - dt * 2);
+    this.t += dt;
+    this.shake = Math.max(0, this.shake - dt);
+    this.flash = Math.max(0, this.flash - dt * 2);
+    this.guardTimer = Math.max(0, this.guardTimer - dt);
     this.fx = this.fx.filter((f) => (f.t -= dt) > 0);
-    for (const o of objs) {
-      o.z += o.speed * dt * (0.5 + o.z * 1.2); o.cool -= dt;
-      const c = this.pos(o), r = this.size(o);
-      if (!o.dead && o.cool <= 0) for (const p of pointers) {
-        const punch = p.punch && !this.used.has(p.punchId) && Math.hypot(p.x - c.x, p.y - c.y) < r * 1.3 + 30 + reach;
-        if (!punch && !(p.speed >= 18 && segHitsCircle(p.px, p.py, p.x, p.y, c.x, c.y, r + 8))) continue;
-        if (punch) this.used.add(p.punchId);
-        if (o.type === "bomb") { o.dead = true; score = Math.max(0, score - 3); combo = 0; burst(c.x, c.y, "#ff3030", 24); popup(c.x, c.y, "-3", "#ff5d5d"); sfx.bomb(c.x); speak("앗, 폭탄!"); break; }
-        o.hp--; o.cool = 0.25; this.fx.push({ x: c.x, y: c.y, t: 0.35 }); this.shake = 0.15;
-        if (o.hp <= 0) { o.dead = true; award(c.x, c.y - r, o.type === "oni" ? 3 : 1, "#ffd166"); burst(c.x, c.y, "#ffb347", 18); sfx.whack(c.x, o.type === "oni"); sfx.slice(c.x); }
-        else { burst(c.x, c.y, "#fff", 8); sfx.chip(c.x); }
-        break;
+
+    // 1. 가드(Iron Guard) 모션 감지: 양손을 가슴 앞 중앙으로 모았을 때
+    this.guardActive = false;
+    if (useMouse) {
+      if (mouse.down && mouse.x > W * 0.42 && mouse.x < W * 0.58 && mouse.y > H * 0.5) {
+        this.guardActive = true;
       }
+    } else if (pointers.length >= 2) {
+      const p1 = pointers[0], p2 = pointers[1];
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      if (dist < 155 && (p1.y + p2.y) / 2 > H * 0.35) {
+        this.guardActive = true;
+      }
+    }
+
+    // 2. 용오름 각성 피버(Dragon Mode) 관리
+    if (this.dragonMode) {
+      this.dragonTimer -= dt;
+      if (this.dragonTimer <= 0) {
+        this.dragonMode = false;
+        this.chi = 0;
+      }
+    } else if (this.chi >= 100 || isFeverTime) {
+      this.dragonMode = true;
+      this.dragonTimer = 8.0;
+      this.chi = 100;
+      sfx.kungfuDragon(W / 2);
+      popup(W / 2, H * 0.4, "🐉 DRAGON AWAKENING!! 점수 2배!", "#ff5500");
+      triggerWaveBanner("🐉 DRAGON AWAKEN!", "기폭발 모드! 타격 점수 2배!", true);
+      addShake(0.25, 12);
+    }
+
+    // 3. 적 오브젝트 3D 비행 및 타격/가드 판정
+    for (const o of objs) {
+      if (o.dead) continue;
+      o.z += o.speed * dt * (0.5 + o.z * 1.25);
+      o.cool -= dt;
+      if (o.type === "shuriken") o.rot += dt * 18;
+
+      const c = this.pos(o), r = this.size(o);
+
+      // (A) 철벽 가드 판정: 적이 플레이어 타격 존에 도달했을 때 가드 중이면 방어
+      if (this.guardActive && o.z >= 0.85 && o.z <= 1.05) {
+        if (o.type === "shuriken" || o.type === "ninja" || o.type === "oni") {
+          o.dead = true;
+          sfx.kungfuGuard(c.x);
+          burst(c.x, c.y, "#ffd166", 24);
+          popup(c.x, c.y - 30, "GUARD SUCCESS! 🛡️", "#ffd166");
+          award(c.x, c.y, 2, "#ffd166");
+          this.chi = Math.min(100, this.chi + 12);
+          addShake(0.08, 5);
+          continue;
+        }
+      }
+
+      // (B) 정권 찌르기 & 빠른 타격 판정
+      if (!o.dead && o.cool <= 0) {
+        for (const p of pointers) {
+          const isFistPunch = p.punch && !this.used.has(p.punchId);
+          const reachMod = this.dragonMode ? 45 : 0;
+          const hitRadius = r * 1.35 + 32 + reach + reachMod;
+          const inRange = Math.hypot(p.x - c.x, p.y - c.y) < hitRadius;
+          const highSpeedSwipe = p.speed >= 15 && segHitsCircle(p.px, p.py, p.x, p.y, c.x, c.y, r + 10 + reachMod);
+
+          if ((isFistPunch && inRange) || highSpeedSwipe) {
+            if (isFistPunch) this.used.add(p.punchId);
+
+            if (o.type === "bomb") {
+              o.dead = true;
+              score = Math.max(0, score - 3);
+              combo = 0;
+              burst(c.x, c.y, "#ff3030", 25);
+              popup(c.x, c.y, "-3", "#ff5d5d");
+              sfx.bomb(c.x);
+              speak("앗, 폭탄!");
+              break;
+            }
+
+            o.hp--;
+            o.cool = 0.22;
+            const ptsMultiplier = this.dragonMode ? 2 : 1;
+            this.fx.push({ x: c.x, y: c.y, t: 0.38, type: o.type });
+            this.shake = 0.16;
+
+            if (o.hp <= 0) {
+              o.dead = true;
+              this.koCount++;
+              const basePts = o.type === "oni" ? 4 : o.type === "dummy" ? 3 : 1;
+              const pts = basePts * ptsMultiplier;
+              award(c.x, c.y - r, pts, "#ffd166");
+              burst(c.x, c.y, this.dragonMode ? "#ff5500" : "#ffb347", 22);
+              sfx.whack(c.x, o.type === "oni");
+              sfx.slice(c.x);
+
+              this.chi = Math.min(100, this.chi + (o.type === "dummy" ? 22 : 14));
+              if (o.type === "dummy") {
+                popup(c.x, c.y - 45, "COMBO SMASH! 🥋", "#ff9f1c");
+              }
+            } else {
+              burst(c.x, c.y, "#fff", 10);
+              sfx.chip(c.x);
+            }
+            break;
+          }
+        }
+      }
+
+      // (C) 적이 플레이어를 타격(Z >= 1.0)
       if (!o.dead && o.z >= 1) {
         o.dead = true;
         if (o.type !== "bomb") {
-          this.lives--; this.flash = 1; this.shake = 0.3; combo = 0; sfx.crash();
-          if (this.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (this.lives > 1) speak("앗, 맞았어요!");
+          this.lives--;
+          this.flash = 1;
+          this.shake = 0.3;
+          combo = 0;
+          this.chi = Math.max(0, this.chi - 25);
+          sfx.crash();
+          if (this.lives === 1) speak("한 번 더 맞으면 끝이에요!");
+          else if (this.lives > 1) speak("앗, 맞았어요!");
           if (this.lives <= 0) { endGame(); return; }
         }
       }
@@ -3484,26 +3884,130 @@ games.kungfu = {
   },
   draw() {
     if (this.lives == null) return;
+    const cx = W / 2, cy = H * 0.48;
+
     ctx.save();
     if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+
+    // 1. 사이버 도장 배경 & 등불 렌더링
+    this.dojoLanterns.forEach((lt, i) => {
+      const sway = Math.sin(this.t * 2 + lt.phase) * 8;
+      ctx.strokeStyle = "rgba(225, 3, 125, 0.4)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(lt.x, 0);
+      ctx.lineTo(lt.x + sway, lt.y);
+      ctx.stroke();
+
+      ctx.fillStyle = this.dragonMode ? "#ff5500" : "#e1037d";
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(lt.x + sway, lt.y, 14, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 도장 바닥 팔괘 원형 링
+    ctx.strokeStyle = this.dragonMode ? "rgba(255, 85, 0, 0.35)" : "rgba(0, 210, 255, 0.25)";
+    ctx.lineWidth = 3;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(cx, H * 0.65, Math.min(W, H) * 0.38, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 2. 3D 적 및 타겟 렌더링
     for (const o of [...objs].sort((a, b) => a.z - b.z)) {
       const c = this.pos(o), r = this.size(o);
       Art.drawKungfuFighter(c, r, o);
     }
+
+    // 3. 타격 POW! / CRACK! 이펙트 렌더링
     for (const f of this.fx) {
-      const k = 1 - f.t / 0.35; ctx.globalAlpha = 1 - k * 0.6; ctx.font = `${60 + k * 70}px serif`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("👊", f.x, f.y);
-      ctx.font = `900 ${28 + k * 20}px 'Rubik', sans-serif`; ctx.fillStyle = "#ffd166";
-      ctx.shadowColor = "#ff5e92"; ctx.shadowBlur = 14;
-      ctx.fillText("POW!", f.x, f.y - 50 - k * 20); ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.globalAlpha = 1;
+      const k = 1 - f.t / 0.38;
+      ctx.globalAlpha = 1 - k * 0.6;
+      ctx.font = `${60 + k * 70}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(this.dragonMode ? "🔥" : "👊", f.x, f.y);
+
+      ctx.font = `900 ${28 + k * 22}px 'Rubik', sans-serif`;
+      ctx.fillStyle = this.dragonMode ? "#ff5500" : "#ffd166";
+      ctx.shadowColor = "#ff0055";
+      ctx.shadowBlur = 16;
+      const hitWord = f.type === "dummy" ? "SMASH!" : f.type === "oni" ? "CRACK!" : "POW!";
+      ctx.fillText(hitWord, f.x, f.y - 50 - k * 20);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#fff";
+      ctx.globalAlpha = 1;
     }
+
+    // 4. 철벽 가드(Iron Guard) 활성화 비주얼 쉴드
+    if (this.guardActive) {
+      ctx.save();
+      const guardGrad = ctx.createRadialGradient(cx, H * 0.6, 20, cx, H * 0.6, 170);
+      guardGrad.addColorStop(0, "rgba(255, 209, 102, 0.45)");
+      guardGrad.addColorStop(0.7, "rgba(255, 150, 0, 0.25)");
+      guardGrad.addColorStop(1, "rgba(255, 80, 0, 0)");
+      ctx.fillStyle = guardGrad;
+      ctx.beginPath();
+      ctx.arc(cx, H * 0.6, 170, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#ffd166";
+      ctx.lineWidth = 6;
+      ctx.shadowColor = "#ffd166";
+      ctx.shadowBlur = 25;
+      ctx.stroke();
+
+      ctx.font = "900 24px 'Rubik', sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText("🛡️ IRON GUARD ACTIVE", cx, H * 0.6);
+      ctx.restore();
+    }
+
     ctx.restore();
-    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif"; ctx.fillStyle = "#fff"; ctx.fillText(heartsText(this.lives), W / 2, 104);
-    if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
-    if (this.t < 7) topHud(useMouse ? "적을 클릭해서 펀치!" : "적을 향해 주먹을 앞으로 쭉! 뻗어요");
-  },
-  trail: "#ffd166",
+
+    // 5. 기(氣) 게이지 프로그레스 바 & 라이프
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = "32px serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(heartsText(this.lives), W / 2, 100);
+
+    // 기 게이지 (화면 상단 가로 바)
+    const barW = Math.min(W * 0.45, 340);
+    const barH = 14;
+    const barX = W / 2 - barW / 2;
+    const barY = 115;
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.strokeRect(barX, barY, barW, barH);
+
+    const chiGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    chiGrad.addColorStop(0, "#ffd166");
+    chiGrad.addColorStop(1, "#ff5500");
+    ctx.fillStyle = chiGrad;
+    ctx.fillRect(barX + 2, barY + 2, (barW - 4) * (this.chi / 100), barH - 4);
+
+    ctx.font = "900 12px 'Rubik', sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(`CHI ENERGY ${Math.floor(this.chi)}%`, W / 2, barY + 28);
+    ctx.restore();
+
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    if (this.t < 7) {
+      topHud(useMouse ? "적을 클릭해 펀치! 중앙 클릭으로 가드!" : "주먹을 앞으로 쭉! 뻗어 펀치! 양손 모으면 가드!");
+    }
+  }
 };
 
 // 🤝 둘이서 대결 풍선: 왼쪽 사람(파랑) vs 오른쪽 사람(분홍). 같은 풍선을 먼저 터뜨리면 내 점수
@@ -4372,6 +4876,400 @@ games.box = {
   }
 };
 
+// ============================================================================
+// ⚾ 네온 슬램 야구 (NEON SLAM BASEBALL) - 3D 홈런 더비 배팅 엔진
+// ============================================================================
+games.baseball = {
+  bg: "#07111e",
+  camAlpha: 0.35,
+  trail: "#00d2ff",
+  init() {
+    this.hits = 0;
+    this.homeRuns = 0;
+    this.maxDist = 0;
+    this.strikes = 0;
+    this.batSpeed = 0;
+    this.isSwinging = false;
+    this.swingTimer = 0;
+    this.batAngle = -0.6;
+    this.flightBalls = []; // 홈런/안타로 장외로 날아가는 타구 목록
+    this.flash = 0;
+    this.stadiumCheer = 0;
+    this.outfieldLights = Array.from({ length: 8 }, (_, i) => ({
+      x: W * (0.12 + i * 0.11), y: H * 0.32, color: i % 2 === 0 ? "#00d2ff" : "#ffd166"
+    }));
+  },
+  spawn() {
+    // 투구 스폰: 시간 경과 및 웨이브 단계에 따라 구속/구종 다양화
+    const waveMult = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.15 : 1.0;
+    const baseSpd = 0.30 + elapsed() * 0.005;
+    const speed = baseSpd * waveMult;
+
+    // 0: 직구(Fastball), 1: 슬라이더(Slider), 2: 커브(Curve), 3: 체인지업(Changeup), 4: 골든파이어볼(Fever)
+    const pitchType = isFeverTime ? "fire" : ["fast", "curve", "slider", "change"][(Math.random() * 4) | 0];
+
+    const moundX = W * 0.5 + (Math.random() - 0.5) * 30;
+    const moundY = H * 0.40;
+    const plateX = W * 0.5 + (Math.random() - 0.5) * 140;
+    const plateY = H * 0.76 + (Math.random() - 0.5) * 60;
+
+    objs.push({
+      z: 0.05,
+      speed,
+      type: pitchType,
+      moundX, moundY,
+      plateX, plateY,
+      x: moundX,
+      y: moundY,
+      r: 14,
+      rot: 0,
+      hit: false,
+      dead: false,
+      resolved: false
+    });
+  },
+  interval: () => Math.max(0.75, 1.45 - elapsed() * 0.012),
+  update(dt) {
+    this.flash = Math.max(0, this.flash - dt * 2);
+    this.stadiumCheer = Math.max(0, this.stadiumCheer - dt);
+    this.swingTimer = Math.max(0, this.swingTimer - dt);
+    if (this.swingTimer <= 0) this.isSwinging = false;
+
+    // 1. 배트 위치 및 스윙 가속도 산출
+    let hx = W * 0.5, hy = H * 0.78;
+    let curSpeed = 0;
+    let swingImpulse = false;
+
+    if (useMouse) {
+      hx = mouse.x; hy = mouse.y;
+      curSpeed = mouse.speed || (mouse.down ? 25 : 0);
+      if (mouse.down && !this.isSwinging) {
+        swingImpulse = true;
+        this.isSwinging = true;
+        this.swingTimer = 0.22;
+        this.batSpeed = Math.floor(100 + Math.random() * 45);
+      }
+    } else if (pointers.length > 0) {
+      if (pointers.length >= 2) {
+        // 양손 그립: 두 손의 중점을 그립 위치로 사용
+        const p1 = pointers[0], p2 = pointers[1];
+        hx = (p1.x + p2.x) / 2;
+        hy = (p1.y + p2.y) / 2;
+        curSpeed = Math.max(p1.speed, p2.speed);
+        const dx = p2.x - p1.x, dy = p2.y - p1.y;
+        if (Math.hypot(dx, dy) > 20) {
+          this.batAngle = Math.atan2(dy, dx);
+        }
+      } else {
+        hx = pointers[0].x;
+        hy = pointers[0].y;
+        curSpeed = pointers[0].speed;
+      }
+
+      // 손 이동 속도 피크 또는 펀치 가속도 감지 시 스윙 발동!
+      const swingThreshold = 13.0;
+      if (curSpeed > swingThreshold && !this.isSwinging) {
+        swingImpulse = true;
+        this.isSwinging = true;
+        this.swingTimer = 0.25;
+        this.batSpeed = Math.min(165, Math.floor(80 + curSpeed * 3.8));
+      }
+    }
+
+    if (swingImpulse) {
+      sfx.batSwing(hx);
+      addShake(0.05, 4);
+    }
+
+    // 2. 날아오는 투구 3D 물리 업데이트 및 타격 판정
+    const batHitX = hx, batHitY = hy;
+    const batReach = 85 + reach;
+
+    for (const b of objs) {
+      if (b.dead || b.hit) continue;
+
+      let curveOffset = 0;
+      if (b.type === "slider") curveOffset = Math.sin(b.z * Math.PI) * 75;
+      else if (b.type === "curve") curveOffset = -Math.sin(b.z * Math.PI) * 75;
+      else if (b.type === "change") curveOffset = Math.sin(b.z * Math.PI * 2) * 25;
+
+      const spdFactor = b.type === "fast" ? 1.25 : b.type === "change" ? 0.85 : 1.0;
+      b.z += b.speed * spdFactor * dt * (0.8 + b.z * 1.5);
+      b.x = b.moundX + (b.plateX - b.moundX) * b.z + curveOffset;
+      b.y = b.moundY + (b.plateY - b.moundY) * b.z;
+      b.r = 10 + b.z * 46;
+      b.rot += 0.15;
+
+      // 타격 판정 존: b.z가 홈플레이트 부근(0.82 ~ 1.08)일 때
+      if (!b.resolved && b.z >= 0.82 && b.z <= 1.08) {
+        const dist = Math.hypot(b.x - batHitX, b.y - batHitY);
+
+        if (this.isSwinging && dist < batReach + b.r) {
+          b.hit = true;
+          b.resolved = true;
+          this.hits++;
+
+          const timingAccuracy = 1 - Math.abs(b.z - 0.95) / 0.13;
+          const centerAccuracy = 1 - Math.min(1, dist / (batReach + b.r));
+          const hitPower = timingAccuracy * 0.6 + centerAccuracy * 0.4;
+
+          if (hitPower > 0.62 || b.type === "fire") {
+            // 🚀 PERFECT HOME RUN!!
+            this.homeRuns++;
+            const launchDist = Math.floor(125 + hitPower * 35 + (this.batSpeed - 80) * 0.35);
+            this.maxDist = Math.max(this.maxDist, launchDist);
+            const pts = b.type === "fire" ? 250 : 150;
+            award(b.x, b.y, pts, "#00d2ff");
+            sfx.homeRun(b.x);
+            burst(b.x, b.y, "#00d2ff", 40);
+            burst(b.x, b.y, "#ffd166", 25);
+            popup(b.x, b.y - 70, `🚀 HOME RUN!! ${launchDist}m`, "#00d2ff");
+            triggerWaveBanner("🚀 HOME RUN!", `${launchDist}M 장외 홈런!`, false);
+            this.stadiumCheer = 1.2;
+            this.flash = 1.0;
+            addShake(0.22, 14);
+
+            this.flightBalls.push({
+              x: b.x, y: b.y,
+              vx: (b.x - W * 0.5) * 1.5,
+              vy: -750 - hitPower * 250,
+              r: b.r,
+              color: "#00d2ff",
+              dist: launchDist,
+              t: 0
+            });
+          } else if (hitPower > 0.35) {
+            // ⚡ GREAT HIT! (안타)
+            const pts = 80;
+            award(b.x, b.y, pts, "#ffd166");
+            sfx.hitHeavy(b.x);
+            burst(b.x, b.y, "#ffd166", 20);
+            popup(b.x, b.y - 45, "GREAT HIT! ⚡", "#ffd166");
+            addShake(0.10, 6);
+
+            this.flightBalls.push({
+              x: b.x, y: b.y,
+              vx: (b.x - W * 0.5) * 2.5,
+              vy: -480,
+              r: b.r * 0.8,
+              color: "#ffd166",
+              dist: Math.floor(75 + hitPower * 35),
+              t: 0
+            });
+          } else {
+            // ⚾ FOUL BALL (파울)
+            award(b.x, b.y, 20, "#94a3b8");
+            sfx.chip(b.x);
+            popup(b.x, b.y - 35, "FOUL 💨", "#94a3b8");
+          }
+        }
+      }
+
+      if (!b.resolved && b.z > 1.08) {
+        b.resolved = true;
+        b.dead = true;
+        this.strikes++;
+        combo = 0;
+        sfx.hitHeavy(b.x);
+        popup(b.x, b.y, "STRIKE! ❌", "#ff4d5e");
+      }
+    }
+
+    for (let i = this.flightBalls.length - 1; i >= 0; i--) {
+      const fb = this.flightBalls[i];
+      fb.t += dt;
+      fb.x += fb.vx * dt;
+      fb.y += fb.vy * dt;
+      fb.vy += 800 * dt;
+      fb.r = Math.max(4, fb.r * 0.985);
+      if (fb.y > H + 50 || fb.t > 2.0) {
+        this.flightBalls.splice(i, 1);
+      }
+    }
+  },
+  draw() {
+    const cx = W * 0.5, cy = H * 0.76;
+
+    ctx.save();
+    const fenceGrad = ctx.createLinearGradient(0, H * 0.25, 0, H * 0.55);
+    fenceGrad.addColorStop(0, "rgba(0, 210, 255, 0.08)");
+    fenceGrad.addColorStop(1, "rgba(7, 17, 30, 0)");
+    ctx.fillStyle = fenceGrad;
+    ctx.fillRect(0, H * 0.25, W, H * 0.35);
+
+    this.outfieldLights.forEach((lt) => {
+      ctx.fillStyle = lt.color;
+      ctx.shadowColor = lt.color;
+      ctx.shadowBlur = this.stadiumCheer > 0 ? 30 : 12;
+      ctx.beginPath();
+      ctx.arc(lt.x, lt.y, this.stadiumCheer > 0 ? 8 : 5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(cx, H * 0.40);
+    ctx.lineTo(cx + W * 0.28, H * 0.62);
+    ctx.lineTo(cx, cy);
+    ctx.lineTo(cx - W * 0.28, H * 0.62);
+    ctx.closePath();
+    ctx.stroke();
+
+    const drawBase = (bx, by) => {
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#00d2ff";
+      ctx.shadowBlur = 10;
+      ctx.fillRect(-9, -9, 18, 18);
+      ctx.restore();
+    };
+    drawBase(cx + W * 0.28, H * 0.62);
+    drawBase(cx - W * 0.28, H * 0.62);
+    drawBase(cx, H * 0.40);
+
+    ctx.strokeStyle = "rgba(255, 209, 102, 0.6)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, H * 0.42, 38, 16, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.shadowColor = "#ffffff";
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 22);
+    ctx.lineTo(cx - 24, cy - 6);
+    ctx.lineTo(cx - 24, cy - 20);
+    ctx.lineTo(cx + 24, cy - 20);
+    ctx.lineTo(cx + 24, cy - 6);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx - 80, cy - 36, 42, 75);
+    ctx.strokeRect(cx + 38, cy - 36, 42, 75);
+
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.25)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx - 60, cy - 130, 120, 110);
+    ctx.restore();
+
+    for (const b of objs) {
+      if (b.dead || b.hit) continue;
+
+      ctx.save();
+      ctx.translate(b.x, b.y);
+
+      const tailColor = b.type === "fire" ? "#ff4b72" : b.type === "slider" ? "#a855f7" : "#00d2ff";
+      ctx.fillStyle = tailColor;
+      ctx.shadowColor = tailColor;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r * 1.25, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#ffffff";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#ff3344";
+      ctx.lineWidth = Math.max(1.5, b.r * 0.16);
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(-b.r * 0.45, 0, b.r * 0.65, -0.9, 0.9);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(b.r * 0.45, 0, b.r * 0.65, Math.PI - 0.9, Math.PI + 0.9);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    this.flightBalls.forEach((fb) => {
+      ctx.save();
+      ctx.fillStyle = fb.color;
+      ctx.shadowColor = fb.color;
+      ctx.shadowBlur = 25;
+      ctx.beginPath();
+      ctx.arc(fb.x, fb.y, fb.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    let batX = cx, batY = cy;
+    if (useMouse) {
+      batX = mouse.x; batY = mouse.y;
+    } else if (pointers.length > 0) {
+      batX = pointers[0].x; batY = pointers[0].y;
+    }
+
+    ctx.save();
+    ctx.translate(batX, batY);
+
+    const swingAngle = this.isSwinging
+      ? -Math.PI * 0.8 + (1 - this.swingTimer / 0.25) * Math.PI * 1.1
+      : -Math.PI * 0.35;
+    ctx.rotate(swingAngle);
+
+    const batLen = 130 + (reach > 0 ? reach * 0.8 : 0);
+    const batGrad = ctx.createLinearGradient(0, 0, batLen, 0);
+    batGrad.addColorStop(0, "#ffffff");
+    batGrad.addColorStop(0.3, "#00d2ff");
+    batGrad.addColorStop(1, "#ffd166");
+
+    ctx.fillStyle = batGrad;
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = this.isSwinging ? 35 : 16;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.lineTo(35, -5);
+    ctx.lineTo(batLen - 15, -16);
+    ctx.arc(batLen - 15, 0, 16, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(35, 5);
+    ctx.lineTo(0, 5);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(-4, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    if (this.isSwinging) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 210, 255, 0.75)";
+      ctx.shadowColor = "#00d2ff";
+      ctx.shadowBlur = 24;
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.arc(batX, batY, 120, -Math.PI * 0.85, 0.25);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "900 16px 'Rubik', sans-serif";
+    ctx.fillStyle = "#00d2ff";
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 8;
+    ctx.fillText(`⚡ BAT SPEED: ${this.batSpeed || 95} KM/H  |  LONGEST: ${this.maxDist}M`, cx, H - 28);
+    ctx.restore();
+  }
+};
+
 function elapsed() { return GAME_SECONDS - timeLeft; }
 
 // ---------- 진행 ----------
@@ -4381,79 +5279,196 @@ let mode = null, score = 0, timeLeft = 0, playing = false, last = 0;
 // 5초 레디타임(준비시간) 상태
 let isReadyTime = false;
 let readyStartTime = 0;
-let readyTimeLeft = 5.0;
-let lastReadyCount = 5;
+let readyTimeLeft = 10.0;
+let lastReadyCount = 10;
 
-// 5초 레디타임 카운트다운 렌더링 (원형 게이지 + 펄스 스케일 + 준비 안내 가이드)
+// ⚡ 10초 레디타임 카운트다운 & 5단계 나노 파츠 비행 합체 변신 시퀀스 (Nano Armor Fly-In Assemble)
 function drawReadyCountdown(t, isBodyGame) {
   const cx = W / 2, cy = H * 0.44;
   const currentSec = Math.max(1, Math.ceil(t));
   const fraction = t - Math.floor(t);
-  const scale = 1.0 + Math.pow(fraction, 2) * 0.32; // 초마다 쿵! 하고 수축하는 펄스
+  const scale = 1.0 + Math.pow(fraction, 2) * 0.38; // 1초마다 쿵! 하고 수축하는 심장 박동 펄스
 
   ctx.save();
 
-  // 1. 중앙 어두운 비네팅 & 포커스 링
-  const bgGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, 260);
-  bgGrad.addColorStop(0, "rgba(8, 6, 20, 0.72)");
-  bgGrad.addColorStop(0.7, "rgba(10, 8, 26, 0.55)");
+  // 1. 중앙 어두운 사이버 비네팅 & 포커스 링
+  const bgGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, 320);
+  bgGrad.addColorStop(0, "rgba(8, 6, 20, 0.78)");
+  bgGrad.addColorStop(0.7, "rgba(10, 8, 26, 0.60)");
   bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = bgGrad;
   ctx.beginPath();
-  ctx.arc(cx, cy, 260, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 320, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. 5초 원형 프로그레스 게이지
-  const progress = Math.max(0, Math.min(1, (5.0 - t) / 5.0));
+  // 2. 10초 원형 프로그레스 게이지 (황금 -> 시안 -> 마젠타 3단 네온 그라데이션)
+  const progress = Math.max(0, Math.min(1, (10.0 - t) / 10.0));
   ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 12;
   ctx.beginPath();
-  ctx.arc(cx, cy, 115, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 125, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.strokeStyle = currentSec <= 2 ? "#ff3366" : "#00d2ff";
-  ctx.lineWidth = 10;
+  ctx.strokeStyle = currentSec <= 3 ? "#ff3366" : (currentSec <= 6 ? "#00d2ff" : "#ffb800");
+  ctx.lineWidth = 12;
   ctx.lineCap = "round";
   ctx.shadowColor = ctx.strokeStyle;
-  ctx.shadowBlur = 20;
+  ctx.shadowBlur = 24;
   ctx.beginPath();
-  ctx.arc(cx, cy, 115, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+  ctx.arc(cx, cy, 125, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
   ctx.stroke();
 
-  // 3. 상단 READY 라벨 뱃지
+  // 3. 🚀 [10초 변신 시퀀스] 실시간 나노 파츠 비행 합체 애니메이션
+  // 플레이어의 신체 위치 추출
+  const skel = getBody();
+  let headA = { x: cx, y: cy - 140 };
+  let chestA = { x: cx, y: cy + 10 };
+  let lHandA = { x: cx - 120, y: cy + 40 };
+  let rHandA = { x: cx + 120, y: cy + 40 };
+  let bootsA = { x: cx, y: cy + 180 };
+
+  if (skel && skel[0] && skel[11] && skel[12]) {
+    headA = { x: skel[0].x, y: skel[0].y - 35 };
+    chestA = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 + 25 };
+    if (skel[15]) lHandA = { x: skel[15].x, y: skel[15].y };
+    if (skel[16]) rHandA = { x: skel[16].x, y: skel[16].y };
+    if (skel[27] && skel[28]) bootsA = { x: (skel[27].x + skel[28].x) / 2, y: (skel[27].y + skel[28].y) / 2 };
+  } else if (pointers.length > 0) {
+    if (pointers[0]) lHandA = { x: pointers[0].x, y: pointers[0].y };
+    if (pointers[1]) rHandA = { x: pointers[1].x, y: pointers[1].y };
+  }
+
+  // 10초를 5단계(각 2초)로 분할하여 화면 밖에서 파츠가 날아와 결합
+  // 1단계: 10초~8초 (하체 부스터/부츠 결합)
+  // 2단계: 8초~6초 (흉부 아머 & 아크 리액터 코어 결합)
+  // 3단계: 6초~4초 (양손 건틀렛 & 무기 결합)
+  // 4단계: 4초~2초 (등 뒤 날개/제트팩 전개)
+  // 5단계: 2초~0초 (헬멧 바이저 안착 & 안광 점등 & 전신 완료)
+  let stepText = "⚡ STEP 1: 하체 부스터 드라이브 합체 중...";
+  let stepColor = "#ffb800";
+
+  const flyPart = (fromX, fromY, toX, toY, phaseFrac, drawFn) => {
+    const p = Math.min(1, Math.max(0, phaseFrac));
+    const ease = Math.pow(p, 3); // 급가속하여 착 달라붙음
+    const curX = fromX + (toX - fromX) * ease;
+    const curY = fromY + (toY - fromY) * ease;
+    const curScale = 2.5 - 1.5 * ease;
+
+    // 비행 중 빛나는 혜성 꼬리(Trail)
+    if (p < 1) {
+      ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(curX, curY);
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(curX, curY);
+    ctx.scale(curScale, curScale);
+    drawFn(ctx, p >= 1);
+    ctx.restore();
+
+    // 착 달라붙는 순간 충격파 링 생성
+    if (p >= 0.95 && p < 1.0) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(toX, toY, 35 * (1 - p) * 20, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  };
+
+  if (t > 8) {
+    // 1단계 (10초~8초)
+    const frac = (10 - t) / 2.0;
+    stepText = "⚡ STEP 1/5: 부스터 드라이브 날아오는 중!";
+    stepColor = "#ffb800";
+    flyPart(-60, H + 80, bootsA.x, bootsA.y, frac, (c, locked) => {
+      c.fillStyle = locked ? "#ffb800" : "#ff5500";
+      c.beginPath(); c.roundRect(-24, -12, 48, 24, 6); c.fill();
+    });
+  } else if (t > 6) {
+    // 2단계 (8초~6초)
+    const frac = (8 - t) / 2.0;
+    stepText = "⚡ STEP 2/5: 흉부 아머 & 아크 리액터 합체!";
+    stepColor = "#00d2ff";
+    flyPart(W + 100, -80, chestA.x, chestA.y, frac, (c, locked) => {
+      c.fillStyle = locked ? "#e1037d" : "#00d2ff";
+      c.beginPath(); c.arc(0, 0, 22, 0, Math.PI * 2); c.fill();
+    });
+  } else if (t > 4) {
+    // 3단계 (6초~4초)
+    const frac = (6 - t) / 2.0;
+    stepText = "⚡ STEP 3/5: 양팔 건틀렛 & 전용 무기 장착!";
+    stepColor = "#ff2e93";
+    flyPart(-120, cy, lHandA.x, lHandA.y, frac, (c) => {
+      c.fillStyle = "#00d2ff"; c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.fill();
+    });
+    flyPart(W + 120, cy, rHandA.x, rHandA.y, frac, (c) => {
+      c.fillStyle = "#ff2e93"; c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.fill();
+    });
+  } else if (t > 2) {
+    // 4단계 (4초~2초)
+    const frac = (4 - t) / 2.0;
+    stepText = "⚡ STEP 4/5: 사이버 윙 & 제트팩 등 뒤 전개!";
+    stepColor = "#22c55e";
+    flyPart(cx, -150, chestA.x, chestA.y - 20, frac, (c) => {
+      c.fillStyle = "rgba(0, 210, 255, 0.6)";
+      c.beginPath(); c.ellipse(-40, 0, 45, 18, -0.3, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(40, 0, 45, 18, 0.3, 0, Math.PI * 2); c.fill();
+    });
+  } else {
+    // 5단계 (2초~0초)
+    const frac = (2 - t) / 2.0;
+    stepText = "⚡ FINAL STEP: 헬멧 바이저 안착 & 전신 변신 완료!";
+    stepColor = "#ff0055";
+    flyPart(cx, -120, headA.x, headA.y, frac, (c, locked) => {
+      c.fillStyle = locked ? "#ffb800" : "#ffffff";
+      c.beginPath(); c.roundRect(-30, -18, 60, 36, 10); c.fill();
+    });
+  }
+
+  // 4. 상단 READY 라벨 & 합체 단계 텍스트
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = "#ffd166";
-  ctx.fillStyle = "#ffd166";
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = "#ffb800";
+  ctx.fillStyle = "#ffb800";
   ctx.font = "900 24px 'Rubik', sans-serif";
-  ctx.fillText("READY TIME · 준비 시간", cx, cy - 150);
+  ctx.fillText("⚡ NANO ARMOR ASSEMBLE · 10초 합체 변신", cx, cy - 165);
 
-  // 4. 거대한 펄스 카운트다운 숫자
+  ctx.shadowColor = stepColor;
+  ctx.fillStyle = stepColor;
+  ctx.font = "800 17px 'Rubik', sans-serif";
+  ctx.fillText(stepText, cx, cy - 135);
+
+  // 5. 거대한 펄스 카운트다운 숫자
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
-  ctx.shadowBlur = 35;
-  const numColor = currentSec <= 2 ? "#ff3366" : "#ffd166";
+  ctx.shadowBlur = 40;
+  const numColor = currentSec <= 3 ? "#ff3366" : (currentSec <= 6 ? "#00d2ff" : "#ffb800");
   ctx.shadowColor = numColor;
   ctx.fillStyle = numColor;
-  ctx.font = "900 115px 'Rubik', sans-serif";
+  ctx.font = "900 118px 'Rubik', sans-serif";
   ctx.fillText(currentSec, 0, 8);
   ctx.restore();
 
-  // 5. 하단 동작 준비 안내 가이드
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+  // 6. 하단 동작 준비 안내 가이드
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
   ctx.font = "700 21px sans-serif";
   ctx.fillStyle = "#ffffff";
   const guideText = isBodyGame
-    ? "카메라 앞에서 1.5~2m 물러서서 준비 자세를 취하세요!"
-    : "카메라를 향해 손을 뻗어 준비 자세를 취하세요!";
-  ctx.fillText(guideText, cx, cy + 160);
+    ? "카메라 앞에서 물러서서 나노 파츠가 합체되는 모습을 감상하세요!"
+    : "카메라를 향해 손을 뻗어 출격 준비 자세를 취하세요!";
+  ctx.fillText(guideText, cx, cy + 165);
 
-  ctx.font = "500 16px sans-serif";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-  ctx.fillText("5초 후 본 게임이 시작됩니다", cx, cy + 192);
+  ctx.font = "600 16px sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+  ctx.fillText(`${currentSec}초 후 최고 전투 모드로 본 게임이 시작됩니다!`, cx, cy + 196);
 
   ctx.restore();
 }
@@ -4557,9 +5572,9 @@ function frame(now) {
   drawBackground(g?.bg ?? "#1b1b2f", g?.camAlpha);
   if (playing && g) {
     if (isReadyTime) {
-      // 5초 레디타임(준비시간) 실제 시간(Wall-clock) 100% 동기화 (느려짐/지연 원천 박멸)
+      // ⚡ 10초 레디타임(준비시간) 실제 시간(Wall-clock) 100% 동기화 (나노 파츠 비행 합체 변신 시간)
       const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
-      readyTimeLeft = Math.max(0, 5.0 - elapsedReady);
+      readyTimeLeft = Math.max(0, 10.0 - elapsedReady);
       const curCount = Math.max(1, Math.ceil(readyTimeLeft));
       if (curCount !== lastReadyCount) {
         lastReadyCount = curCount;
@@ -4630,6 +5645,8 @@ function frame(now) {
   if (playing) {
     drawFx();
     drawCombo();
+    // 👗 모든 인게임 모드에서 장착된 커스튬 파츠(모자, 날개, 의상, 무기, 오라) 실시간 렌더링
+    drawEquippedCostumesOnBody(ctx, getBody(), pointers);
     if (g && !g.noCursor) drawTrails(g.trail ?? "#fff");
   } else {
     // 메인 게임 선택 화면에서는 캔버스를 완전히 비워 어떠한 모션 잔상/인식 포인트도 미표시
@@ -4658,11 +5675,11 @@ function startGame(m, opts = {}) {
   if (stageWave) { stageWave.textContent = "WAVE 1"; stageWave.classList.remove("fever"); }
   document.body.classList.add("playing");
 
-  // 5초 레디타임(준비시간) 가동
+  // ⚡ 10초 레디타임(준비시간 & 5단계 나노 합체 변신) 가동
   isReadyTime = true;
   readyStartTime = performance.now();
-  readyTimeLeft = 5.0;
-  lastReadyCount = 5;
+  readyTimeLeft = 10.0;
+  lastReadyCount = 10;
   sfx.countdown(false); // 첫 카운트다운 톤
   speak(INTRO[m], true); // 게임 설명/안내 음성 발화
   warned10 = false;
@@ -4706,6 +5723,7 @@ const RANK_THRESHOLDS = {
   keeper:  [68, 210, 580, 980, 1400],
   box:     [640, 1300, 1800, 2200, 2800],
   beat:    [11000, 19000, 34000, 61000, 120000],   // 점수 이중 계산 수정 후 다시 계산
+  baseball:[450, 900, 1500, 2200, 3200],
 };
 const RANK_DEFAULT = [35, 70, 120, 180, 260];   // 기준이 없는 게임용 기본값 (예전 기준)
 
@@ -4829,6 +5847,14 @@ function endGame() {
     if (mode !== modeId) return;                     // 순위표 저장 중에 메뉴로 나갔으면 결과 화면은 띄우지 않음
     lastTop = { modeId, mine: top, pid, score };
     showTop10Tab("mine");
+
+    // 🎁 1~3등 달성 시 해당 게임의 고유 커스튬 파츠 지급!
+    if (top.myIdx >= 0 && top.myIdx <= 2) {
+      checkAndAwardRankCostume(modeId, top.myIdx);
+    } else {
+      $("resultCostumeReward")?.classList.add("hidden");
+    }
+
     // 순위 발표 음성: 숫자 차이 같은 설명 없이 짧고 임팩트 있게
     const placeSay = score <= 0 ? "다시 도전!" : top.myIdx === 0 ? "1등! 새로운 최고 기록!" : top.myIdx > 0 ? `${top.myIdx + 1}등!` : "아쉽게 순위권 밖!";
 
@@ -4888,7 +5914,7 @@ async function showBest() {
     ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"],
     ["brick", "벽돌"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
     ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"],
-    ["keeper", "골키퍼"], ["box", "펀치백"]
+    ["keeper", "골키퍼"], ["box", "펀치백"], ["baseball", "야구"]
   ];
   const items = await Promise.all(modesList.map(async ([m, n]) => {
     const val = await SecureStore.loadCheckpoint(recKey("best-" + m), 0);
@@ -4917,18 +5943,28 @@ function scheduleCameraStop(ms = 60000) {
 document.addEventListener("visibilitychange", () => { if (document.hidden && !playing) stopCamera(); });   // 다른 탭/앱으로 가면 바로 끔
 async function ensureVideo() {
   clearTimeout(camStopTimer); camStopTimer = null;
-  if (video.srcObject) return true;
-  $("status").textContent = "카메라를 켜는 중… (처음엔 조금 걸려요)";
+  const track = video.srcObject?.getVideoTracks?.()[0];
+  if (track && track.readyState === "live") {
+    if (video.paused) {
+      try { await video.play(); } catch {}
+    }
+    return true;
+  }
+  // 카메라 트랙이 종료되었거나 없으면 기존 스트림 정리 후 재연결
+  try { video.srcObject?.getTracks?.().forEach((t) => t.stop()); } catch {}
+  video.srcObject = null;
+  $("status").textContent = "카메라 연결 중… (처음엔 조금 걸려요)";
   try {
-    // 해상도는 640x480, 프레임은 가능하면 60fps로 요청 (프레임이 많을수록 빠른 손동작도 놓치지 않음)
-    video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 30 }, facingMode: "user" } });
+    video.srcObject = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 30 }, facingMode: "user" }
+    });
     await video.play();
-    // 카메라 및 AI 추론 파이프라인 일원화 (렌더 루프와의 중복 경합 완전 차단)
     vision ??= await FilesetResolver.forVisionTasks(WASM);
+    $("status").textContent = "";
     return true;
   } catch (e) {
-    console.error(e);
-    $("status").textContent = "카메라를 쓸 수 없어요. 허용했는지 확인하거나 아래 '마우스/터치' 를 체크하세요.";
+    console.error("카메라 연결 실패:", e);
+    $("status").textContent = "카메라를 쓸 수 없어요. 허용했는지 확인하거나 아래 '마우스/터치'를 체크하세요.";
     return false;
   }
 }
@@ -5683,6 +6719,1273 @@ initOnline({
   launch: (m, opts) => launchGame(m, opts),
   getBeatTracks: () => BEAT_TRACKS.filter((t) => !String(t.id).startsWith("custom_")).map((t) => ({ id: t.id, title: t.title })),
 });
+
+// ============================================================================
+// 👗 모션 캐릭터 커스튬 & 나노 슈트업 & 미러 아바타 버디 시스템 (Costume & Buddy Engine)
+// ============================================================================
+
+// 1. 전체 커스튬 아이템 카탈로그 (12개 게임 고유 1~3등 랭킹 독점 세트 + 기본 파츠)
+const COSTUME_ITEMS = {
+  // --- [기본 제공 공통 파츠] ---
+  head_crown: {
+    id: "head_crown", name: "네온 골든 크라운", slot: "head", tier: "common",
+    icon: "👑", desc: "빛나는 황금 네온 왕관. 머리 위에서 부드럽게 떠올라요.",
+    color: "#ffb800"
+  },
+  body_nano: {
+    id: "body_nano", name: "나노 티타늄 체스트", slot: "body", tier: "common",
+    icon: "🦺", desc: "아이언맨 스타일의 나노 아머 흉부 플레이트.",
+    color: "#e1037d"
+  },
+  back_angel: {
+    id: "back_angel", name: "네온 엔젤 윙", slot: "back", tier: "common",
+    icon: "🪽", desc: "등 뒤에서 펄럭이는 빛나는 사이버 천사의 날개.",
+    color: "#00d2ff"
+  },
+  hand_repulsor: {
+    id: "hand_repulsor", name: "플라즈마 리펄서", slot: "hand", tier: "common",
+    icon: "🦾", desc: "손바닥에서 고압 플라즈마 에너지를 뿜어내는 건틀렛.",
+    color: "#00d2ff"
+  },
+
+  // --- [1. 야구 게임 (baseball)] ---
+  bat_gold: {
+    id: "bat_gold", name: "골든 슬러거 배트", slot: "hand", tier: "legend",
+    icon: "⚡", desc: "1등 최고급 독점! 장외 홈런을 터뜨리는 전설의 골든 배트. 1등을 뺏기면 회수됩니다.",
+    color: "#ffd700", game: "baseball"
+  },
+  cap_cyber: {
+    id: "cap_cyber", name: "사이버 홈런 캡", slot: "head", tier: "hero",
+    icon: "🧢", desc: "2등 중고급 독점! 레이저 바이저가 장착된 미래형 야구 모자.",
+    color: "#00d2ff", game: "baseball"
+  },
+  jersey_neon: {
+    id: "jersey_neon", name: "네온 베이스볼 저지", slot: "body", tier: "rare",
+    icon: "👕", desc: "3등 보급형 독점! 네온 스트라이프가 숨 쉬듯 깜빡이는 야구 유니폼.",
+    color: "#ff2e93", game: "baseball"
+  },
+
+  // --- [2. 쿵푸 대전 (kungfu)] ---
+  aura_dragon: {
+    id: "aura_dragon", name: "비룡 용오름 각성 오라", slot: "aura", tier: "legend",
+    icon: "🐉", desc: "1등 최고급 독점! 전신을 휘감으며 회전하는 전설의 푸른 용오름 기운. 1등 상징 복장.",
+    color: "#00d2ff", game: "kungfu"
+  },
+  robe_master: {
+    id: "robe_master", name: "그랜드마스터 비룡 도복", slot: "body", tier: "hero",
+    icon: "🥋", desc: "2등 중고급 독점! 황금 용의 문양이 수놓아진 붉은빛 쿵푸 마스터 도복.",
+    color: "#ff4d5e", game: "kungfu"
+  },
+  gloves_tiger: {
+    id: "gloves_tiger", name: "맹호 건틀렛", slot: "hand", tier: "rare",
+    icon: "🐅", desc: "3등 보급형 독점! 호랑이의 발톱 모양 화염 이펙트를 뿜는 건틀렛.",
+    color: "#ff8a3d", game: "kungfu"
+  },
+
+  // --- [3. 몸게임 러너 (runner)] ---
+  back_jetpack: {
+    id: "back_jetpack", name: "사이버 부스터 제트팩", slot: "back", tier: "legend",
+    icon: "🚀", desc: "1등 최고급 독점! 등 뒤에서 고출력 플라즈마 화염을 분사하는 1등 전용 제트팩.",
+    color: "#00d2ff", game: "runner"
+  },
+  helm_visor: {
+    id: "helm_visor", name: "홀로그램 러너 바이저", slot: "head", tier: "hero",
+    icon: "🥽", desc: "2등 중고급 독점! 장애물 궤적을 실시간으로 분석해주는 스마트 고글.",
+    color: "#22c55e", game: "runner"
+  },
+  shoes_neon: {
+    id: "shoes_neon", name: "하이퍼 펄스 스니커즈", slot: "aura", tier: "rare",
+    icon: "👟", desc: "3등 보급형 독점! 발밑에서 번개 파티클이 터져 나오는 초고속 신발.",
+    color: "#ffb800", game: "runner"
+  },
+
+  // --- [4. 비트 슬래시 (beat)] ---
+  hand_sabers: {
+    id: "hand_sabers", name: "듀얼 플라즈마 빔 세이버", slot: "hand", tier: "legend",
+    icon: "⚔️", desc: "1등 최고급 독점! 1등 챔피언만 쥘 수 있는 시안 & 마젠타 쌍검 세이버.",
+    color: "#ff0055", game: "beat"
+  },
+  head_phones: {
+    id: "head_phones", name: "사이버 비트 헤드폰", slot: "head", tier: "hero",
+    icon: "🎧", desc: "2등 중고급 독점! 음악 비트에 맞춰 양쪽 링이 펄스 발광하는 헤드셋.",
+    color: "#a855f7", game: "beat"
+  },
+  back_cape: {
+    id: "back_cape", name: "신스웨이브 네온 망토", slot: "back", tier: "rare",
+    icon: "🧣", desc: "3등 보급형 독점! 움직일 때마다 빛나는 디지털 격자 잔상을 남기는 망토.",
+    color: "#e1037d", game: "beat"
+  },
+
+  // --- [5. 복싱 펀치백 (box)] ---
+  hand_firebox: {
+    id: "hand_firebox", name: "불꽃 타이거 글러브", slot: "hand", tier: "legend",
+    icon: "🔥", desc: "1등 최고급 독점! 펀치 때마다 대폭발 화염탄이 튀는 1등 챔피언 글러브.",
+    color: "#ff3344", game: "box"
+  },
+  body_belt: {
+    id: "body_belt", name: "챔피언 골든 벨트", slot: "body", tier: "hero",
+    icon: "🥊", desc: "2등 중고급 독점! 허리에서 찬란한 황금빛 별들이 뿜어져 나오는 챔피언 벨트.",
+    color: "#ffd700", game: "box"
+  },
+  head_guard: {
+    id: "head_guard", name: "사이버 파이터 헤드기어", slot: "head", tier: "rare",
+    icon: "⛑️", desc: "3등 보급형 독점! 충격을 흡수하는 강철 네온 가드 헬멧.",
+    color: "#ff4b72", game: "box"
+  },
+
+  // --- [6. 과일 닌자 (ninja)] ---
+  hand_katana: {
+    id: "hand_katana", name: "그림자 닌자 카타나", slot: "hand", tier: "legend",
+    icon: "🗡️", desc: "1등 최고급 독점! 허공을 베면 벚꽃과 검은 번개가 흩날리는 1등 닌자 명검.",
+    color: "#8c7cff", game: "ninja"
+  },
+  head_foxmask: {
+    id: "head_foxmask", name: "네온 여우 가면", slot: "head", tier: "hero",
+    icon: "🦊", desc: "2등 중고급 독점! 붉은 요호의 불꽃 안광이 서린 전통 네온 가면.",
+    color: "#ff5500", game: "ninja"
+  },
+  body_shinobi: {
+    id: "body_shinobi", name: "시노비 닌자 도포", slot: "body", tier: "rare",
+    icon: "🥷", desc: "3등 보급형 독점! 바람처럼 가볍고 은밀한 그림자 암살자 의상.",
+    color: "#3b2d54", game: "ninja"
+  },
+
+  // --- [7. 우주 유성 (space)] ---
+  hand_shield: {
+    id: "hand_shield", name: "은하 플라즈마 실드", slot: "hand", tier: "legend",
+    icon: "🛡️", desc: "1등 최고급 독점! 성운과 은하수를 축소해 놓은 1등 지구 수호 방패.",
+    color: "#00d2ff", game: "space"
+  },
+  head_astro: {
+    id: "head_astro", name: "우주 탐사대 헬멧", slot: "head", tier: "hero",
+    icon: "👨‍🚀", desc: "2등 중고급 독점! 별빛이 반사되는 황금 바이저 우주비행사 헬멧.",
+    color: "#ffd166", game: "space"
+  },
+  back_wings: {
+    id: "back_wings", name: "스타더스트 코스믹 윙", slot: "back", tier: "rare",
+    icon: "🪽", desc: "3등 보급형 독점! 은하수 먼지로 직조된 투명한 우주 나비 날개.",
+    color: "#c26bff", game: "space"
+  },
+
+  // --- [8. 네온 벽돌깨기 (brick)] ---
+  hand_laserpaddle: {
+    id: "hand_laserpaddle", name: "네온 플라즈마 패들", slot: "hand", tier: "legend",
+    icon: "🧱", desc: "1등 최고급 독점! 고압 레이저 빔을 뿜어 공을 초광속 반사하는 패들.",
+    color: "#19e6c3", game: "brick"
+  },
+  helm_cyber: {
+    id: "helm_cyber", name: "사이버 그리드 헬멧", slot: "head", tier: "hero",
+    icon: "🤖", desc: "2등 중고급 독점! 벽돌 반사각을 예측하는 사이버 로봇 헬멧.",
+    color: "#00d2ff", game: "brick"
+  },
+  aura_neonspark: {
+    id: "aura_neonspark", name: "에너지 스파크 오라", slot: "aura", tier: "rare",
+    icon: "⚡", desc: "3등 보급형 독점! 전신에서 정전기 네온 스파크가 튀는 오라.",
+    color: "#ffd700", game: "brick"
+  },
+
+  // --- [9. 바위 피하기 (dodge)] ---
+  back_propeller: {
+    id: "back_propeller", name: "플라즈마 프로펠러 헬리팩", slot: "back", tier: "legend",
+    icon: "🚁", desc: "1등 최고급 독점! 어떤 바위도 공중으로 뛰어넘는 1등 전용 부양 팩.",
+    color: "#ff8a3d", game: "dodge"
+  },
+  helm_miner: {
+    id: "helm_miner", name: "황금 탐험가 헬멧", slot: "head", tier: "hero",
+    icon: "🪖", desc: "2등 중고급 독점! 어둠 속에서도 낙석을 비춰주는 고휘도 헤드랜턴.",
+    color: "#ffd700", game: "dodge"
+  },
+  body_adventurer: {
+    id: "body_adventurer", name: "사이버 탐험가 조끼", slot: "body", tier: "rare",
+    icon: "🧭", desc: "3등 보급형 독점! 거친 협곡에서도 끄떡없는 하이테크 조끼.",
+    color: "#ffb800", game: "dodge"
+  },
+
+  // --- [10. 포즈 미믹 (pose)] ---
+  aura_starlight: {
+    id: "aura_starlight", name: "슈퍼스타 스포트라이트 오라", slot: "aura", tier: "legend",
+    icon: "🌟", desc: "1등 최고급 독점! 런웨이 무대처럼 전신을 비추는 황금 스포트라이트.",
+    color: "#ffd700", game: "pose"
+  },
+  head_tiara: {
+    id: "head_tiara", name: "크리스탈 댄싱 티아라", slot: "head", tier: "hero",
+    icon: "👑", desc: "2등 중고급 독점! 우아하게 반짝이는 크리스탈 프리즘 티아라.",
+    color: "#ffb0c9", game: "pose"
+  },
+  back_fairy: {
+    id: "back_fairy", name: "프리즘 페어리 윙", slot: "back", tier: "rare",
+    icon: "🧚", desc: "3등 보급형 독점! 춤출 때마다 무지개 별가루를 흩뿌리는 요정 날개.",
+    color: "#a5e7ff", game: "pose"
+  },
+
+  // --- [11. 골키퍼 (keeper)] ---
+  hand_goldenkeeper: {
+    id: "hand_goldenkeeper", name: "골든 야신 슈퍼 글러브", slot: "hand", tier: "legend",
+    icon: "🧤", desc: "1등 최고급 독점! 모든 슛을 무조건 자석처럼 빨아들이는 1등 황금 장갑.",
+    color: "#ffd700", game: "keeper"
+  },
+  jersey_keeper: {
+    id: "jersey_keeper", name: "사이버 골키퍼 유니폼", slot: "body", tier: "hero",
+    icon: "⚽", desc: "2등 중고급 독점! 헥사곤 골대 네트 문양이 숨 쉬는 세이버 저지.",
+    color: "#22c55e", game: "keeper"
+  },
+  head_cap: {
+    id: "head_cap", name: "에메랄드 세이버 캡", slot: "head", tier: "rare",
+    icon: "🧢", desc: "3등 보급형 독점! 눈부신 조명 속에서도 공을 놓치지 않는 모자.",
+    color: "#00d2ff", game: "keeper"
+  },
+
+  // --- [12. 풍선 팡팡 (balloon)] ---
+  back_balloonbundle: {
+    id: "back_balloonbundle", name: "무지개 열기구 팩", slot: "back", tier: "legend",
+    icon: "🎈", desc: "1등 최고급 독점! 등 뒤에서 영롱한 무지개 풍선 다발이 둥실 떠오릅니다.",
+    color: "#ff3377", game: "balloon"
+  },
+  head_partyhat: {
+    id: "head_partyhat", name: "네온 카니발 파티햇", slot: "head", tier: "hero",
+    icon: "🥳", desc: "2등 중고급 독점! 끝에서 폭죽이 퐁퐁 튀는 페스티벌 고깔모자.",
+    color: "#ffb800", game: "balloon"
+  },
+  hand_wand: {
+    id: "hand_wand", name: "스타 매직 팝 완드", slot: "hand", tier: "rare",
+    icon: "🪄", desc: "3등 보급형 독점! 휘두르면 별빛 방울이 터지는 마법 요술봉.",
+    color: "#00d2ff", game: "balloon"
+  }
+};
+
+// 2. 12개 게임 전체 1~3등 보상 매핑 테이블
+const RANK_REWARDS = {
+  baseball: ["bat_gold", "cap_cyber", "jersey_neon"],
+  kungfu:   ["aura_dragon", "robe_master", "gloves_tiger"],
+  runner:   ["back_jetpack", "helm_visor", "shoes_neon"],
+  beat:     ["hand_sabers", "head_phones", "back_cape"],
+  box:      ["hand_firebox", "body_belt", "head_guard"],
+  ninja:    ["hand_katana", "head_foxmask", "body_shinobi"],
+  space:    ["hand_shield", "head_astro", "back_wings"],
+  brick:    ["hand_laserpaddle", "helm_cyber", "aura_neonspark"],
+  dodge:    ["back_propeller", "helm_miner", "body_adventurer"],
+  pose:     ["aura_starlight", "head_tiara", "back_fairy"],
+  keeper:   ["hand_goldenkeeper", "jersey_keeper", "head_cap"],
+  balloon:  ["back_balloonbundle", "head_partyhat", "hand_wand"]
+};
+
+// 3. 커스튬 인벤토리 & 장착 상태 (암호화 체크포인트 저장소 관리)
+let costumeInventory = new Set(["head_crown", "body_nano", "back_angel", "hand_repulsor"]);
+let equippedCostume = {
+  head: "head_crown",
+  body: "body_nano",
+  back: "back_angel",
+  hand: "hand_repulsor",
+  aura: null
+};
+
+// 👑 플레이어의 특정 게임 현재 순위 조회 (1, 2, 3등 또는 0: 미기록/순위밖)
+async function getPlayerRankForGame(gameId) {
+  if (!gameId) return 0;
+  const pid = profiles?.activeId;
+  const key = recKey("top10-" + gameId, pid);
+  const list = await SecureStore.loadCheckpoint(key, []);
+  if (!Array.isArray(list) || list.length === 0) return 0;
+  const bestVal = +(await SecureStore.loadCheckpoint(recKey("best-" + gameId, pid), 0)) || 0;
+  if (bestVal <= 0) return 0;
+  const idx = list.indexOf(bestVal);
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+// 🔒 아이템 착용 자격 검사 (순위 기반 독점 / 강등 판정)
+async function checkItemRankEligibility(item) {
+  if (!item) return { eligible: false, rankReq: 0, currentRank: 0 };
+  if (item.tier === "common") return { eligible: true, rankReq: 0, currentRank: 1 };
+
+  const rank = await getPlayerRankForGame(item.game);
+  let rankReq = 3;
+  let eligible = false;
+  if (item.tier === "legend") {
+    rankReq = 1;
+    eligible = (rank === 1);
+  } else if (item.tier === "hero") {
+    rankReq = 2;
+    eligible = (rank === 1 || rank === 2);
+  } else if (item.tier === "rare") {
+    rankReq = 3;
+    eligible = (rank >= 1 && rank <= 3);
+  }
+  return { eligible, rankReq, currentRank: rank };
+}
+
+// ⚠️ 순위 변동 시 자격 상실 파츠 자동 탈착 & 박탈 알림 (Auto-Strip Engine)
+async function auditAndStripIneligibleCostumes() {
+  let strippedCount = 0;
+  for (const [slot, itemId] of Object.entries(equippedCostume)) {
+    if (!itemId) continue;
+    const item = COSTUME_ITEMS[itemId];
+    if (!item || item.tier === "common") continue;
+
+    const { eligible, rankReq, currentRank } = await checkItemRankEligibility(item);
+    if (!eligible) {
+      // 뺏김 발생!
+      equippedCostume[slot] = null;
+      strippedCount++;
+      const tierText = item.tier === "legend" ? "1등 최고급" : item.tier === "hero" ? "2등 중고급" : "3등 보급형";
+      popup(W / 2, H * 0.45, `👑 [${item.name}] 박탈됨! (${tierText} 전용 - 순위 밀림)`, "#ff3366");
+      speak(`등수가 밀려 ${item.name}을(를) 뺏겼습니다! 다시 순위를 탈환하세요!`, true);
+    }
+  }
+  if (strippedCount > 0) {
+    saveCostumeData();
+    renderCostumeShelf();
+    renderEquippedSlotsUI();
+    sfx.costumeUnequip();
+    buddyEngine.say("주인님! 1등을 뺏겨서 최고급 옷이 반납되었어요! 다시 1등하러 가요!");
+  }
+}
+
+// 🔒 암호화 인벤토리 로드 & 저장
+async function loadCostumeData() {
+  const pid = profiles?.activeId;
+  const invKey = recKey("costume_inventory_v1", pid);
+  const eqKey = recKey("costume_equipped_v1", pid);
+
+  const savedInv = await SecureStore.loadCheckpoint(invKey, null);
+  if (Array.isArray(savedInv)) {
+    costumeInventory = new Set(savedInv);
+  }
+  // 기본 아이템 항상 보장
+  ["head_crown", "body_nano", "back_angel", "hand_repulsor"].forEach((id) => costumeInventory.add(id));
+
+  const savedEq = await SecureStore.loadCheckpoint(eqKey, null);
+  if (savedEq && typeof savedEq === "object") {
+    equippedCostume = { ...equippedCostume, ...savedEq };
+  }
+
+  // 로드 즉시 자격 검사 및 부적격 옷 회수
+  await auditAndStripIneligibleCostumes();
+}
+
+async function saveCostumeData() {
+  const pid = profiles?.activeId;
+  const invKey = recKey("costume_inventory_v1", pid);
+  const eqKey = recKey("costume_equipped_v1", pid);
+
+  await SecureStore.saveCheckpoint(invKey, Array.from(costumeInventory));
+  await SecureStore.saveCheckpoint(eqKey, equippedCostume);
+}
+
+// 🎁 1~3등 달성 시 해당 게임의 고유 커스튬 파츠 지급 로직
+function checkAndAwardRankCostume(modeId, rankIdx) {
+  const rewardList = RANK_REWARDS[modeId];
+  if (!rewardList || rankIdx < 0 || rankIdx > 2) {
+    $("resultCostumeReward")?.classList.add("hidden");
+    return;
+  }
+  const itemId = rewardList[rankIdx];
+  const item = COSTUME_ITEMS[itemId];
+  if (!item) return;
+
+  const isNewlyUnlocked = !costumeInventory.has(itemId);
+  costumeInventory.add(itemId);
+  saveCostumeData();
+
+  const medalLabels = ["🥇 1등 전설 파츠 획득!", "🥈 2등 영웅 파츠 획득!", "🥉 3등 희귀 파츠 획득!"];
+  const slotLabels = { head: "머리 파츠", body: "상의 파츠", back: "날개/망토 파츠", hand: "무기 파츠", aura: "오라 파츠" };
+
+  const rewardCard = $("resultCostumeReward");
+  if (rewardCard) {
+    $("rcRankBadge").textContent = medalLabels[rankIdx];
+    $("rcItemIcon").textContent = item.icon;
+    $("rcItemName").textContent = item.name;
+    $("rcItemDesc").textContent = item.desc;
+    $("rcItemSlot").textContent = slotLabels[item.slot] || "특수 장비";
+    rewardCard.classList.remove("hidden");
+
+    if (isNewlyUnlocked) {
+      sfx.fanfare();
+      speak(`${rankIdx + 1}등 보상으로 ${item.name}을 획득하셨습니다! 축하합니다!`, true);
+    }
+  }
+}
+
+// 4. 아이언맨 나노 슈트업 변신 엔진 (5단계 시차 조립 & 리펄서 빔)
+const nanoSuitEngine = {
+  charging: 0,       // 0 ~ 1.0 (가슴 앞 손 모으기 차징)
+  active: false,      // 나노 슈트 착용 여부
+  phase: 0,          // 1 ~ 5 단계 조립 시퀀스
+  phaseTimer: 0,
+  beamCharge: 0,     // 손바닥 펴기 리펄서 빔 발사
+  lastBeamT: 0,
+
+  update(dt, chestAnchor, pointers) {
+    // ⚡ 인게임 성능 및 제스처 충돌 방지: 커스튬 피팅룸이 열려 있을 때만 차징 제스처 및 DOM 연산 작동
+    if (!isCostumeRoomOpen) return;
+
+    // A. 차징 제스처 감지: 두 손이 가슴(아크 리액터) 부근으로 모였는가?
+    if (pointers.length >= 2 && chestAnchor) {
+      const p1 = pointers[0], p2 = pointers[1];
+      const dChest1 = Math.hypot(p1.x - chestAnchor.x, p1.y - chestAnchor.y);
+      const dChest2 = Math.hypot(p2.x - chestAnchor.x, p2.y - chestAnchor.y);
+      const dBetween = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+
+      const isHandsAtChest = dChest1 < 150 && dChest2 < 150 && dBetween < 180;
+      if (isHandsAtChest) {
+        this.charging = Math.min(1.0, this.charging + dt * 1.1);
+        if (Math.random() < 0.25) sfx.nanoSuitUp(1);
+        $("nanoChargeWrap")?.classList.remove("hidden");
+        $("ncPercent").textContent = `${Math.round(this.charging * 100)}%`;
+        $("ncBarFill").style.width = `${Math.round(this.charging * 100)}%`;
+        $("ncStatusText").textContent = "NANO CHARGING...";
+        $("ncHintText").textContent = this.charging >= 1.0 ? "⚡ 양팔을 활짝 벌려 나노 슈트업을 발동하세요!" : "가슴 앞에 두 손을 모아 에너지를 차징하세요!";
+      } else if (this.charging >= 1.0 && dBetween > 360) {
+        // B. 전개 제스처: 차징 완료 후 양팔을 활짝 벌림 -> 나노 변신 개시!
+        this.startTransform();
+      } else {
+        this.charging = Math.max(0, this.charging - dt * 0.75);
+        if (this.charging <= 0 && this.phase === 0) {
+          $("nanoChargeWrap")?.classList.add("hidden");
+        }
+      }
+    }
+
+    // C. 5단계 시차 조립 시퀀스
+    if (this.phase > 0 && this.phase <= 5) {
+      this.phaseTimer += dt;
+      if (this.phaseTimer >= 0.45) {
+        this.phaseTimer = 0;
+        this.phase++;
+        sfx.nanoSuitUp(this.phase);
+        if (this.phase > 5) {
+          this.active = true;
+          this.phase = 5;
+          sfx.fanfare();
+          speak("나노 슈트업 완료! 리펄서 시스템 가동!", true);
+          popup(chestAnchor.x, chestAnchor.y - 80, "NANO SUIT-UP COMPLETE! ⚡", "#ff0055");
+          addShake(0.18, 8);
+          // 아바타 버디 반응
+          buddyEngine.say("주인님 나노 슈트 합체 완료! 최고예요!");
+          setTimeout(() => $("nanoChargeWrap")?.classList.add("hidden"), 1800);
+        }
+      }
+    }
+
+    // D. 리펄서 빔 발사: 나노 슈트 상태에서 손바닥을 활짝 펴면 손바닥에서 빔 발사!
+    if (this.active && pointers.length > 0) {
+      const now = performance.now();
+      pointers.forEach((p) => {
+        if (!p.fist && now - this.lastBeamT > 280) {
+          this.lastBeamT = now;
+          sfx.repulsorBeam(p.x);
+          burst(p.x, p.y, "#00d2ff", 22);
+          addShake(0.04, 3);
+        }
+      });
+    }
+  },
+
+  startTransform() {
+    if (this.phase > 0) return;
+    this.charging = 0;
+    this.phase = 1;
+    this.phaseTimer = 0;
+    sfx.nanoSuitUp(1);
+    speak("나노 프로토콜 전개!", true);
+    $("nanoChargeWrap")?.classList.remove("hidden");
+    $("ncStatusText").textContent = "NANO SUIT-UP IN PROGRESS!";
+    $("ncPercent").textContent = "DEPLOYING...";
+    $("ncBarFill").style.width = "100%";
+    $("ncHintText").textContent = "파츠가 실시간으로 신체에 결합 중입니다!";
+  }
+};
+
+// 5. 나를 따라 움직이는 미니 버디 아바타 엔진 (Kinematic Mirror Buddy)
+const buddyEngine = {
+  canvas: null,
+  ctx: null,
+  bubbleEl: null,
+  bubbleTimer: 0,
+
+  init() {
+    this.canvas = $("buddyCanvas");
+    this.ctx = this.canvas?.getContext("2d");
+    this.bubbleEl = $("buddySpeechBubble");
+  },
+
+  say(text) {
+    if (this.bubbleEl) {
+      this.bubbleEl.textContent = text;
+      this.bubbleTimer = 3.5;
+    }
+  },
+
+  updateAndDraw(dt, skel, pointers) {
+    if (!this.ctx || !this.canvas) return;
+    const ctx = this.ctx;
+    const w = this.canvas.width, h = this.canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (this.bubbleTimer > 0) {
+      this.bubbleTimer -= dt;
+      if (this.bubbleTimer <= 0 && this.bubbleEl) {
+        this.bubbleEl.textContent = "주인님 움직임을 따라하고 있어요! 삐리릭!";
+      }
+    }
+
+    // 배경 네온 아레나 그리드
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h * 0.85, w * 0.38, 18, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 플레이어의 스켈레톤 각도를 버디 크기에 맞게 리타게팅
+    const cx = w / 2, cy = h * 0.52;
+    const scale = 0.32;
+
+    // 플레이어의 주요 랜드마크 추출 (없으면 기본 귀여운 대기 춤)
+    const t = performance.now() * 0.003;
+    let headX = cx, headY = cy - 40 + Math.sin(t * 2) * 3;
+    let lHandX = cx - 38 + Math.cos(t * 3) * 6, lHandY = cy + Math.sin(t * 3) * 8;
+    let rHandX = cx + 38 - Math.cos(t * 3) * 6, rHandY = cy - Math.sin(t * 3) * 8;
+
+    if (skel && skel[0] && skel[11] && skel[12]) {
+      const torso = torsoLength(skel) || 200;
+      const factor = 120 / torso;
+      const midShoulder = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 };
+
+      headX = cx + (skel[0].x - midShoulder.x) * factor;
+      headY = cy - 40 + (skel[0].y - midShoulder.y) * factor;
+
+      if (skel[15]) { lHandX = cx + (skel[15].x - midShoulder.x) * factor; lHandY = cy + (skel[15].y - midShoulder.y) * factor; }
+      if (skel[16]) { rHandX = cx + (skel[16].x - midShoulder.x) * factor; rHandY = cy + (skel[16].y - midShoulder.y) * factor; }
+    } else if (pointers.length > 0) {
+      if (pointers[0]) { lHandX = cx + (pointers[0].x - W / 2) * 0.12; lHandY = cy + (pointers[0].y - H / 2) * 0.12; }
+      if (pointers[1]) { rHandX = cx + (pointers[1].x - W / 2) * 0.12; rHandY = cy + (pointers[1].y - H / 2) * 0.12; }
+    }
+
+    // 버디 몸체 (귀여운 네온 사이버봇 마스코트)
+    // 1. 몸통 (Body Core)
+    ctx.fillStyle = nanoSuitEngine.active ? "#ff2e93" : "#1a1236";
+    ctx.strokeStyle = "#00d2ff";
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = "#00d2ff";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.roundRect(cx - 20, cy - 20, 40, 44, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // 아크 리액터 코어 (중앙)
+    ctx.fillStyle = "#00d2ff";
+    ctx.beginPath();
+    ctx.arc(cx, cy + 2, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. 머리 (Head)
+    ctx.fillStyle = nanoSuitEngine.active ? "#ffb800" : "#2a1e50";
+    ctx.beginPath();
+    ctx.roundRect(headX - 22, headY - 18, 44, 34, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    // 눈 안광 (Eyes)
+    ctx.fillStyle = nanoSuitEngine.active ? "#00ffff" : "#00ffcc";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.ellipse(headX - 8, headY - 2, 4, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(headX + 8, headY - 2, 4, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. 팔 & 손
+    ctx.strokeStyle = "#00d2ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 18, cy - 10);
+    ctx.lineTo(lHandX, lHandY);
+    ctx.moveTo(cx + 18, cy - 10);
+    ctx.lineTo(rHandX, rHandY);
+    ctx.stroke();
+
+    // 손바닥 글로우
+    ctx.fillStyle = "#ff2e93";
+    ctx.beginPath();
+    ctx.arc(lHandX, lHandY, 6, 0, Math.PI * 2);
+    ctx.arc(rHandX, rHandY, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. 버디에게도 플레이어와 동일한 커스튬 장비 미니 축소 렌더링!
+    const buddyAnchors = {
+      head: { x: headX, y: headY - 22, scale: 0.35, angle: 0 },
+      body: { x: cx, y: cy + 4, scale: 0.35, angle: 0 },
+      back: { x: cx, y: cy - 10, scale: 0.35, angle: 0 },
+      hand: { x: rHandX, y: rHandY, scale: 0.35, angle: 0 },
+      aura: { x: cx, y: cy, scale: 0.35, angle: 0 }
+    };
+
+    Object.entries(equippedCostume).forEach(([slot, itemId]) => {
+      if (!itemId) return;
+      const item = COSTUME_ITEMS[itemId];
+      const anchor = buddyAnchors[slot];
+      if (item && anchor) {
+        drawCostumePiece(ctx, item, anchor, true);
+      }
+    });
+
+    ctx.restore();
+  }
+};
+
+// 6. 커스튬 개별 파츠 정밀 2D 벡터 렌더러
+function drawCostumePiece(ctx, item, anchor, isBuddy = false) {
+  if (!item || !anchor) return;
+  const { x, y, scale = 1.0, angle = 0 } = anchor;
+  ctx.save();
+  ctx.translate(x, y);
+  if (angle) ctx.rotate(angle);
+  ctx.scale(scale, scale);
+
+  const col = item.color || "#00d2ff";
+  ctx.shadowColor = col;
+  ctx.shadowBlur = isBuddy ? 6 : 16;
+
+  switch (item.id) {
+    case "head_crown": // 네온 골든 크라운
+      ctx.fillStyle = "rgba(255, 184, 0, 0.9)";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-36, 12);
+      ctx.lineTo(-30, -22);
+      ctx.lineTo(-14, -6);
+      ctx.lineTo(0, -32);
+      ctx.lineTo(14, -6);
+      ctx.lineTo(30, -22);
+      ctx.lineTo(36, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 보석 포인트
+      ctx.fillStyle = "#ff0055";
+      [-22, 0, 22].forEach((bx) => {
+        ctx.beginPath();
+        ctx.arc(bx, 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      break;
+
+    case "cap_cyber": // 사이버 홈런 캡
+      ctx.fillStyle = "#00d2ff";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 38, 20, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // 챙
+      ctx.fillStyle = "#ff2e93";
+      ctx.beginPath();
+      ctx.ellipse(14, 2, 28, 8, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+
+    case "helm_visor": // 홀로그램 러너 바이저
+      ctx.fillStyle = "rgba(0, 210, 255, 0.4)";
+      ctx.strokeStyle = "#22c55e";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(-42, -10, 84, 22, 8);
+      ctx.fill();
+      ctx.stroke();
+      // HUD 라인
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-30, 0); ctx.lineTo(30, 0);
+      ctx.stroke();
+      break;
+
+    case "head_phones": // 사이버 비트 헤드폰
+      ctx.strokeStyle = "#a855f7";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, -10, 36, Math.PI * 0.9, Math.PI * 2.1);
+      ctx.stroke();
+      // 양쪽 이어컵
+      ctx.fillStyle = "#00d2ff";
+      [-38, 38].forEach((hx) => {
+        ctx.beginPath();
+        ctx.roundRect(hx - 8, -12, 16, 26, 6);
+        ctx.fill();
+      });
+      break;
+
+    case "head_foxmask": // 네온 여우 가면
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.strokeStyle = "#ff4d5e";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-32, -26); ctx.lineTo(-12, -4); ctx.lineTo(0, 24); ctx.lineTo(12, -4); ctx.lineTo(32, -26);
+      ctx.lineTo(18, 0); ctx.lineTo(0, 24); ctx.lineTo(-18, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 여우 붉은 무늬
+      ctx.fillStyle = "#ff4d5e";
+      ctx.beginPath();
+      ctx.ellipse(-14, 0, 7, 3, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(14, 0, 7, 3, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+
+    case "head_astro": // 우주 탐사대 헬멧
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4;
+      ctx.fillStyle = "rgba(20, 30, 60, 0.85)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 38, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // 골든 바이저
+      ctx.fillStyle = "rgba(255, 209, 102, 0.85)";
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 26, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+
+    case "body_nano": // 나노 티타늄 체스트
+      ctx.fillStyle = "#e1037d";
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-42, -18); ctx.lineTo(42, -18); ctx.lineTo(32, 38); ctx.lineTo(0, 52); ctx.lineTo(-32, 38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 아크 리액터
+      ctx.fillStyle = "#00d2ff";
+      ctx.beginPath();
+      ctx.arc(0, 10, 14, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+
+    case "robe_master": // 그랜드마스터 비룡 도복
+      ctx.fillStyle = "#ff4d5e";
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-50, -20); ctx.lineTo(50, -20); ctx.lineTo(38, 48); ctx.lineTo(-38, 48);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 블랙 띠
+      ctx.fillStyle = "#111111";
+      ctx.fillRect(-36, 18, 72, 10);
+      break;
+
+    case "back_angel": // 네온 엔젤 윙
+      ctx.fillStyle = "rgba(0, 210, 255, 0.35)";
+      ctx.strokeStyle = "#a5e7ff";
+      ctx.lineWidth = 3;
+      // 좌측 날개
+      ctx.beginPath();
+      ctx.moveTo(-10, 0); ctx.bezierCurveTo(-50, -50, -90, -30, -110, 20); ctx.bezierCurveTo(-70, 35, -40, 20, -10, 0);
+      ctx.fill(); ctx.stroke();
+      // 우측 날개
+      ctx.beginPath();
+      ctx.moveTo(10, 0); ctx.bezierCurveTo(50, -50, 90, -30, 110, 20); ctx.bezierCurveTo(70, 35, 40, 20, 10, 0);
+      ctx.fill(); ctx.stroke();
+      break;
+
+    case "back_jetpack": // 사이버 부스터 제트팩
+      ctx.fillStyle = "#1e1035";
+      ctx.strokeStyle = "#00d2ff";
+      ctx.lineWidth = 3;
+      // 듀얼 실린더
+      ctx.roundRect(-38, -26, 26, 56, 8);
+      ctx.roundRect(12, -26, 26, 56, 8);
+      ctx.fill(); ctx.stroke();
+      // 부스터 화염
+      ctx.fillStyle = "#ff5500";
+      ctx.beginPath();
+      ctx.moveTo(-32, 30); ctx.lineTo(-25, 52 + Math.random() * 12); ctx.lineTo(-18, 30);
+      ctx.moveTo(18, 30); ctx.lineTo(25, 52 + Math.random() * 12); ctx.lineTo(32, 30);
+      ctx.fill();
+      break;
+
+    case "bat_gold": // 골든 슬러거 배트
+      ctx.fillStyle = "linear-gradient(#fff, #ffd700)";
+      ctx.fillStyle = "#ffd700";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(-8, -65, 16, 95, 6);
+      ctx.fill(); ctx.stroke();
+      // 그립
+      ctx.fillStyle = "#ff3344";
+      ctx.fillRect(-6, 22, 12, 18);
+      break;
+
+    case "hand_sabers": // 듀얼 플라즈마 빔 세이버
+      ctx.strokeStyle = "#00d2ff";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(0, 10); ctx.lineTo(0, -75);
+      ctx.stroke();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      break;
+
+    case "hand_firebox": // 불꽃 타이거 글러브
+      ctx.fillStyle = "#ff3344";
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      break;
+
+    case "hand_shield": // 은하 플라즈마 실드
+      ctx.fillStyle = "rgba(0, 210, 255, 0.4)";
+      ctx.strokeStyle = "#00d2ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 32, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+      break;
+
+    case "aura_dragon": // 비룡 용오름 각성 오라
+      const t = performance.now() * 0.004;
+      ctx.strokeStyle = "rgba(0, 210, 255, 0.7)";
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        const r = 45 + i * 14;
+        ctx.ellipse(0, 0, r, r * 0.45, t + i * 1.8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+
+    default: // 기본 렌더링
+      ctx.font = "36px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(item.icon, 0, 0);
+      break;
+  }
+
+  ctx.restore();
+}
+
+// 7. 실시간 인게임 & 피팅 캔버스 신체 장착 렌더러
+function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
+  if (!ctx) return;
+
+  // ⚡ [극상의 60 FPS 최적화] 장착된 장비가 없고 피팅룸도 아니면 연산 0회 완전 스킵
+  const hasAnyCostume = Boolean(
+    equippedCostume.aura || equippedCostume.back || equippedCostume.body || equippedCostume.head || equippedCostume.hand
+  );
+  if (!hasAnyCostume && !isCostumeRoomOpen) return;
+
+  try {
+    // 앵커 좌표 도출
+    let headAnchor = null, chestAnchor = null, backAnchor = null, handAnchors = [];
+
+    if (skel && skel[0] && skel[11] && skel[12]) {
+      // MediaPipe 전신 포즈 기준
+      const midShoulder = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 };
+      headAnchor = { x: skel[0].x, y: skel[0].y - 35, scale: 1.1 };
+      chestAnchor = { x: midShoulder.x, y: midShoulder.y + 35, scale: 1.15 };
+      backAnchor = { x: midShoulder.x, y: midShoulder.y, scale: 1.25 };
+
+      if (skel[15]) handAnchors.push({ x: skel[15].x, y: skel[15].y, scale: 1.0 });
+      if (skel[16]) handAnchors.push({ x: skel[16].x, y: skel[16].y, scale: 1.0 });
+    } else if (pointers && pointers.length > 0) {
+      // 손 인식 기반 (상체 중심 추정)
+      const avgX = pointers.reduce((s, p) => s + p.x, 0) / pointers.length;
+      const avgY = pointers.reduce((s, p) => s + p.y, 0) / pointers.length;
+      headAnchor = { x: avgX, y: Math.max(80, avgY - 140), scale: 1.0 };
+      chestAnchor = { x: avgX, y: avgY, scale: 1.0 };
+      backAnchor = { x: avgX, y: avgY - 20, scale: 1.1 };
+      handAnchors = pointers.map((p) => ({ x: p.x, y: p.y, scale: 1.0 }));
+    }
+
+    if (!chestAnchor && !headAnchor) return;
+
+    // 1. 오라 (가장 뒷면 레이어)
+    if (equippedCostume.aura) {
+      const item = COSTUME_ITEMS[equippedCostume.aura];
+      if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
+    }
+
+    // 2. 등 / 날개
+    if (equippedCostume.back && backAnchor) {
+      const item = COSTUME_ITEMS[equippedCostume.back];
+      if (item) drawCostumePiece(ctx, item, backAnchor, isBuddy);
+    }
+
+    // 3. 상의 / 아머
+    if (equippedCostume.body && chestAnchor) {
+      const item = COSTUME_ITEMS[equippedCostume.body];
+      if (item) drawCostumePiece(ctx, item, chestAnchor, isBuddy);
+    }
+
+    // 4. 머리 / 헬멧
+    if (equippedCostume.head && headAnchor) {
+      const item = COSTUME_ITEMS[equippedCostume.head];
+      if (item) drawCostumePiece(ctx, item, headAnchor, isBuddy);
+    }
+
+    // 5. 손 / 무기
+    if (equippedCostume.hand && handAnchors.length > 0) {
+      const item = COSTUME_ITEMS[equippedCostume.hand];
+      if (item) {
+        handAnchors.forEach((ha) => drawCostumePiece(ctx, item, ha, isBuddy));
+      }
+    }
+
+    // 6. 나노 슈트업 엔진은 오직 가상 피팅 룸이 열려있을 때만 구동 (인게임 오버헤드 0%)
+    if (!isBuddy && isCostumeRoomOpen && chestAnchor) {
+      nanoSuitEngine.update(0.016, chestAnchor, pointers);
+    }
+  } catch (err) {
+    // 🛡️ Zero-Crash Policy: 커스튬 드로잉 중 오류 발생 시에도 메인 게임 렌더링은 100% 정상 유지
+    console.warn("Costume render suppressed:", err);
+  }
+}
+
+// 8. 가상 피팅 룸 제스처 & UI 컨트롤러 (CostumeRoomEngine)
+let isCostumeRoomOpen = false;
+let costumeDragItem = null; // 현재 주먹으로 쥐고 있는 아이템
+let costumeDragPos = { x: 0, y: 0 };
+let currentCostumeTab = "all";
+
+async function openCostumeRoom() {
+  isCostumeRoomOpen = true;
+  $("costumeRoom")?.classList.remove("hidden");
+  $("menu")?.classList.add("hidden");
+  // 🔒 1등 뺏김 검사: 순위가 밀린 옷이 있다면 자동 회수 및 알림
+  await auditAndStripIneligibleCostumes();
+  await renderCostumeShelf();
+  renderEquippedSlotsUI();
+  buddyEngine.init();
+  buddyEngine.say("주인님 어서오세요! 1~3등 상징 옷들을 주먹으로 집어 입어보세요!");
+  try { ensureVideo(); } catch {}
+  ac();
+  sfx.levelUp();
+}
+
+function closeCostumeRoom() {
+  isCostumeRoomOpen = false;
+  costumeDragItem = null;
+  $("costumeRoom")?.classList.add("hidden");
+  $("menu")?.classList.remove("hidden");
+  saveCostumeData();
+  sfx.end();
+}
+
+// 진열장 아이템 렌더링 (실시간 순위 독점 자격 반영)
+async function renderCostumeShelf() {
+  const listEl = $("costumeItemList");
+  if (!listEl) return;
+  listEl.innerHTML = "";
+
+  const items = Object.values(COSTUME_ITEMS).filter((it) => currentCostumeTab === "all" || it.slot === currentCostumeTab);
+
+  for (const it of items) {
+    const isEq = equippedCostume[it.slot] === it.id;
+    const { eligible, rankReq, currentRank } = await checkItemRankEligibility(it);
+
+    const card = document.createElement("div");
+    card.className = `costume-card ${isEq ? "equipped" : ""} ${!eligible ? "locked" : ""}`;
+    card.dataset.itemId = it.id;
+
+    const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본" };
+    const tierBadge = `<span class="card-tier-badge tier-${it.tier}">${tierLabels[it.tier] || "일반"}</span>`;
+
+    let statusText = "✊ 집기 가능";
+    if (isEq) {
+      statusText = "✓ 착용 중";
+    } else if (!eligible) {
+      statusText = `🔒 ${it.tier === "legend" ? "1등만" : it.tier === "hero" ? "2등 이내" : "3등 이내"} 착용 (뺏기면 회수)`;
+    } else if (it.tier === "legend") {
+      statusText = "👑 1등 챔피언 독점!";
+    }
+
+    card.innerHTML = `
+      ${tierBadge}
+      <div class="costume-card-icon">${it.icon}</div>
+      <div class="costume-card-name">${escapeHtml(it.name)}</div>
+      <div class="costume-card-desc">${escapeHtml(it.desc)}</div>
+      <div class="costume-card-status">${statusText}</div>
+    `;
+
+    // 마우스/터치 클릭 시 착용 테스트
+    card.addEventListener("click", async () => {
+      if (!eligible) {
+        const reqStr = it.tier === "legend" ? "1등" : it.tier === "hero" ? "2등 이내" : "3등 이내";
+        popup(W / 2, H * 0.45, `🔒 [${it.name}]은 현재 ${reqStr} 플레이어만 착용할 수 있습니다! (순위 밀리면 회수)`, "#ffd166");
+        sfx.countdown(false);
+        return;
+      }
+      await equipCostumeItem(it);
+    });
+
+    listEl.appendChild(card);
+  }
+}
+
+function renderEquippedSlotsUI() {
+  const slotMap = {
+    head: $("slotHeadIcon"),
+    body: $("slotBodyIcon"),
+    back: $("slotBackIcon"),
+    hand: $("slotHandIcon"),
+    aura: $("slotAuraIcon")
+  };
+  Object.entries(slotMap).forEach(([slot, el]) => {
+    if (!el) return;
+    const itemId = equippedCostume[slot];
+    if (itemId && COSTUME_ITEMS[itemId]) {
+      const it = COSTUME_ITEMS[itemId];
+      el.textContent = `${it.icon} ${it.name}`;
+      el.classList.add("has-item");
+    } else {
+      el.textContent = "비어있음";
+      el.classList.remove("has-item");
+    }
+  });
+}
+
+// 아이템 장착 & 탈착 (순위 독점 자격 검증 내장)
+async function equipCostumeItem(item) {
+  if (!item) return;
+
+  // 순위 자격 검증
+  const { eligible } = await checkItemRankEligibility(item);
+  if (!eligible) {
+    popup(W / 2, H * 0.45, `👑 [${item.name}]은 1등/순위권 플레이어만의 상징입니다! 순위를 탈환하세요!`, "#ff3366");
+    sfx.countdown(false);
+    return;
+  }
+
+  if (equippedCostume[item.slot] === item.id) {
+    // 이미 착용 중이면 탈착
+    equippedCostume[item.slot] = null;
+    sfx.costumeUnequip();
+    buddyEngine.say(`${item.name}을(를) 벗었습니다!`);
+  } else {
+    equippedCostume[item.slot] = item.id;
+    sfx.costumeEquip();
+    const rankTitle = item.tier === "legend" ? "1등 챔피언의 상징" : "영웅의 장비";
+    buddyEngine.say(`${rankTitle} ${item.name} 장착 완료! 아주 위풍당당해요!`);
+    burst(costumeDragPos.x || W / 2, costumeDragPos.y || H / 2, item.color || "#00d2ff", 28);
+  }
+  saveCostumeData();
+  await renderCostumeShelf();
+  renderEquippedSlotsUI();
+}
+
+// 가상 피팅 룸 전용 렌더 루프 (커스튬 캔버스 & 제스처 감지)
+function costumeRoomUpdateAndDraw(now, dt) {
+  const cvs = $("costumeCanvas");
+  if (!cvs || !isCostumeRoomOpen) return;
+  const ctx = cvs.getContext("2d");
+  const rect = cvs.getBoundingClientRect();
+  cvs.width = rect.width;
+  cvs.height = rect.height;
+
+  // 1. 웹캠 미러 비디오 렌더링
+  if (video.readyState >= 2) {
+    ctx.save();
+    ctx.translate(cvs.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, cvs.width, cvs.height);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#0c061a";
+    ctx.fillRect(0, 0, cvs.width, cvs.height);
+  }
+
+  // 2. 포인터 (손 인식 or 마우스) 추출
+  let ptr = null;
+  if (useMouse) {
+    ptr = { x: mouse.x - rect.left, y: mouse.y - rect.top, fist: mouse.down };
+  } else if (pointers.length > 0) {
+    ptr = { x: pointers[0].x - rect.left, y: pointers[0].y - rect.top, fist: !!pointers[0].fist };
+  }
+
+  // 3. 신체 앵커 영역 계산 (머리, 가슴, 손목)
+  const skel = getBody();
+  let headA = { x: cvs.width / 2, y: cvs.height * 0.28 };
+  let chestA = { x: cvs.width / 2, y: cvs.height * 0.52 };
+  let handA = { x: cvs.width * 0.65, y: cvs.height * 0.65 };
+
+  if (skel && skel[0] && skel[11] && skel[12]) {
+    const sX = cvs.width / W, sY = cvs.height / H;
+    headA = { x: skel[0].x * sX, y: (skel[0].y - 35) * sY };
+    chestA = { x: ((skel[11].x + skel[12].x) / 2) * sX, y: ((skel[11].y + skel[12].y) / 2 + 25) * sY };
+  }
+
+  // 4. 장착된 파츠 렌더링
+  drawEquippedCostumesOnBody(ctx, skel, pointers);
+
+  // 5. ✊ 주먹으로 집기 & ✋ 손 펴서 마그네틱 장착 인터랙션
+  if (ptr) {
+    costumeDragPos = { x: ptr.x, y: ptr.y };
+
+    // 손 포인트 시각화 (주먹이면 빨간 링, 펼치면 푸른 링)
+    ctx.strokeStyle = ptr.fist ? "#ff2e93" : "#00d2ff";
+    ctx.lineWidth = 3;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(ptr.x, ptr.y, ptr.fist ? 18 : 26, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 텍스트 라벨
+    ctx.font = "bold 13px 'Rubik', sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.fillText(ptr.fist ? "✊ GRABBING" : "✋ OPEN HAND", ptr.x, ptr.y - 32);
+
+    // [A] 주먹을 쥐었을 때: 진열장 아이템 픽업 판정
+    if (ptr.fist && !costumeDragItem) {
+      // 진열장 카드들 위를 지나고 있는지 검사
+      const cards = document.querySelectorAll(".costume-card:not(.locked)");
+      for (const c of cards) {
+        const cRect = c.getBoundingClientRect();
+        if (mouse.x >= cRect.left && mouse.x <= cRect.right && mouse.y >= cRect.top && mouse.y <= cRect.bottom) {
+          const itId = c.dataset.itemId;
+          if (itId && COSTUME_ITEMS[itId]) {
+            costumeDragItem = COSTUME_ITEMS[itId];
+            sfx.tick();
+            $("dragGhost")?.classList.remove("hidden");
+            $("dragGhostIcon").textContent = costumeDragItem.icon;
+            $("dragGhostLabel").textContent = costumeDragItem.name;
+            break;
+          }
+        }
+      }
+    }
+
+    // [B] 드래그 중인 상태
+    if (costumeDragItem) {
+      const ghost = $("dragGhost");
+      if (ghost) {
+        ghost.style.left = `${ptr.x + rect.left}px`;
+        ghost.style.top = `${ptr.y + rect.top}px`;
+      }
+
+      // 슬롯 앵커와의 거리 계산
+      const targetAnchor = costumeDragItem.slot === "head" ? headA : chestA;
+      const dist = Math.hypot(ptr.x - targetAnchor.x, ptr.y - targetAnchor.y);
+
+      // 마그네틱 흡착 가이드선 및 펄스 링
+      if (dist < 160) {
+        ctx.strokeStyle = "rgba(0, 210, 255, 0.8)";
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(ptr.x, ptr.y);
+        ctx.lineTo(targetAnchor.x, targetAnchor.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(targetAnchor.x, targetAnchor.y, 45, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.font = "bold 14px 'Rubik', sans-serif";
+        ctx.fillStyle = "#22c55e";
+        ctx.fillText("✋ 손을 펴서 착용!", targetAnchor.x, targetAnchor.y - 55);
+      }
+
+      // [C] 손을 폈을 때 (p.fist === false): 마그네틱 결합 완료!
+      if (!ptr.fist) {
+        $("dragGhost")?.classList.add("hidden");
+        if (dist < 160) {
+          equipCostumeItem(costumeDragItem);
+        }
+        costumeDragItem = null;
+      }
+    }
+  }
+
+  // 6. 나를 따라 움직이는 미니 버디 아바타 업데이트
+  buddyEngine.updateAndDraw(dt, skel, pointers);
+}
+
+// 9. 커스튬 룸 이벤트 리스너 바인딩
+function setupCostumeRoomEvents() {
+  $("btnCostumeRoom")?.addEventListener("click", openCostumeRoom);
+  $("btnCloseCostume")?.addEventListener("click", closeCostumeRoom);
+  $("btnGoCostumeFromReward")?.addEventListener("click", () => {
+    $("result")?.classList.add("hidden");
+    openCostumeRoom();
+  });
+
+  // 카테고리 탭 클릭
+  document.querySelectorAll(".costume-filter-tabs .c-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".costume-filter-tabs .c-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentCostumeTab = tab.dataset.slot || "all";
+      renderCostumeShelf();
+      sfx.tick();
+    });
+  });
+
+  // 모두 벗기
+  $("btnUnequipAll")?.addEventListener("click", () => {
+    equippedCostume = { head: null, body: null, back: null, hand: null, aura: null };
+    saveCostumeData();
+    renderCostumeShelf();
+    renderEquippedSlotsUI();
+    sfx.costumeUnequip();
+    buddyEngine.say("모든 장비를 벗었습니다!");
+  });
+
+  // ⚡ 즉시 나노 변신 실행 버튼
+  $("btnTriggerNanoSuit")?.addEventListener("click", () => {
+    nanoSuitEngine.startTransform();
+  });
+
+  // 📸 히어로 포토 캡처 & 로컬 다운로드
+  $("btnCostumePhoto")?.addEventListener("click", () => {
+    const cvs = $("costumeCanvas");
+    if (!cvs) return;
+    try {
+      const dataUrl = cvs.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `kinetic_hero_${Date.now()}.png`;
+      a.click();
+      sfx.fanfare();
+      speak("히어로 포토가 저장되었습니다!", true);
+      buddyEngine.say("찰칵! 인생샷이 나왔어요!");
+    } catch (e) {
+      console.warn("포토 저장 실패:", e);
+    }
+  });
+
+  // 초기 인벤토리 및 저장 데이터 로드
+  loadCostumeData();
+}
+
+// 커스튬 룸 초기화 실행
+setupCostumeRoomEvents();
+
+// 메인 루프에서 커스튬 룸 전용 프레임 틱 호출 연동
+const origFrame = frame;
+frame = function(now) {
+  origFrame(now);
+  if (isCostumeRoomOpen) {
+    costumeRoomUpdateAndDraw(now, 0.016);
+  }
+};
 
 showBest();
 requestAnimationFrame((t) => { last = t; frame(t); });

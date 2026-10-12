@@ -199,6 +199,11 @@
     </div>
 
     <div class="top-right">
+      <button id="btnCostumeRoom" class="costume-room-pill" title="모션 캐릭터 커스튬 & 나노 슈트업 드레스룸" aria-label="커스튬 룸">
+        <span class="costume-btn-icon">👗</span>
+        <span class="costume-btn-text">커스튬 룸</span>
+        <span class="costume-btn-sparkle">✨</span>
+      </button>
       <button id="btnFsHub" class="fs-pill" title="TV/대화면 전체화면 토글" aria-label="TV/대화면 전체화면 토글">
         <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
         <svg class="fs-icon fs-icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6m0 0v6m0-6-7 7m17-11h-6m0 0V4m0 6 7-7"/></svg>
@@ -340,13 +345,13 @@
       <article class="card" style="--accent:#ff4d5e">
         <div class="card-img">
           <img src="assets/kungfu.jpg" alt="쿵푸 호랑이 사범" loading="lazy">
-          <span class="chip chip-red">🥊 펀치</span>
+          <span class="chip chip-red">🥋 쿵푸 모션 격투</span>
           <span class="stars">★★★</span>
-          <span class="host">🐯 호랑이 사범</span>
+          <span class="host">🐯 쿵푸 그랜드마스터</span>
         </div>
         <div class="card-body">
-          <h3>쿵푸 펀치 도장</h3>
-          <p>다가오는 닌자와 도깨비를 주먹으로 퍽! 폭탄은 치지 마세요.</p>
+          <h3>쿵푸 마스터 대전</h3>
+          <p>정권 찌르기로 적과 목인장을 타격하고 양손을 모아 철벽 가드! 기(氣)를 모아 용오름 각성을 터뜨려요!</p>
           <div class="best-bar"><span>🏆 BEST</span><b data-best="kungfu">0점</b></div>
           <button class="mode play-btn red" data-mode="kungfu">▶ PLAY NOW</button>
         </div>
@@ -394,6 +399,21 @@
           <p>양주먹을 앞으로 쭉쭉! 샌드백을 광속으로 연타하여 콤보를 폭발시켜요!</p>
           <div class="best-bar"><span>🏆 BEST</span><b data-best="box">0점</b></div>
           <button class="mode play-btn pink" data-mode="box">▶ PLAY NOW</button>
+        </div>
+      </article>
+
+      <article class="card" style="--accent:#00d2ff">
+        <div class="card-img">
+          <img src="assets/baseball.jpg" alt="네온 배트로 홈런을 날리는 사이버 슬러거" loading="lazy">
+          <span class="chip chip-cyan">⚾ 홈런 더비 배팅</span>
+          <span class="stars">★★★</span>
+          <span class="host">⚡ 사이버 슬러거</span>
+        </div>
+        <div class="card-body">
+          <h3>네온 슬램 야구</h3>
+          <p>날아오는 3D 마구를 에너지 배트로 타이밍 맞춰 풀스윙! 담장 넘어 장외 홈런을 터뜨려요!</p>
+          <div class="best-bar"><span>🏆 BEST</span><b data-best="baseball">0점</b></div>
+          <button class="mode play-btn cyan" data-mode="baseball">▶ PLAY NOW</button>
         </div>
       </article>
     </div>
@@ -551,6 +571,24 @@
     </div>
     <div id="ocVerdict" class="oc-verdict"></div>
     <div id="ocRematch" class="oc-rematch"></div>
+  </div>
+
+  <!-- 🎁 1~3등 게임별 커스튬 파츠 획득 보상 알림 카드 -->
+  <div id="resultCostumeReward" class="result-costume-reward hidden">
+    <div class="reward-glow-ring"></div>
+    <div class="reward-badge-header">
+      <span id="rcRankBadge" class="rc-rank-pill">🥇 1등 전설 획득!</span>
+      <span class="rc-title-text">NEW COSTUME UNLOCKED!</span>
+    </div>
+    <div class="reward-item-box">
+      <div id="rcItemIcon" class="rc-item-icon">⚡</div>
+      <div class="rc-item-info">
+        <h4 id="rcItemName">골든 슬러거 배트</h4>
+        <p id="rcItemDesc">담장 넘어 장외 홈런을 날리는 전설의 골든 배트!</p>
+        <span id="rcItemSlot" class="rc-slot-tag">무기 파츠 (HAND)</span>
+      </div>
+    </div>
+    <button id="btnGoCostumeFromReward" class="btn-reward-equip" type="button">👗 커스튬 룸에서 바로 입어보기</button>
   </div>
 
   <!-- 조작 버튼: 다시 하기 / 처음으로 -->
@@ -893,6 +931,153 @@
       <button id="guideSkip" class="online-btn" type="button">나중에</button>
       <button id="guideNext" class="online-btn primary" type="button">다음 ▶</button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================================
+     👗 모션 캐릭터 커스튬 & 나노 슈트업 드레스룸 (Costume & Virtual Fitting Room)
+     ============================================================================ -->
+<div id="costumeRoom" class="costume-room-backdrop hidden">
+  <div class="costume-room-container">
+    <!-- 1. 헤더 바 -->
+    <header class="costume-header">
+      <div class="costume-title-group">
+        <div class="costume-brand-icon">⚡👗</div>
+        <div>
+          <h2 class="costume-title">NANO COSTUME & VIRTUAL DRESSING ROOM</h2>
+          <p class="costume-subtitle">모션인식 가상 피팅 룸 • 손을 뻗어 진열된 옷을 입고 나노 히어로로 변신하세요!</p>
+        </div>
+      </div>
+      <div class="costume-gesture-hint">
+        <span class="hint-pill">✊ <b>주먹</b>으로 아이템 집기</span>
+        <span class="hint-arrow">➔</span>
+        <span class="hint-pill">✋ <b>몸</b>에 대고 <b>손 펴서</b> 착용!</span>
+      </div>
+      <button id="btnCloseCostume" class="btn-costume-close" title="커스튬 룸 닫기 (메인으로)">✕ 나가기</button>
+    </header>
+
+    <!-- 2. 메인 바디 (3열 레이아웃: 좌측 진열장 | 중앙 웹캠 미러 캔버스 | 우측 변신/버디 패널) -->
+    <main class="costume-body">
+      <!-- [좌측] 3D 홀로그램 진열장 선반 (Showcase Shelves) -->
+      <aside class="costume-shelf-col">
+        <div class="shelf-header">
+          <span class="shelf-tag">SHOWCASE</span>
+          <h3 class="shelf-title">보유 커스튬 진열장</h3>
+        </div>
+
+        <!-- 부위별 카테고리 필터 탭 -->
+        <nav class="costume-filter-tabs">
+          <button class="c-tab active" data-slot="all">전체 (ALL)</button>
+          <button class="c-tab" data-slot="head">👑 모자/투구</button>
+          <button class="c-tab" data-slot="body">🦺 의상/아머</button>
+          <button class="c-tab" data-slot="back">🪽 날개/망토</button>
+          <button class="c-tab" data-slot="hand">⚔️ 무기/장갑</button>
+          <button class="c-tab" data-slot="aura">🌟 각성 오라</button>
+        </nav>
+
+        <!-- 진열장 아이템 그리드 리스트 (main.js에서 동적 렌더링) -->
+        <div id="costumeItemList" class="costume-item-grid">
+          <!-- 동적 주입 -->
+        </div>
+
+        <div class="shelf-footer-note">
+          <span>💡 1등~3등 달성 시 해당 게임의 전설/영웅 파츠가 자동 지급됩니다!</span>
+        </div>
+      </aside>
+
+      <!-- [중앙] 실시간 웹캠 피팅 미러 스테이지 -->
+      <section class="costume-mirror-col">
+        <!-- 나노 변신 차징 오버레이 바 -->
+        <div id="nanoChargeWrap" class="nano-charge-dock hidden">
+          <div class="nc-header">
+            <span class="nc-icon">⚡</span>
+            <span id="ncStatusText" class="nc-status">NANO SUIT-UP CHARGING...</span>
+            <span id="ncPercent" class="nc-percent">0%</span>
+          </div>
+          <div class="nc-bar-track">
+            <div id="ncBarFill" class="nc-bar-fill" style="width: 0%;"></div>
+          </div>
+          <p id="ncHintText" class="nc-hint">가슴 앞에 두 손을 모아 에너지를 차징하세요!</p>
+        </div>
+
+        <div class="mirror-canvas-wrapper">
+          <canvas id="costumeCanvas"></canvas>
+          <!-- 드래그 중인 아이템 홀로그램 플로팅 프리뷰 -->
+          <div id="dragGhost" class="costume-drag-ghost hidden">
+            <span id="dragGhostIcon">👑</span>
+            <small id="dragGhostLabel">아이템 잡는 중</small>
+          </div>
+        </div>
+
+        <!-- 하단 피팅 가이드 티커 -->
+        <div class="mirror-footer-strip">
+          <div class="mfs-chip"><span class="dot-green"></span> <b>실시간 앵커링</b> 머리 • 가슴 • 손목 • 등</div>
+          <div class="mfs-chip"><span class="dot-cyan"></span> <b>마그네틱 스냅</b> 근처에 가면 착! 달라붙음</div>
+          <button id="btnCostumePhoto" class="btn-costume-snap" type="button">📸 히어로 포토 찰칵!</button>
+        </div>
+      </section>
+
+      <!-- [우측] 나노 슈트업 변신 & 나를 따라하는 미니 버디 아바타 패널 -->
+      <aside class="costume-side-col">
+        <!-- ⚡ 아이언맨 나노 변신 모듈 -->
+        <div class="card-nano-transform">
+          <div class="cnt-header">
+            <span class="cnt-badge">HERO MODE</span>
+            <h4>⚡ 아이언맨 나노 슈트업</h4>
+          </div>
+          <p class="cnt-desc">가슴에 두 손을 모아 차징 후, 양팔을 활짝 벌리면 5단계 나노 변신이 발동합니다!</p>
+          <div class="cnt-buttons">
+            <button id="btnTriggerNanoSuit" class="btn-nano-instant" type="button">💥 즉시 나노 변신 실행</button>
+          </div>
+        </div>
+
+        <!-- 🤖 나를 따라 움직이는 미니 버디 아바타 (Kinematic Mini Buddy) -->
+        <div class="card-avatar-buddy">
+          <div class="buddy-header">
+            <div class="buddy-title-wrap">
+              <span class="buddy-avatar-dot"></span>
+              <h4>🤖 내 동작을 따라하는 버디</h4>
+            </div>
+            <span id="buddyMoodTag" class="buddy-mood">따라쟁이 ON</span>
+          </div>
+          <div class="buddy-viewport">
+            <canvas id="buddyCanvas" width="220" height="200"></canvas>
+            <div id="buddySpeechBubble" class="buddy-bubble">주인님 멋진 옷을 골라주세요! 삐리릭!</div>
+          </div>
+          <p class="buddy-caption">플레이어가 움직이고 춤추면 버디도 똑같이 따라해요!</p>
+        </div>
+
+        <!-- 🎒 현재 착용 중인 슬롯 -->
+        <div class="card-equipped-slots">
+          <div class="ces-header">
+            <h4>🎒 현재 착용 장비</h4>
+            <button id="btnUnequipAll" class="btn-unequip-all" type="button">모두 벗기</button>
+          </div>
+          <div class="equipped-slots-grid">
+            <div class="eq-slot" data-slot="head">
+              <span class="slot-name">머리</span>
+              <div id="slotHeadIcon" class="slot-val">비어있음</div>
+            </div>
+            <div class="eq-slot" data-slot="body">
+              <span class="slot-name">상의</span>
+              <div id="slotBodyIcon" class="slot-val">비어있음</div>
+            </div>
+            <div class="eq-slot" data-slot="back">
+              <span class="slot-name">날개/망토</span>
+              <div id="slotBackIcon" class="slot-val">비어있음</div>
+            </div>
+            <div class="eq-slot" data-slot="hand">
+              <span class="slot-name">무기/건틀렛</span>
+              <div id="slotHandIcon" class="slot-val">비어있음</div>
+            </div>
+            <div class="eq-slot" data-slot="aura">
+              <span class="slot-name">오라</span>
+              <div id="slotAuraIcon" class="slot-val">비어있음</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
   </div>
 </div>
 
