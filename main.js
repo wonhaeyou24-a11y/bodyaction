@@ -802,6 +802,7 @@ const ptrVps = [];       // 손별 초당 이동 속도(px/s) - 프레임 수와
 let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 되었는지 여부
 let lastPointerUpdateTime = 0, lastHandT0 = 0, lastPoseT0 = 0;   // 결과 간격(속도 단위 보정용)
 
+const workerStallMs = () => Math.max(1200, 6 * (visionAI.stats.inferMs || 0));
 function updatePointers() {
   if ((!playing || !mode) && !isCostumeRoomOpen) {
     pointers.length = 0;
@@ -833,8 +834,9 @@ function updatePointers() {
     const poseWorker = visionAI.ready("pose");
     if ((poseLandmarker || poseWorker) && video.readyState >= 2 && !isDetectingBody) {
       const wr = poseWorker ? visionAI.take("pose") : null;
-      // 🛡️ 작업자 지연 감지: 워커에서 220ms 이상 새 결과가 없으면 메인 스레드 직접 인식으로 즉시 폴백!
-      const workerStalled = poseWorker && (now - lastPoseInferEndTime > 220);
+      // 🛡️ 작업자 멈춤 감지: 오래 새 결과가 없을 때만 메인 스레드 인식으로 폴백. 기준은 "인식 1회 시간"에 맞춰 늘어나요
+      // (느린 PC에서 인식이 200ms+ 걸리는 건 정상이라, 그때마다 폴백하면 인식기가 둘이 돌아 오히려 더 끊겨요)
+      const workerStalled = poseWorker && (now - lastPoseInferEndTime > workerStallMs());
       const shouldInfer = wr ? true : (poseWorker ? (workerStalled && !!poseLandmarker) : (now - lastPoseInferEndTime >= 38));
 
       // 워커가 지연되고 메인 모델이 없으면 비동기로 메인 모델도 대비 로드
@@ -935,7 +937,7 @@ function detectHandsNow() {
   if (!playing || !mode || isDetectingHands || (!handLandmarker && !handWorker) || video.readyState < 2) return;
   const now = performance.now();
   const wr = handWorker ? visionAI.take("hand") : null;
-  const workerStalled = handWorker && (now - lastHandInferEndTime > 200);
+  const workerStalled = handWorker && (now - lastHandInferEndTime > workerStallMs());
 
   if (handWorker && !wr) {
     if (!workerStalled || !handLandmarker) return;
@@ -7927,14 +7929,18 @@ const buddyEngine = {
 // 5-0. 아이템별 PNG 일러스트 (assets/costumes/<id>.png) — 있으면 PNG, 없으면 아래 벡터 그림으로 자동 대체
 const costumeImgs = {};
 function loadCostumeImages() {
-  for (const id of Object.keys(COSTUME_ITEMS)) {
-    if (!/^[a-z0-9_]+$/.test(id)) continue;                 // 입력 검증: 안전한 ID만 경로로 사용 (경로 조작 차단)
-    const im = new Image();
-    im.decoding = "async";
-    im.onload = () => { costumeImgs[id] = im; if (isCostumeRoomOpen) renderCostumeShelf(); };
-    im.onerror = () => { /* PNG 없음: 벡터 대체 */ };
-    im.src = `assets/costumes/${id}.png`;
-  }
+  // assets/costumes/manifest.json 에 적힌 PNG만 불러와요 (없는 파일을 하나하나 찔러 보면 시작할 때 404가 50개 넘게 나요)
+  const load = (ids) => {
+    for (const id of ids) {
+      if (!COSTUME_ITEMS[id] || !/^[a-z0-9_]+$/.test(id)) continue;   // 입력 검증: 안전한 ID만 경로로 사용 (경로 조작 차단)
+      const im = new Image();
+      im.decoding = "async";
+      im.onload = () => { costumeImgs[id] = im; if (isCostumeRoomOpen) renderCostumeShelf(); };
+      im.onerror = () => { /* PNG 없음: 벡터 대체 */ };
+      im.src = `assets/costumes/${id}.png`;
+    }
+  };
+  fetch("assets/costumes/manifest.json").then((r) => (r.ok ? r.json() : Promise.reject())).then((ids) => load(Array.isArray(ids) ? ids : [])).catch(() => load(Object.keys(COSTUME_ITEMS)));
 }
 const costumeImg = (id) => { const im = costumeImgs[id]; return im && im.naturalWidth > 0 ? im : null; };
 const HAND_TALL = new Set(["hand_toy_hammer", "hand_drumstick", "bat_gold", "hand_sabers", "hand_katana", "hand_wand", "hand_laserpaddle"]);
@@ -9205,5 +9211,5 @@ requestAnimationFrame((t) => { last = t; frame(t); });
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
-  window.__kk = { drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+  window.__kk = { dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
 }

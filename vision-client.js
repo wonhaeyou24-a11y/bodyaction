@@ -95,7 +95,8 @@ export function createVisionClient({ video }) {
   async function send() {
     if (!active || !worker || !state[active].ready || video.readyState < 2) return;
     if (busy) {
-      if (performance.now() - busySince < 350) return;      // 350ms 이상 응답 없으면 강제 잠금 해제
+      // 응답이 없으면 강제 잠금 해제 — 단, 느린 PC(인식 1회가 오래 걸림)에서는 기다려 줘요 (그렇지 않으면 작업자에 일이 쌓여 지연이 커져요)
+      if (performance.now() - busySince < Math.max(350, 4 * (stats.inferMs || 0))) return;
     }
     if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
     busy = true; busySince = performance.now();
