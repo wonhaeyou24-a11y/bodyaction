@@ -1,11 +1,17 @@
 // 캐릭터 시스템 (화면을 모르는 순수 로직 — node test/character.test.js 로 시험).
-//  - 캐릭터 4종 목록 / 선택한 캐릭터 저장·불러오기
+//  - 캐릭터 목록 / 선택한 캐릭터 저장·불러오기
 //  - 내 몸(포즈 33점)을 "캐릭터를 그릴 수 있는 뼈대"로 바꾸기 (팔·다리가 안 보이면 자연스러운 기본 자세로 채움)
 // 그림은 character-art.js, 선택 화면은 main.js. 판정(점수·충돌)은 항상 "내 몸 인식 좌표"로 하고, 캐릭터는 그림일 뿐이에요.
 
 export const CHARACTERS = [
-  { id: "haru", kind: "human", name: "하루", title: "용감한 모험가", color: "#ff8a3d",
-    desc: "고글을 이마에 올린 씩씩한 모험가! 어디든 달려가요." },
+  // 새 시안(Stitch) 3종: 이미지를 관절 부품으로 잘라 움직여요 (character-puppet.js, 도구 tools/rig_character.py)
+  { id: "scout", kind: "human", art: true, name: "탐이", title: "씩씩한 탐험가", color: "#ff9a3c",
+    desc: "주머니 가득 조끼와 팔 보호대! 어디든 신나게 탐험해요." },
+  { id: "neon", kind: "human", art: true, name: "네온", title: "네온 댄서", color: "#25d6ff",
+    desc: "반짝이는 네온 라인 운동복으로 리듬을 타는 크루예요." },
+  { id: "fire", kind: "human", art: true, name: "불꽃이", title: "용감한 소방대원", color: "#ff4a2a",
+    desc: "반사띠 소방복에 튼튼한 팔 장비! 위험할수록 더 용감해져요." },
+  // 코드로 그린 귀여운 캐릭터 (character-art.js)
   { id: "tori", kind: "animal", name: "토리", title: "날쌘 꼬마 여우", color: "#ff9a3c",
     desc: "복슬복슬 꼬리가 자랑인 장난꾸러기 여우예요." },
   { id: "bolt", kind: "robot", name: "볼트", title: "반짝 로봇", color: "#6fa8ff",

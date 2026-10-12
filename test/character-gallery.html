@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<base href="/">
 <title>캐릭터 4종 갤러리 (개발 확인용)</title>
 <style>
   body { margin: 0; background: #241a45; color: #fff; font-family: "Malgun Gothic", sans-serif; }
@@ -14,9 +15,10 @@
 <canvas id="c"></canvas>
 <script type="module">
 import { CHARACTERS, skeletonToPx } from "../character.js";
-import { drawCharacter } from "../character-art.js";
+import { drawCharacter, preloadPuppet } from "../character-art.js";
 import { POSES, anglesOf, skeletonFromAngles } from "../poses.js";
 const q = new URLSearchParams(location.search);
+await Promise.all(CHARACTERS.filter((c) => c.art).map((c) => preloadPuppet(c.id)));
 const c = document.getElementById("c"), ctx = c.getContext("2d");
 const poseIds = (q.get("poses") ?? "stand,armsUp,tPose").split(",");
 const find = (id) => POSES.find((p) => p.id === id);

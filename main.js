@@ -14,9 +14,9 @@ import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js
 import { bakeToon } from "./costume-toon.js?v=20261013_0900";
 import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_0900";
 import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
-import { CHARACTERS, loadCharacterId, saveCharacterId, characterById } from "./character.js?v=20261013_1200";
-import { skeletonToPx } from "./character.js?v=20261013_1200";
-import { drawCharacter } from "./character-art.js?v=20261013_1200";
+import { CHARACTERS, loadCharacterId, saveCharacterId, characterById } from "./character.js?v=20261013_1300";
+import { skeletonToPx } from "./character.js?v=20261013_1300";
+import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1300";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -9377,7 +9377,7 @@ GAME_HUD_META.bspace = { ...GAME_HUD_META.space, badge: "BODY DEFENSE", title: "
 // 고른 캐릭터는 프로필마다 저장돼요(localStorage "character_v1"). 캐릭터 게임에서 내 움직임을 따라 하는 주인공이 돼요.
 // 그림은 character-art.js, 목록/저장/뼈대는 character.js (테스트: node test/character.test.js)
 // ============================================================================
-const CHARACTER_ICON = { haru: "🧒", tori: "🦊", bolt: "🤖", luna: "🧙" };
+const CHARACTER_ICON = { scout: "🧢", neon: "🎧", fire: "🧯", haru: "🧒", tori: "🦊", bolt: "🤖", luna: "🧙" };
 let currentCharacterId = loadCharacterId(localStorage, recKey("character_v1"));
 let characterLoop = 0;
 function refreshCharacterButton() {
@@ -9421,7 +9421,7 @@ function drawCharacterPreviews(now) {
   document.querySelectorAll(".character-card canvas").forEach((cv) => {
     const g = cv.getContext("2d"), id = cv.parentElement.dataset.id, W0 = cv.width, H0 = cv.height;
     g.clearRect(0, 0, W0, H0);
-    const { a, happy } = characterDemoAngles(t), u = H0 * 0.19;
+    const { a, happy } = characterDemoAngles(t), u = H0 * 0.205;
     const sk = skeletonToPx(skeletonFromAngles(a), W0 / 2, H0 * 0.3, u);
     drawCharacter(g, id, sk, { t, mood: happy ? "happy" : "normal" });
   });
@@ -9433,6 +9433,7 @@ function openCharacterModal() {
   document.querySelectorAll(".character-card").forEach((el) => el.classList.toggle("selected", el.dataset.id === currentCharacterId));
   refreshCharacterButton();
   m.classList.remove("hidden");
+  CHARACTERS.filter((c) => c.art).forEach((c) => preloadPuppet(c.id));          // 시안 캐릭터 부품 불러오기 (처음 한 번)
   const loop = (now) => { if (m.classList.contains("hidden")) { characterLoop = 0; return; } drawCharacterPreviews(now); characterLoop = requestAnimationFrame(loop); };
   if (!characterLoop) characterLoop = requestAnimationFrame(loop);
   m.querySelector(".character-card.selected")?.focus?.();

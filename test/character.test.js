@@ -7,15 +7,16 @@ const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.log(
 const ok = (c, m) => { if (!c) throw new Error(m); };
 const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), _m: m }; };
 
-t("캐릭터는 4종(사람·동물·로봇·판타지), id/이름 중복 없음", () => {
-  ok(CHARACTERS.length === 4, "개수");
-  ok(new Set(CHARACTERS.map((c) => c.id)).size === 4 && new Set(CHARACTERS.map((c) => c.name)).size === 4, "중복");
+t("캐릭터 6종(시안 사람 3 + 여우·로봇·마법사), id/이름 중복 없음", () => {
+  ok(CHARACTERS.length === 6, "개수");
+  ok(new Set(CHARACTERS.map((c) => c.id)).size === 6 && new Set(CHARACTERS.map((c) => c.name)).size === 6, "중복");
+  ok(CHARACTERS.filter((c) => c.art).map((c) => c.id).join() === "scout,neon,fire", "시안 캐릭터");
   ok(["human", "animal", "robot", "fantasy"].every((k) => CHARACTERS.some((c) => c.kind === k)), "종류");
   ok(CHARACTERS.every((c) => c.name && c.title && c.desc && /^#[0-9a-f]{6}$/i.test(c.color)), "필드");
 });
 t("이상한 값은 기본 캐릭터로", () => {
   for (const v of [null, undefined, "", "hacker", 7, {}, "__proto__", "HARU"]) ok(cleanCharacterId(v) === DEFAULT_CHARACTER_ID, String(v));
-  ok(cleanCharacterId("luna") === "luna", "정상값"); ok(characterById("bolt").kind === "robot", "조회");
+  ok(cleanCharacterId("luna") === "luna" && cleanCharacterId("fire") === "fire", "정상값"); ok(characterById("bolt").kind === "robot", "조회");
 });
 t("저장/불러오기: 저장한 캐릭터가 돌아오고, 깨진 값·저장소 오류도 안전", () => {
   const s = mem();

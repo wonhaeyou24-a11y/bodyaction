@@ -1,6 +1,8 @@
 // 캐릭터 4종 그림 (귀여운 카툰풍): 사람 하루 · 여우 토리 · 로봇 볼트 · 마법사 루나.
 // 입력은 character.js의 뼈대(skeletonFromBody / skeletonToPx) — 내 몸 움직임을 그대로 따라 해요. 모두 코드로 그려서 파일이 필요 없어요.
 // 한 프레임에 도형 수십 개라 가벼워요 (그림자 번짐(shadowBlur) 없이 그라디언트/외곽선만 사용).
+import { drawPuppet } from "./character-puppet.js?v=20261013_1300";
+export { preloadPuppet } from "./character-puppet.js?v=20261013_1300";   // 모듈 하나로 맞춰서(같은 주소) 캐시가 둘로 갈라지지 않게
 const TAU = Math.PI * 2;
 
 // ---------- 공통 도구 ----------
@@ -350,6 +352,7 @@ const LUNA = {
 
 const STYLES = { human: HARU, animal: TORI, robot: BOLT, fantasy: LUNA };
 const KIND_OF = { haru: "human", tori: "animal", bolt: "robot", luna: "fantasy" };
+const PUPPET_IDS = new Set(["scout", "neon", "fire"]);
 
 /**
  * 캐릭터 그리기
@@ -358,6 +361,7 @@ const KIND_OF = { haru: "human", tori: "animal", bolt: "robot", luna: "fantasy" 
  * @param o    { t: 시간(초, 숨쉬기·깜빡임·꼬리), mood: "normal"|"happy", shadow: 바닥 그림자 여부(기본 true) }
  */
 export function drawCharacter(ctx, id, sk, o = {}) {
+  if (PUPPET_IDS.has(id)) { drawPuppet(ctx, id, sk, o); return; }          // 시안 이미지로 만든 캐릭터
   const S = STYLES[KIND_OF[id]];
   if (!S || !sk || !(sk.u > 8)) return;
   const t = o.t ?? 0, u = sk.u;
