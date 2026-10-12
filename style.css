@@ -2357,6 +2357,18 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   margin: 6px 0 2px;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
   transition: transform 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+}
+.costume-card-icon img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
 }
 .costume-card:hover .costume-card-icon {
   transform: scale(1.15) rotate(-3deg);

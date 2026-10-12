@@ -7950,24 +7950,88 @@ function drawCostumeImage(ctx, item, im) {
   const ar = im.naturalWidth / im.naturalHeight, id = item.id;
   let x, y, w, h;
   switch (item.slot) {
-    case "head":  w = 84; h = w / ar; x = -w / 2; y = 8 - h; break;                       // 모자: 밑동이 이마에 걸치게
-    case "face": {
-      w = id === "face_clown_nose" ? 30 : (id === "face_mustache" ? 58 : 84); h = w / ar;
-      const cy = id === "face_mustache" ? 8 : (id === "face_thug_glasses" ? -14 : -4);
-      x = -w / 2; y = cy - h / 2; break;
-    }
-    case "body":  w = 98; h = 86; x = -w / 2; y = -20; break;                            // 몸통(앵커가 가로·세로 따로 늘어남)
-    case "legs":  w = 92; h = 74; x = -w / 2; y = -4; break;
-    case "feet":  w = 58; h = w / ar; x = -w / 2; y = 8 - h / 2; break;
-    case "back":
-      if (ar > 1.3) { w = 190; h = w / ar; x = -w / 2; y = 20 - h / 2; }                 // 날개
-      else { w = 120; h = w / ar; x = -w / 2; y = 4; }                                  // 망토/제트팩/풍선
+    case "head":
+      if (id === "head_foxmask") {
+        // 네온 여우 가면: 얼굴 전면 중심 밀착
+        w = 82; h = w / ar; x = -w / 2; y = -h * 0.46;
+      } else if (id === "head_phones") {
+        // 사이버 비트 헤드폰: 머리 둘레와 양 귀
+        w = 98; h = w / ar; x = -w / 2; y = -h * 0.42;
+      } else if (id === "helm_visor") {
+        // 홀로그램 러너 바이저 헬멧: 눈/이마 둘레
+        w = 92; h = w / ar; x = -w / 2; y = -h * 0.50;
+      } else if (id === "head_guard") {
+        // 복싱 헤드가드
+        w = 92; h = w / ar; x = -w / 2; y = -h * 0.52;
+      } else if (id === "head_cowboy_cyber" || id === "cap_cyber") {
+        // 챙이 있는 사이버 모자/야구캡: 이마 위에 자연스럽게 얹힘
+        w = 102; h = w / ar; x = -w / 2; y = 12 - h;
+      } else {
+        // 일반 왕관/모자
+        w = 90; h = w / ar; x = -w / 2; y = 8 - h;
+      }
       break;
-    case "aura":  w = 260; h = w / ar; x = -w / 2; y = -h / 2; ctx.globalAlpha = 0.9; break;
+
+    case "face":
+      if (id === "face_clown_nose") {
+        w = 36; h = w / ar; x = -w / 2; y = -h * 0.42;
+      } else if (id === "face_mustache") {
+        w = 66; h = w / ar; x = -w / 2; y = 6 - h / 2;
+      } else if (id === "face_thug_glasses") {
+        // 8비트 픽셀 선글라스: 눈 높이에 칼같이 일치
+        w = 88; h = w / ar; x = -w / 2; y = -16 - h / 2;
+      } else {
+        w = 72; h = w / ar; x = -w / 2; y = -h / 2;
+      }
+      break;
+
+    case "body":
+      // 상의/아머: 가슴 앵커에 맞춰 어깨와 가슴 둘레에 웅장하게 착용
+      if (id === "body_nano") {
+        w = 114; h = 108; x = -w / 2; y = -26;
+      } else if (id === "body_hawaiian") {
+        w = 118; h = 108; x = -w / 2; y = -22;
+      } else {
+        w = 112; h = 104; x = -w / 2; y = -24;
+      }
+      break;
+
+    case "legs":
+      // 하의: 골반 앵커
+      if (id === "legs_disco_pants") {
+        w = 96; h = 122; x = -w / 2; y = -6;
+      } else {
+        w = 100; h = 84; x = -w / 2; y = -12;
+      }
+      break;
+
+    case "feet":
+      // 신발/슬리퍼: 발목 아래에 단단히 착용
+      w = 68; h = w / ar; x = -w / 2; y = 6 - h * 0.35;
+      break;
+
+    case "back":
+      if (ar > 1.3) { w = 190; h = w / ar; x = -w / 2; y = 20 - h / 2; }
+      else { w = 120; h = w / ar; x = -w / 2; y = 4; }
+      break;
+
+    case "aura":
+      w = 260; h = w / ar; x = -w / 2; y = -h / 2; ctx.globalAlpha = 0.9;
+      break;
+
     case "hand":
     default:
-      if (HAND_TALL.has(id)) { h = id === "hand_wand" ? 110 : 140; w = h * ar; x = -w / 2; y = 30 - h; }   // 손잡이가 손에, 끝이 위로
-      else { w = id === "hand_shield" ? 84 : 66; h = w / ar; x = -w / 2; y = -h / 2; }
+      if (id === "hand_repulsor") {
+        // 플라즈마 리펄서 건틀릿: 손바닥/손목에 맞춤
+        w = 70; h = w / ar; x = -w / 2; y = -h * 0.58;
+      } else if (id === "hand_rubber_gloves") {
+        w = 74; h = w / ar; x = -w / 2; y = -h * 0.58;
+      } else if (HAND_TALL.has(id)) {
+        h = id === "hand_wand" ? 110 : 140; w = h * ar; x = -w / 2; y = 30 - h;
+      } else {
+        w = id === "hand_shield" ? 84 : 66; h = w / ar; x = -w / 2; y = -h / 2;
+      }
+      break;
   }
   ctx.drawImage(im, x, y, w, h);
 }
