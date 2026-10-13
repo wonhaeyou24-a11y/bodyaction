@@ -7708,6 +7708,48 @@ const COSTUME_ITEMS = {
     color: "#00d2ff"
   },
 
+  // --- [🎭 프리미엄 가면 & 페이스 컬렉션 (인기 No.1)] ---
+  mask_cyber_oni: {
+    id: "mask_cyber_oni", name: "사이버 오니 도깨비 가면", slot: "face", tier: "hero", price: 320000,
+    icon: "👹", desc: "빛나는 도깨비 네온 뿔과 날카로운 송곳니가 서린 사이버펑크 도깨비 가면.", color: "#ff0055"
+  },
+  mask_phantom: {
+    id: "mask_phantom", name: "오페라 팬텀 마스크", slot: "face", tier: "hero", price: 290000,
+    icon: "🎭", desc: "은하수 골드 보석과 고풍스러운 아라베스크 문양의 반쪽짜리 귀족 가면.", color: "#ffd700"
+  },
+  mask_steampunk: {
+    id: "mask_steampunk", name: "스팀펑크 황동 가스 마스크", slot: "face", tier: "rare", price: 160000,
+    icon: "🥽", desc: "톱니바퀴와 에메랄드 발광 렌즈가 달린 레트로 하이테크 방독면 가면.", color: "#d97706"
+  },
+  mask_skull_fire: {
+    id: "mask_skull_fire", name: "지옥불 네온 해골 마스크", slot: "face", tier: "legend", price: 480000,
+    icon: "💀", desc: "푸른 영혼의 불꽃이 이글거리는 전설의 다크 해골 전사 가면.", color: "#00d2ff"
+  },
+  mask_fox_neon: {
+    id: "mask_fox_neon", name: "네온 붉은여우 가면", slot: "face", tier: "hero", price: 260000,
+    icon: "🦊", desc: "붉은 불꽃 안광이 서린 전통 네온 여우 가면.", color: "#ff4d5e"
+  },
+  mask_doge: {
+    id: "mask_doge", name: "시바견 도지 볼살 마스크", slot: "face", tier: "rare", price: 150000,
+    icon: "🐕", desc: "빵빵한 볼살과 귀여운 눈빛! 움직일 때마다 귀가 쫑긋거리는 볼살 마스크.", color: "#f59e0b"
+  },
+  mask_shrek: {
+    id: "mask_shrek", name: "초록 오우거 괴물 가면", slot: "face", tier: "common", price: 55000,
+    icon: "🧟", desc: "나팔 귀와 동글납작한 코의 유쾌한 늪지대 초록 괴물 마스크.", color: "#22c55e"
+  },
+  mask_cat_meme: {
+    id: "mask_cat_meme", name: "눈물 글썽 억울 고양이 마스크", slot: "face", tier: "rare", price: 180000,
+    icon: "😿", desc: "눈에 눈물이 그렁그렁! 게임할 때마다 억울함과 웃음이 폭발하는 전설의 고양이 가면.", color: "#ec4899"
+  },
+  mask_alien: {
+    id: "mask_alien", name: "왕눈이 에일리언 마스크", slot: "face", tier: "hero", price: 270000,
+    icon: "👽", desc: "깊은 우주를 담은 거대한 블랙 렌즈 눈동자와 네온 그린 삼각 얼굴.", color: "#10b981"
+  },
+  mask_pig: {
+    id: "mask_pig", name: "황금 복돼지 가면", slot: "face", tier: "common", price: 45000,
+    icon: "🐷", desc: "복을 듬뿍 불러오는 핑크빛 돼지코와 귀여운 쫑긋 귀 마스크.", color: "#f472b6"
+  },
+
   // --- [🤣 유쾌한 개그 & 단품 패션 아이템 컬렉션] ---
   face_mustache: {
     id: "face_mustache", name: "마리오 특대 콧수염", slot: "face", tier: "common", price: 45000,
@@ -8721,7 +8763,8 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
       });
       break;
 
-    case "head_foxmask": // 네온 여우 가면
+    case "head_foxmask":
+    case "mask_fox_neon": // 네온 여우 가면
       ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
       ctx.strokeStyle = "#ff4d5e";
       ctx.lineWidth = 3;
@@ -8737,6 +8780,167 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
       ctx.ellipse(-14, 0, 7, 3, -0.4, 0, Math.PI * 2);
       ctx.ellipse(14, 0, 7, 3, 0.4, 0, Math.PI * 2);
       ctx.fill();
+      break;
+
+    case "mask_cyber_oni": // 사이버 오니 도깨비 가면
+      ctx.fillStyle = "#1e102d";
+      ctx.strokeStyle = "#ff0055";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(-32, -18); ctx.lineTo(-38, 4); ctx.lineTo(-24, 26); ctx.lineTo(0, 34); ctx.lineTo(24, 26); ctx.lineTo(38, 4); ctx.lineTo(32, -18);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ff0055";
+      ctx.beginPath();
+      ctx.moveTo(-22, -18); ctx.lineTo(-34, -46); ctx.lineTo(-12, -22); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(22, -18); ctx.lineTo(34, -46); ctx.lineTo(12, -22); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#00ffff";
+      ctx.beginPath();
+      ctx.moveTo(-24, -2); ctx.lineTo(-10, -6); ctx.lineTo(-8, -2); ctx.lineTo(-22, 2); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(24, -2); ctx.lineTo(10, -6); ctx.lineTo(8, -2); ctx.lineTo(22, 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ffd700";
+      [-14, -6, 6, 14].forEach((fx, idx) => {
+        ctx.beginPath();
+        const dir = idx % 2 === 0 ? 1 : -1;
+        ctx.moveTo(fx - 3, 14); ctx.lineTo(fx + 3, 14); ctx.lineTo(fx, 14 + dir * 8); ctx.closePath(); ctx.fill();
+      });
+      break;
+
+    case "mask_phantom": // 오페라 팬텀 마스크
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-6, -30); ctx.bezierCurveTo(28, -32, 42, -10, 38, 16); ctx.bezierCurveTo(34, 30, 16, 32, -4, 22); ctx.bezierCurveTo(-14, 10, -18, -10, -6, -30);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#110b20";
+      ctx.beginPath(); ctx.ellipse(15, -4, 11, 7, 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(20, 14, 9, 0, Math.PI * 1.5); ctx.stroke();
+      ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(28, -18, 3.5, 0, Math.PI * 2); ctx.fill();
+      break;
+
+    case "mask_steampunk": // 스팀펑크 황동 가스 마스크
+      ctx.fillStyle = "#3e271a";
+      ctx.strokeStyle = "#d97706";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect(-34, -20, 68, 50, 16); ctx.fill(); ctx.stroke();
+      [-16, 16].forEach((lx) => {
+        ctx.fillStyle = "#d97706"; ctx.beginPath(); ctx.arc(lx, -6, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#10b981"; ctx.beginPath(); ctx.arc(lx, -6, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.beginPath(); ctx.arc(lx - 3, -9, 3, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = "#78350f"; ctx.strokeStyle = "#d97706"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 16, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#d97706";
+      for (let a = 0; a < 6; a++) {
+        const rad = (a * Math.PI) / 3;
+        ctx.beginPath(); ctx.arc(Math.cos(rad) * 6, 16 + Math.sin(rad) * 6, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+
+    case "mask_skull_fire": // 지옥불 네온 해골 마스크
+      ctx.fillStyle = "#f3f4f6";
+      ctx.strokeStyle = "#00d2ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-32, -22); ctx.bezierCurveTo(-38, 2, -24, 16, -20, 28); ctx.lineTo(20, 28); ctx.bezierCurveTo(24, 16, 38, 2, 32, -22);
+      ctx.bezierCurveTo(22, -36, -22, -36, -32, -22); ctx.closePath(); ctx.fill(); ctx.stroke();
+      [-14, 14].forEach((ex) => {
+        ctx.fillStyle = "#0a0a16"; ctx.beginPath(); ctx.ellipse(ex, -6, 9, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(ex, -6, 5, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = "#0a0a16";
+      ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(-5, 12); ctx.lineTo(5, 12); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 2;
+      for (let tx = -14; tx <= 14; tx += 7) {
+        ctx.beginPath(); ctx.moveTo(tx, 20); ctx.lineTo(tx, 28); ctx.stroke();
+      }
+      break;
+
+    case "mask_doge": // 시바견 도지 볼살 마스크
+      ctx.fillStyle = "#f59e0b";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 2, 36, 28, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#d97706";
+      ctx.beginPath(); ctx.moveTo(-30, -12); ctx.lineTo(-24, -36); ctx.lineTo(-10, -20); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(30, -12); ctx.lineTo(24, -36); ctx.lineTo(10, -20); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#fef3c7";
+      ctx.beginPath(); ctx.ellipse(0, 10, 18, 14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#111827";
+      ctx.beginPath(); ctx.arc(-14, -4, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(14, -4, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 6, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+
+    case "mask_shrek": // 초록 오우거 괴물 가면
+      ctx.fillStyle = "#22c55e";
+      ctx.strokeStyle = "#15803d";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, 0, 36, 26, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      [-1, 1].forEach((dir) => {
+        ctx.fillStyle = "#16a34a";
+        ctx.beginPath();
+        ctx.moveTo(dir * 28, -14); ctx.lineTo(dir * 50, -26); ctx.lineTo(dir * 46, -18); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(dir * 50, -24, 5, 4, dir * 0.3, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = "#16a34a";
+      ctx.beginPath(); ctx.ellipse(0, 5, 11, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.rect(-7, 14, 4.5, 7); ctx.rect(3, 14, 4.5, 7); ctx.fill();
+      break;
+
+    case "mask_cat_meme": // 눈물 글썽 억울 고양이 마스크
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#ec4899";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(0, 2, 34, 26, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      [-1, 1].forEach((dir) => {
+        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.moveTo(dir * 24, -14); ctx.lineTo(dir * 28, -36); ctx.lineTo(dir * 10, -22); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#f472b6"; ctx.beginPath(); ctx.moveTo(dir * 23, -16); ctx.lineTo(dir * 26, -32); ctx.lineTo(dir * 12, -21); ctx.closePath(); ctx.fill();
+      });
+      [-12, 12].forEach((ex) => {
+        ctx.fillStyle = "#1e293b"; ctx.beginPath(); ctx.arc(ex, -3, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#38bdf8"; ctx.beginPath(); ctx.arc(ex, -1, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(ex - 2, -4, 3, 0, Math.PI * 2); ctx.arc(ex + 2, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = "rgba(56, 189, 248, 0.85)";
+      ctx.beginPath(); ctx.ellipse(-12, 11, 4, 7, 0.1, 0, Math.PI * 2); ctx.ellipse(12, 11, 4, 7, -0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ec4899"; ctx.beginPath(); ctx.ellipse(0, 4, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+
+    case "mask_alien": // 왕눈이 에일리언 마스크
+      ctx.fillStyle = "#10b981";
+      ctx.strokeStyle = "#047857";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-32, -24); ctx.bezierCurveTo(-40, 6, -18, 28, 0, 32); ctx.bezierCurveTo(18, 28, 40, 6, 32, -24); ctx.bezierCurveTo(20, -38, -20, -38, -32, -24);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      [-14, 14].forEach((ex, idx) => {
+        ctx.fillStyle = "#09090b"; ctx.beginPath(); ctx.ellipse(ex, -2, 12, 16, idx === 0 ? -0.35 : 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,.8)"; ctx.beginPath(); ctx.arc(ex - 3, -6, 3.5, 0, Math.PI * 2); ctx.fill();
+      });
+      break;
+
+    case "mask_pig": // 황금 복돼지 가면
+      ctx.fillStyle = "#f472b6";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, 32, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      [-1, 1].forEach((dir) => {
+        ctx.fillStyle = "#f472b6"; ctx.beginPath(); ctx.moveTo(dir * 20, -22); ctx.lineTo(dir * 30, -38); ctx.lineTo(dir * 8, -30); ctx.closePath(); ctx.fill(); ctx.stroke();
+      });
+      ctx.fillStyle = "#fb7185"; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 6, 14, 10, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#881337";
+      ctx.beginPath(); ctx.ellipse(-5, 6, 3, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.ellipse(5, 6, 3, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(-14, -6, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      ctx.beginPath(); ctx.arc(14, -6, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
       break;
 
     case "head_astro": // 우주 탐사대 헬멧
@@ -8996,19 +9200,26 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
       if (item) drawCostumePiece(ctx, item, headAnchor, isBuddy);
     }
 
-    // 7. 얼굴 / 콧수염 / 안경
+    // 7. 얼굴 / 가면 / 콧수염 / 안경
     if (equippedCostume.face && faceAnchor && isSlotReady("face")) {
       const item = COSTUME_ITEMS[equippedCostume.face];
-      if (item) drawCostumePiece(ctx, item, faceAnchor, isBuddy);
-    }
-
-    // 8. 손 / 무기 / 장갑
-    if (equippedCostume.hand && handAnchors.length > 0 && isSlotReady("hand")) {
-      const item = COSTUME_ITEMS[equippedCostume.hand];
       if (item) {
-        handAnchors.forEach((ha) => drawCostumePiece(ctx, item, ha, isBuddy));
+        if (item.id.startsWith("mask_") || item.id === "head_foxmask") {
+          // 🎭 가면: 얼굴 전체(눈·코·뺨)에 딱 맞도록 중심 높이 및 스케일 최적화
+          const maskAnchor = {
+            x: faceAnchor.x,
+            y: faceAnchor.y - 12 * (faceAnchor.scale || 1),
+            scale: (faceAnchor.scale || 1) * 1.18,
+            angle: faceAnchor.angle
+          };
+          drawCostumePiece(ctx, item, maskAnchor, isBuddy);
+        } else {
+          drawCostumePiece(ctx, item, faceAnchor, isBuddy);
+        }
       }
     }
+
+    // 8. 손 / 장갑: 사용자 요청에 따라 완전 비활성화 (손 가림 및 시야 방해 원천 차단)
   } catch (err) {
     // 🛡️ Zero-Crash Policy: 커스튬 드로잉 중 오류 발생 시에도 메인 게임 렌더링은 100% 정상 유지
     console.warn("Costume render suppressed:", err);
@@ -9071,26 +9282,29 @@ async function openCostumeRoom() {
   $("costumeRoom")?.classList.remove("hidden");
   $("menu")?.classList.add("hidden");
 
-  // ⚡ 1. 카메라 + 포즈(몸) 먼저, 손(주먹) 모델은 뒤에서 — 단계 표시 + 재시도
+  // 🎭 가면/페이스 기본 선택 + 장갑 완전 비활성화
+  currentCostumeTab = "face";
+  currentWheelIndex = 0;
+  equippedCostume.hand = null;
+
+  // ⚡ 1. 카메라 + 포즈(몸) 먼저, 손(주먹) 모델은 뒤에서
   costumeSliceKind = "pose"; costumeSliceT = performance.now();
   costumeHand.seen = 0; costumeHand.votes = 0; costumeHand.stable = false; costumeHand.prevStable = false;
   costumeVisionBoot();
 
-  // ⚡ 2. 캔버스 = 화면 크기 1:1 (인식 좌표계 W×H와 동일 → 옷이 몸에 정확히 붙어요)
+  // ⚡ 2. 캔버스 = 화면 크기 1:1
   const cvs = $("costumeCanvas");
   if (cvs) {
     cvs.width = innerWidth;
     cvs.height = innerHeight;
   }
 
-  // 🔒 1등 뺏김 검사: 순위가 밀린 옷이 있다면 자동 회수 및 알림
+  // 🔒 1등 뺏김 검사 및 코인 최신화
   await auditAndStripIneligibleCostumes();
-  // 🪙 코인 잔액 최신화
   await loadPlayerCoins();
-  await renderCostumeShelf();
-  renderEquippedSlotsUI();
+  await renderCostumeWheel();
   buddyEngine.init();
-  buddyEngine.say("주인님 어서오세요! 게임으로 모은 코인으로 명품 옷을 장만해보세요!");
+  buddyEngine.say("가상 피팅 룸에 오신 것을 환영합니다! 양옆 패들에 손을 올리거나 화살표키(←, →)를 눌러 가면을 골라보세요!");
   ac();
   sfx.levelUp();
 }
@@ -9101,106 +9315,127 @@ function closeCostumeRoom() {
   costumeHand.hoverEl?.classList.remove("hand-hover"); costumeHand.hoverEl = null;
   $("costumeRoom")?.classList.add("hidden");
   $("menu")?.classList.remove("hidden");
-  // 메인 메뉴 복귀 시 비전 인식 대기 모드로 전환
   visionAI.setActive(null);
   saveCostumeData();
   sfx.end();
 }
 
-// 진열장 아이템 렌더링 (실시간 순위 독점 자격 + 코인 구매/소장 시스템 반영)
-async function renderCostumeShelf() {
-  const listEl = $("costumeItemList");
-  if (!listEl) return;
-  const frag = document.createDocumentFragment();   // 완성 후 한 번에 교체 (깜빡임/스크롤 초기화 방지)
+// ---------------------------------------------------------------------------
+// 🎡 풀스크린 아케이드 휠 & 네온 제스처 패들 피팅룸 로직
+// ---------------------------------------------------------------------------
+let currentWheelIndex = 0;
+let wheelDwell = { prev: 0, next: 0, cooldown: 0 };
 
-  const items = Object.values(COSTUME_ITEMS).filter((it) => currentCostumeTab === "all" || it.slot === currentCostumeTab);
+function getFilteredWheelItems() {
+  return Object.values(COSTUME_ITEMS).filter((it) => it.slot !== "hand" && (currentCostumeTab === "all" || it.slot === currentCostumeTab));
+}
 
-  for (const it of items) {
-    const isEq = equippedCostume[it.slot] === it.id;
-    const isOwned = costumeInventory.has(it.id);
-    const price = getItemPrice(it);
-    const { eligible, rankReq, currentRank } = await checkItemRankEligibility(it);
+async function renderCostumeWheel() {
+  const container = $("costumeLiveShowcaseCard");
+  if (!container) return;
 
-    const card = document.createElement("div");
-    card.className = `costume-card ${isEq ? "equipped" : ""} ${isOwned ? "owned" : ""}`;
-    card.dataset.itemId = it.id;
-    card.dataset.owned = isOwned ? "1" : "0";
-    card.dataset.price = String(price);
+  // 카테고리 탭 active 클래스 동기화
+  document.querySelectorAll(".costume-wheel-category-bar .c-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.slot === currentCostumeTab);
+  });
 
-    const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 패션" };
-    const tierBadge = `<span class="card-tier-badge tier-${it.tier}">${tierLabels[it.tier] || "일반"}</span>`;
-    const priceBadge = `<span class="card-price-badge">🪙 ${price.toLocaleString()}</span>`;
+  const items = getFilteredWheelItems();
+  if (items.length === 0) {
+    container.innerHTML = `<div style="text-align:center;width:100%;color:#aaa;padding:12px;">해당 부위의 아이템이 없습니다.</div>`;
+    return;
+  }
 
-    let actionBtnHtml = "";
-    if (isOwned) {
-      if (isEq) {
-        actionBtnHtml = `<button class="btn-card-buy btn-act-toggle" type="button" style="background:#ff2e93;">✓ 착용 중 (벗기)</button>`;
-      } else {
-        actionBtnHtml = `<button class="btn-card-buy btn-act-toggle" type="button" style="background:rgba(34,197,94,0.3);border-color:#22c55e;color:#4ade80;">✓ 소장 완료 (입기)</button>`;
-      }
+  if (currentWheelIndex >= items.length) currentWheelIndex = Math.max(0, items.length - 1);
+  if (currentWheelIndex < 0) currentWheelIndex = 0;
+
+  const cur = items[currentWheelIndex];
+  const isEq = equippedCostume[cur.slot] === cur.id;
+  const isOwned = costumeInventory.has(cur.id);
+  const price = getItemPrice(cur);
+
+  const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 패션" };
+  const tierBadge = `<span class="card-tier-badge tier-${cur.tier}">${tierLabels[cur.tier] || "일반"}</span>`;
+
+  let actionBtnHtml = "";
+  if (isOwned) {
+    if (isEq) {
+      actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle equipped" type="button">✓ 착용 중 (벗기)</button>`;
     } else {
-      actionBtnHtml = `<button class="btn-card-buy btn-act-buy" type="button">🪙 ${price.toLocaleString()} 구매</button>`;
+      actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle owned" type="button">✓ 소장 중 (입기)</button>`;
     }
+  } else {
+    actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle buy" type="button">🪙 ${price.toLocaleString()} 구매 및 소장</button>`;
+  }
 
-    let statusNote = "";
-    if (!isOwned) {
-      statusNote = `<div class="costume-card-status" style="color:#ffdea8;">미소장 (클릭 시 구매)</div>`;
-    } else if (it.tier === "legend") {
-      statusNote = `<div class="costume-card-status" style="color:#ffd700;">👑 1등 상징 독점 소장</div>`;
-    } else {
-      statusNote = `<div class="costume-card-status" style="color:#4ade80;">소장 중인 아이템</div>`;
-    }
+  const iconHtml = costumeImg(cur.id)
+    ? `<img src="assets/costumes/${cur.id}.png" alt="${escapeHtml(cur.name)}" style="width:52px;height:52px;object-fit:contain;" draggable="false">`
+    : cur.icon;
 
-    card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-        ${tierBadge}
-        ${priceBadge}
+  container.innerHTML = `
+    <div class="cls-left">
+      <div class="cls-icon-wrap">${iconHtml}</div>
+      <div class="cls-info">
+        <div class="cls-title-row">
+          ${tierBadge}
+          <h3 class="cls-title">${escapeHtml(cur.name)}</h3>
+          <span class="cls-count-badge">${currentWheelIndex + 1} / ${items.length}</span>
+        </div>
+        <p class="cls-desc">${escapeHtml(cur.desc)}</p>
       </div>
-      <div class="costume-card-icon">${costumeImg(it.id) ? `<img src="assets/costumes/${it.id}.png" alt="${escapeHtml(it.name)}" draggable="false">` : it.icon}</div>
-      <div class="costume-card-name">${escapeHtml(it.name)}</div>
-      <div class="costume-card-desc">${escapeHtml(it.desc)}</div>
-      ${statusNote}
+    </div>
+    <div class="cls-actions">
       ${actionBtnHtml}
-    `;
+      <span class="cls-status-hint">${isOwned ? "영구 소장 아이템" : `필요: 🪙 ${price.toLocaleString()}`}</span>
+    </div>
+  `;
 
-    // 구매 버튼 또는 카드 클릭 이벤트 바인딩
-    card.addEventListener("click", async (e) => {
-      const isBuyBtn = e.target.classList.contains("btn-act-buy");
-      
+  // 액션 버튼 바인딩
+  const btn = $("btnWheelToggle");
+  if (btn) {
+    btn.addEventListener("click", async () => {
       if (!isOwned) {
-        // 미소장 아이템 구매 시도
         if (playerCoins >= price) {
           const success = await spendPlayerCoins(price);
           if (success) {
-            costumeInventory.add(it.id);
+            costumeInventory.add(cur.id);
             await saveCostumeData();
-            await equipCostumeItem(it);
-            popup(W / 2, H * 0.45, `🎉 [${it.name}] 구매 성공! 영구 소장되었습니다!`, "#ffd700");
+            await equipCostumeItem(cur);
+            popup(W / 2, H * 0.45, `🎉 [${cur.name}] 구매 성공! 영구 소장되었습니다!`, "#ffd700");
             sfx.levelUp();
-            buddyEngine.say(`와! 주인님 [${it.name}]을(를) 구매하셨군요! 너무 멋져요!`);
-            burst(W / 2, H * 0.45, it.color || "#ffd700", 36);
+            buddyEngine.say(`와! [${cur.name}]을(를) 구매하셨군요! 너무 멋져요!`);
+            burst(W / 2, H * 0.45, cur.color || "#ffd700", 36);
           }
         } else {
-          // 코인 부족 경고
           const lack = price - playerCoins;
-          popup(W / 2, H * 0.45, `⚠️ 코인이 부족합니다! (필요: ${price.toLocaleString()} 🪙 / 부족: ${lack.toLocaleString()} 🪙) 게임을 더 플레이하세요!`, "#ff3366");
+          popup(W / 2, H * 0.45, `⚠️ 코인이 부족합니다! (필요: ${price.toLocaleString()} 🪙 / 부족: ${lack.toLocaleString()} 🪙)`, "#ff3366");
           sfx.countdown(false);
-          buddyEngine.say(`코인이 ${lack.toLocaleString()}개 부족해요! 게임을 더 플레이해서 모아봐요!`);
-          // 피팅룸에서는 시착(미리 입어보기) 지원
-          await equipCostumeItem(it);
+          buddyEngine.say(`코인이 부족해요! 게임을 더 플레이해서 모아봐요!`);
+          await equipCostumeItem(cur);
         }
       } else {
-        // 이미 소장한 아이템은 자유롭게 입고 벗기
-        await equipCostumeItem(it);
+        await equipCostumeItem(cur);
       }
+      renderCostumeWheel();
     });
-
-    frag.appendChild(card);
   }
-  const keepScroll = listEl.scrollTop;
-  listEl.replaceChildren(frag);
-  listEl.scrollTop = keepScroll;
 }
+
+// 휠 스텝 넘기기 (이전 / 다음) + 자동 라이브 피팅
+async function stepCostumeWheel(dir) {
+  const items = getFilteredWheelItems();
+  if (items.length === 0) return;
+  currentWheelIndex = (currentWheelIndex + dir + items.length) % items.length;
+  const nextItem = items[currentWheelIndex];
+  sfx.pop(W / 2, true);
+  // ⚡ 넘기는 즉시 내 몸에 자동 시착(Live Preview)
+  if (nextItem) {
+    equippedCostume[nextItem.slot] = nextItem.id;
+    saveCostumeData();
+  }
+  await renderCostumeWheel();
+}
+
+const renderCostumeShelf = renderCostumeWheel; // 하위 호환
 
 function renderEquippedSlotsUI() {
   const chipsContainer = $("costumeEquippedChips");
@@ -9261,7 +9496,7 @@ const costumeHand = {
   lastClick: 0, hoverEl: null, hoverLast: null, hoverAt: 0, dwellEl: null, dwellT: 0, pendingBuy: null
 };
 let costumeSliceKind = "pose", costumeSliceT = 0, costumeHandInferT = 0;
-const COSTUME_CLICK_SELECTOR = ".costume-card, .c-tab, .btn-costume-tool, .cec-chip";
+const COSTUME_CLICK_SELECTOR = ".costume-wheel-paddle, .costume-wheel-category-bar .c-tab, .btn-cls-toggle, .btn-costume-tool, .btn-costume-exit-fixed, .c-tab";
 
 // ✊ 노트북LM 최적화 권장사항 반영: 단일 트래커 파이프라인 (Single Tracker Pipeline)
 // 모델 모드를 핑퐁 스위칭하지 않고 전신 Pose 33개 랜드마크에서 손목/손끝을 100% 실시간(60 FPS) 추출!
@@ -9412,15 +9647,20 @@ function costumeHandUiTick(ctx, cvs, rect, now) {
       costumeHand.dwellEl = el;
       costumeHand.dwellT = now;
     }
-    // 0.6초 체류(Dwell) 프로그레스
-    dwellP = Math.min(1, (now - costumeHand.dwellT) / 600);
-    if (dwellP >= 1 && now - costumeHand.lastClick > 650) {
+    // 0.65초 체류(Dwell) 프로그레스
+    dwellP = Math.min(1, (now - costumeHand.dwellT) / 650);
+    if (el.classList.contains("costume-wheel-paddle")) {
+      el.style.setProperty("--dwell-progress", (dwellP * 100).toFixed(0) + "%");
+    }
+    if (dwellP >= 1 && now - costumeHand.lastClick > 700) {
       costumeHand.lastClick = now;
       costumeHand.dwellT = now + 900;
+      el.style.setProperty("--dwell-progress", "0%");
       costumeFistActivate(el, now);
-      burst(ptr.x, ptr.y, "#00d2ff", 22);
+      burst(ptr.x, ptr.y, "#00ffff", 24);
     }
   } else {
+    document.querySelectorAll(".costume-wheel-paddle").forEach((p) => p.style.setProperty("--dwell-progress", "0%"));
     costumeHand.dwellEl = null;
   }
 
@@ -9564,15 +9804,45 @@ function costumeRoomUpdateAndDraw(now, dt) {
 function setupCostumeRoomEvents() {
   $("btnCostumeRoom")?.addEventListener("click", openCostumeRoom);
   $("btnCloseCostume")?.addEventListener("click", closeCostumeRoom);
-  // ESC 키로 피팅 룸 즉시 나가기 지원
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isCostumeRoomOpen) {
-      closeCostumeRoom();
-    }
-  });
+  
   $("btnGoCostumeFromReward")?.addEventListener("click", () => {
     $("result")?.classList.add("hidden");
     openCostumeRoom();
+  });
+
+  // 🎡 좌/우 대형 패들 클릭 (이전 ◀ / 다음 ▶)
+  $("btnCostumePrev")?.addEventListener("click", () => stepCostumeWheel(-1));
+  $("btnCostumeNext")?.addEventListener("click", () => stepCostumeWheel(1));
+
+  // ⌨️ 키보드 방향키 & 스페이스바 피팅룸 완벽 지원
+  window.addEventListener("keydown", (e) => {
+    if (!isCostumeRoomOpen) return;
+    const k = e.key.toLowerCase();
+    if (k === "arrowleft" || k === "a") {
+      stepCostumeWheel(-1);
+      e.preventDefault();
+    } else if (k === "arrowright" || k === "d") {
+      stepCostumeWheel(1);
+      e.preventDefault();
+    } else if (k === "arrowup" || k === "w") {
+      const tabs = Array.from(document.querySelectorAll(".costume-wheel-category-bar .c-tab"));
+      const idx = tabs.findIndex((t) => t.dataset.slot === currentCostumeTab);
+      const prevIdx = (idx - 1 + tabs.length) % tabs.length;
+      tabs[prevIdx]?.click();
+      e.preventDefault();
+    } else if (k === "arrowdown" || k === "s") {
+      const tabs = Array.from(document.querySelectorAll(".costume-wheel-category-bar .c-tab"));
+      const idx = tabs.findIndex((t) => t.dataset.slot === currentCostumeTab);
+      const nextIdx = (idx + 1) % tabs.length;
+      tabs[nextIdx]?.click();
+      e.preventDefault();
+    } else if (k === " " || k === "enter") {
+      $("btnWheelToggle")?.click();
+      e.preventDefault();
+    } else if (k === "escape") {
+      closeCostumeRoom();
+      e.preventDefault();
+    }
   });
 
   // 📺 커스튬 룸 TV/대화면 전체화면 토글
@@ -9593,13 +9863,14 @@ function setupCostumeRoomEvents() {
     }
   });
 
-  // 카테고리 탭 클릭
-  document.querySelectorAll(".costume-filter-tabs .c-tab").forEach((tab) => {
+  // 상단 원터치 카테고리 탭 클릭
+  document.querySelectorAll(".costume-wheel-category-bar .c-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      document.querySelectorAll(".costume-filter-tabs .c-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".costume-wheel-category-bar .c-tab").forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
-      currentCostumeTab = tab.dataset.slot || "all";
-      renderCostumeShelf();
+      currentCostumeTab = tab.dataset.slot || "face";
+      currentWheelIndex = 0;
+      renderCostumeWheel();
       sfx.tick();
     });
   });
@@ -9608,8 +9879,7 @@ function setupCostumeRoomEvents() {
   $("btnUnequipAll")?.addEventListener("click", () => {
     equippedCostume = { head: null, face: null, body: null, legs: null, feet: null, back: null, hand: null, aura: null };
     saveCostumeData();
-    renderCostumeShelf();
-    renderEquippedSlotsUI();
+    renderCostumeWheel();
     sfx.costumeUnequip();
     buddyEngine.say("모든 장비를 벗었습니다!");
   });

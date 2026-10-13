@@ -2211,143 +2211,260 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 .exit-text { letter-spacing: -0.01em; }
 
 /* 3. [우측] 심플 슬림 커스튬 진열장 사이드바 */
-.costume-simple-sidebar {
+/* ============================================================================
+   👗 [혁신형] 풀스크린 아케이드 휠 & 네온 제스처 패들 피팅룸 UI
+   ============================================================================ */
+
+/* 1. [좌/우] 대형 네온 모션 패들 버블 (이전 ◀ / 다음 ▶) */
+.costume-wheel-paddle {
   position: absolute;
-  top: 72px;
-  right: 20px;
-  bottom: 18px;
-  width: 380px;
-  z-index: 15;
-  background: rgba(14, 6, 28, 0.90);
-  backdrop-filter: blur(28px);
-  border: 1.5px solid rgba(255, 255, 255, 0.14);
-  border-radius: 26px;
-  padding: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 104px;
+  height: 180px;
+  z-index: 20;
+  background: rgba(18, 10, 36, 0.88);
+  backdrop-filter: blur(24px);
+  border: 2px solid rgba(0, 210, 255, 0.45);
+  border-radius: 28px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(168, 85, 247, 0.15);
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(0, 210, 255, 0.25), inset 0 0 20px rgba(0, 210, 255, 0.1);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
   overflow: hidden;
 }
+.costume-wheel-paddle.paddle-prev { left: 28px; }
+.costume-wheel-paddle.paddle-next { right: 28px; }
 
-.css-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.costume-wheel-paddle:hover,
+.costume-wheel-paddle.hand-hover,
+.costume-wheel-paddle:active {
+  transform: translateY(-50%) scale(1.08);
+  border-color: #00ffff;
+  box-shadow: 0 0 45px rgba(0, 255, 255, 0.6), inset 0 0 25px rgba(0, 255, 255, 0.25);
+  background: rgba(28, 14, 56, 0.95);
 }
-.css-title-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.css-badge {
-  font-size: 0.62rem;
+.costume-wheel-paddle .paddle-arrow {
+  font-size: 2.8rem;
   font-weight: 900;
-  letter-spacing: 0.08em;
-  color: #00d2ff;
-  text-transform: uppercase;
+  color: #00ffff;
+  text-shadow: 0 0 16px #00ffff;
+  line-height: 1;
 }
-.css-title {
-  margin: 0;
-  font-family: var(--font-display, 'Rubik', sans-serif);
-  font-size: 1.15rem;
+.costume-wheel-paddle .paddle-label {
+  font-size: 0.82rem;
   font-weight: 900;
   color: #ffffff;
+  letter-spacing: -0.02em;
+  text-align: center;
 }
-.css-count-tag {
-  font-size: 0.72rem;
-  font-weight: 800;
-  padding: 4px 10px;
+/* 모션 손 호버 진행 링 게이지 */
+.paddle-dwell-ring {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 999px;
-  background: rgba(0, 210, 255, 0.15);
-  color: #a5e7ff;
-  border: 1px solid rgba(0, 210, 255, 0.35);
+  overflow: hidden;
+}
+.paddle-dwell-ring::after {
+  content: "";
+  display: block;
+  width: var(--dwell-progress, 0%);
+  height: 100%;
+  background: linear-gradient(90deg, #00d2ff, #22c55e);
+  transition: width 0.05s linear;
 }
 
-/* 카테고리 필터 탭 (슬림 가로 스크롤 & 랩) */
-.costume-filter-tabs {
+/* 2. [상단 중앙] 원터치 카테고리 바 */
+.costume-wheel-category-bar {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 18;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 80px;
-  overflow-y: auto;
-  padding-bottom: 2px;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 8, 30, 0.88);
+  backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 6px 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.2);
+  max-width: 92vw;
+  overflow-x: auto;
 }
-.costume-filter-tabs::-webkit-scrollbar { width: 3px; }
-.costume-filter-tabs::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 6px; }
+.costume-wheel-category-bar::-webkit-scrollbar { display: none; }
 
-.c-tab {
-  padding: 5px 10px;
+.costume-wheel-category-bar .c-tab {
+  padding: 8px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #bbc9cf;
-  font-size: 0.72rem;
-  font-weight: 700;
+  color: #c4d1d9;
+  font-size: 0.84rem;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
   white-space: nowrap;
 }
-.c-tab:hover {
-  background: rgba(255, 255, 255, 0.14);
+.costume-wheel-category-bar .c-tab:hover {
+  background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
+  transform: translateY(-1px);
 }
-.c-tab.active {
-  background: linear-gradient(135deg, #00d2ff 0%, #0088ff 100%);
+.costume-wheel-category-bar .c-tab.active {
+  background: linear-gradient(135deg, #ff2e93 0%, #a855f7 100%);
   color: #ffffff;
-  border-color: #00d2ff;
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.5);
+  border-color: #ff2e93;
+  box-shadow: 0 0 16px rgba(255, 46, 147, 0.6);
   font-weight: 900;
 }
 
-/* 아이템 그리드 리스트 */
-.costume-item-grid.simple-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.costume-item-grid::-webkit-scrollbar { width: 5px; }
-.costume-item-grid::-webkit-scrollbar-thumb { background: rgba(0, 210, 255, 0.35); border-radius: 10px; }
-
-/* 개별 커스튬 아이템 카드 */
-.costume-card {
-  background: rgba(25, 12, 45, 0.75);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  padding: 10px 8px;
+/* 3. [하단 중앙] 실시간 라이브 피팅 쇼케이스 카드 */
+.costume-live-showcase {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 18;
+  width: min(640px, 92vw);
+  background: rgba(16, 8, 32, 0.92);
+  backdrop-filter: blur(28px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 28px;
+  padding: 16px 24px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  justify-content: space-between;
+  gap: 18px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 210, 255, 0.2);
+  transition: all 0.2s;
   user-select: none;
 }
-.costume-card:hover {
-  transform: translateY(-2px);
-  border-color: #00d2ff;
-  box-shadow: 0 6px 18px rgba(0, 210, 255, 0.3);
-  background: rgba(35, 18, 62, 0.9);
-}
-.costume-card.equipped {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.14);
-  box-shadow: 0 0 14px rgba(34, 197, 94, 0.35);
+.costume-live-showcase:hover {
+  border-color: rgba(0, 210, 255, 0.6);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 40px rgba(0, 210, 255, 0.35);
 }
 
-.card-tier-badge {
-  font-size: 0.58rem;
-  font-weight: 900;
-  padding: 2px 6px;
-  border-radius: 4px;
+.cls-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
 }
-.tier-legend { background: #ffb800; color: #3b2a00; }
+.cls-icon-wrap {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(0, 210, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+  flex-shrink: 0;
+}
+.cls-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cls-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cls-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+.cls-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #a5b4fc;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cls-count-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.cls-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.btn-cls-toggle {
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.btn-cls-toggle.equipped {
+  background: linear-gradient(135deg, #ff2e93, #e11d48);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(255, 46, 147, 0.5);
+}
+.btn-cls-toggle.equipped:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 28px rgba(255, 46, 147, 0.7);
+}
+.btn-cls-toggle.owned {
+  background: rgba(34, 197, 94, 0.25);
+  border: 1.5px solid #22c55e;
+  color: #4ade80;
+}
+.btn-cls-toggle.owned:hover {
+  background: #22c55e;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+.btn-cls-toggle.buy {
+  background: linear-gradient(135deg, #ffd700, #f59e0b);
+  color: #1a1002;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+.btn-cls-toggle.buy:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 28px rgba(255, 215, 0, 0.8);
+}
+.cls-status-hint {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
 .tier-hero { background: #e1037d; color: #fff; }
 .tier-rare { background: #00d2ff; color: #003040; }
 .tier-common { background: rgba(255, 255, 255, 0.2); color: #fff; }

@@ -1044,7 +1044,7 @@
         <b id="costumePlayerCoins" class="wallet-val">0</b>
       </div>
       <div class="costume-gesture-hint">
-        <span class="hint-pill">✋ 진열장 위에 손을 올리고 ✊<b>주먹</b>을 쥐면 착용/해제! (위·아래 끝에 두면 스크롤)</span>
+        <span class="hint-pill">✋ 양옆 대형 패들(◀ 이전 / 다음 ▶)에 손을 올리거나 키보드(←, →)를 누르면 실시간 착용!</span>
       </div>
     </div>
     <div class="cft-right">
@@ -1063,39 +1063,40 @@
     <span class="exit-text">피팅 룸 나가기</span>
   </button>
 
-  <!-- 3. [우측] 심플 슬림 커스튬 진열장 사이드바 -->
-  <aside class="costume-simple-sidebar">
-    <div class="css-header">
-      <div class="css-title-wrap">
-        <span class="css-badge">STORE & CLOSET</span>
-        <h3 class="css-title">내 커스튬 진열장</h3>
-      </div>
-      <span class="css-count-tag">터치/클릭 즉시 착용</span>
-    </div>
+  <!-- 3. [좌/우] 대형 네온 모션 패들 버블 (이전 ◀ / 다음 ▶) -->
+  <button id="btnCostumePrev" class="costume-wheel-paddle paddle-prev" type="button" title="이전 장비 (왼손 올리기 / 키보드 ←)">
+    <span class="paddle-arrow">◀</span>
+    <span class="paddle-label">이전 장비</span>
+    <div class="paddle-dwell-ring" id="prevDwellRing"></div>
+  </button>
 
-    <!-- 부위별 심플 카테고리 탭 -->
-    <nav class="costume-filter-tabs">
-      <button class="c-tab active" data-slot="all">전체</button>
-      <button class="c-tab" data-slot="face">🥸 콧수염</button>
-      <button class="c-tab" data-slot="head">👑 모자</button>
-      <button class="c-tab" data-slot="hand">🧤 장갑/무기</button>
-      <button class="c-tab" data-slot="body">👕 티셔츠</button>
-      <button class="c-tab" data-slot="legs">🩳 바지</button>
-      <button class="c-tab" data-slot="feet">🩴 신발</button>
-      <button class="c-tab" data-slot="back">🪽 날개/가방</button>
-      <button class="c-tab" data-slot="aura">🌟 오라</button>
-    </nav>
+  <button id="btnCostumeNext" class="costume-wheel-paddle paddle-next" type="button" title="다음 장비 (오른손 올리기 / 키보드 →)">
+    <span class="paddle-arrow">▶</span>
+    <span class="paddle-label">다음 장비</span>
+    <div class="paddle-dwell-ring" id="nextDwellRing"></div>
+  </button>
 
-    <!-- 진열장 아이템 리스트 (main.js에서 동적 생성) -->
-    <div id="costumeItemList" class="costume-item-grid simple-grid">
-      <!-- 동적 주입 -->
-    </div>
-  </aside>
+  <!-- 4. [상단 중앙] 부위별 원터치 카테고리 바 (가면 기본 선택) -->
+  <nav class="costume-wheel-category-bar">
+    <button class="c-tab active" data-slot="face">🎭 가면·페이스 (인기)</button>
+    <button class="c-tab" data-slot="head">👑 모자·헤드</button>
+    <button class="c-tab" data-slot="body">👕 상의·아머</button>
+    <button class="c-tab" data-slot="legs">🩳 하의·팬츠</button>
+    <button class="c-tab" data-slot="feet">🩴 신발·슬리퍼</button>
+    <button class="c-tab" data-slot="back">🪽 날개·가방</button>
+    <button class="c-tab" data-slot="aura">🌟 오라</button>
+    <button class="c-tab" data-slot="all">모든 장비</button>
+  </nav>
+
+  <!-- 5. [하단 중앙] 실시간 라이브 피팅 쇼케이스 카드 (자동 착용 & 원터치 구매/벗기) -->
+  <div id="costumeLiveShowcaseCard" class="costume-live-showcase">
+    <!-- main.js에서 동적 렌더링 -->
+  </div>
 
   <!-- ⚡ [최상위 레이어] 우측 진열장 위에서도 손 포인터가 절대 가려지지 않는 모션 핸드 오버레이 -->
   <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_1630"></script>
+<script type="module" src="main.js?v=20261013_1800"></script>
 </body>
 </html>
