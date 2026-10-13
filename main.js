@@ -464,9 +464,9 @@ function speak(text, force = false) {
       u.lang = "ko-KR";
     }
 
-    // 🌟 사람 아나운서처럼 차분하고 또박또박한 음조(Pitch 1.0)와 안정적인 속도(Rate 1.02)
-    u.rate = 1.02;
-    u.pitch = 1.0;
+    // 🌟 사람 목소리처럼 친근하고 부드러운 억양 (Pitch 1.06, Rate 0.98로 기계적인 딱딱함 제거)
+    u.rate = 0.98;
+    u.pitch = 1.06;
     u.volume = 1.0;
 
     u.onend = () => { activeUtterance = null; };
@@ -477,23 +477,23 @@ function speak(text, force = false) {
   }
 }
 const INTRO = {
-  balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
-  ninja: "과일을 날카롭게 베어내세요! 폭탄은 조심하세요!",
-  space: "지구를 향해 쏟아지는 유성을 막아내세요! 가운데 말고 떨어질 곳으로 손을 뻗으세요!",
-  crun: "온몸으로 달려요! 몸을 옆으로 기울여 길을 바꾸고, 점프로 넘고, 웅크려서 트랩을 피하세요!",
-  cduel: "오른손으로 검을 휘두르고, 왼손을 올려 방패로 막아요! 적의 공격이 닿기 직전에 방패를 올리면 패링!",
-  bballoon: "손·발·머리 어디로든 풍선을 터뜨리세요! 발로 차면 보너스! 검은 폭탄은 피해요!",
-  bspace: "온몸으로 유성을 막아내세요! 점선으로 표시된 떨어질 곳으로 몸을 움직여요!",
-  draw: "허공에 멋진 그림을 그려 보세요!",
-  dodge: "온몸을 움직여 날아오는 돌을 피하고 동전을 모으세요!",
-  brick: "손으로 공을 튕겨 벽돌을 모두 깨뜨리세요!",
-  runner: "점프하고 숙이며 장애물을 피하는 달리기 게임입니다!",
-  kungfu: "다가오는 악당들을 주먹으로 빠르게 물리치세요!",
-  pose: "화면 캐릭터와 똑같은 자세를 따라 해요! 자세는 점점 어려워져요!",
-  versus: "2인 대결 게임! 풍선을 먼저 터뜨리는 사람이 승리합니다!",
-  beat: "음악에 맞춰 날아오는 네온 큐브를 온몸으로 시원하게 베어내세요!",
-  keeper: "골대를 향해 날아오는 공을 온몸과 손으로 막아내세요!",
-  box: "샌드백을 향해 양주먹으로 신나게 펀치를 연타하세요!",
+  balloon: "하늘로 날아오르는 풍선을 손으로 팡팡 터뜨려 보세요!",
+  ninja: "날아오는 과일을 날카롭게 베어 보세요! 폭탄은 조심하세요!",
+  space: "지구를 향해 떨어지는 유성을 막아내세요! 떨어질 곳으로 손을 뻗어 보세요!",
+  crun: "온몸으로 신나게 달려요! 몸을 기울여 길을 바꾸고, 점프와 슬라이딩으로 탈출해 보세요!",
+  cduel: "오른손으로 검을 휘두르고, 왼손을 들어 방패로 막아 보세요! 타이밍에 맞춰 패링도 가능해요!",
+  bballoon: "손과 발, 머리로 풍선을 팡팡 터뜨려 보세요! 발로 차면 보너스 점수예요!",
+  bspace: "온몸으로 유성을 막아내세요! 떨어질 곳으로 발빠르게 움직여 보세요!",
+  draw: "허공에 반짝이는 멋진 그림을 그려 보세요!",
+  dodge: "날아오는 장애물을 날렵하게 피하고 반짝이는 코인을 모아 보세요!",
+  brick: "손바닥으로 공을 튕겨서 네온 벽돌을 시원하게 깨뜨려 보세요!",
+  runner: "달릴 준비 되셨나요? 장애물을 점프하고 웅크려서 피해 보세요!",
+  kungfu: "다가오는 악당들을 번개같은 주먹으로 물리쳐 보세요!",
+  pose: "화면 속 친구와 똑같은 멋진 자세를 따라 해 보세요!",
+  versus: "친구와 함께하는 2인 대결! 풍선을 더 많이 터뜨리는 사람이 승리해요!",
+  beat: "신나는 음악에 맞춰 네온 큐브를 시원하게 베어 보세요!",
+  keeper: "골대로 날아오는 공을 온몸으로 멋지게 막아내세요!",
+  box: "샌드백을 향해 양주먹으로 신나게 펀치를 날려 보세요!",
 };
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
@@ -1027,31 +1027,37 @@ function updatePointers() {
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
     // 🛡️ 화면 밖으로 손이 나갔을 때 모션 해제 (워커 지연 및 순간 누락 방지를 위해 700ms 버퍼 적용)
-    if (now - lastSeen > 700) {
+    // 🛡️ 화면 밖으로 손이 나갔을 때 모션 해제 (NotebookLM 350ms Grace Window 적용)
+    if (now - lastSeen > 350) {
       lastHands = [];
       pts = [];
       handTracks.forEach((t) => t.reset());
+      rawPrev = [];
     }
-    camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
+    camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (초저지연 60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
 
-    // 매 화면 프레임: 추적기에서 "지금 시각"의 손 위치를 계산 (인식 결과 사이에도 튀지 않고 부드럽게 이어짐)
-    pts = lastHands.map((p, i) => (handTracks[i].ready ? handTracks[i].at(now) : p));
+    // 매 화면 프레임: 추적기에서 "지금 시각"의 손 위치를 고정밀 연속 계산 (인식 결과 사이에도 튀지 않고 극도로 부드럽게 이어짐)
+    pts = [];
+    for (let i = 0; i < MAX_HANDS; i++) {
+      if (lastHands[i] && handTracks[i].ready) {
+        pts.push(handTracks[i].at(now));
+      } else if (lastHands[i]) {
+        pts.push(lastHands[i]);
+      }
+    }
     lastHandsInferFresh = false;
   }
 
-  // 최대 2손(1인 최적화) 포인터 생성 및 공간 일관성 1유로 필터링
+  // 최대 2손(1인 최적화) 포인터 생성
   pts.slice(0, MAX_HANDS).forEach((p, i) => {
     const pr = prev[i] ?? p;
-    const fx = euroFilters[i].x.filter(p.x, now);
-    const fy = euroFilters[i].y.filter(p.y, now);
-    const curSpeed = Math.hypot(fx - pr.x, fy - pr.y);
-    // 초당 이동 속도(px/s): 손은 추적기가 추정한 속도(결과가 올 때 생기는 위치 보정에 흔들리지 않음), 그 외(마우스 등)는 위치 변화로 계산
+    const curSpeed = Math.hypot(p.x - pr.x, p.y - pr.y);
     const inst = p.vx !== undefined ? Math.hypot(p.vx, p.vy) * 1000 : curSpeed / frameDt;
-    ptrVps[i] = ptrVps[i] === undefined ? 0 : ptrVps[i] * 0.5 + inst * 0.5;   // 한 프레임 튐은 반만 반영
+    ptrVps[i] = ptrVps[i] === undefined ? inst : ptrVps[i] * 0.4 + inst * 0.6;
 
     pointers.push({
-      x: fx, y: fy, px: pr.x, py: pr.y,
+      x: p.x, y: p.y, px: pr.x, py: pr.y,
       speed: curSpeed,
       vps: ptrVps[i],
       vN: p.vN,                       // 어깨너비/초 단위 3차원 속도 (몸 인식일 때만; 샌드백 펀치 판정)
@@ -1070,7 +1076,6 @@ function updatePointers() {
       if (t.length > 14) t.shift();
     } else {
       t.length = 0; ptrVps[i] = undefined;
-      euroFilters[i].x.reset(); euroFilters[i].y.reset();
     }
   }
 }
@@ -1145,50 +1150,59 @@ function detectHandsNow() {
         });
       });
 
-      // 좌우 손 공간 일관성 매칭 (프레임 간 손 인덱스 뒤바뀜 방지)
-      let sortedRaw = raw;
-      if (rawPrev.length > 0 && raw.length > 1) {
-        sortedRaw = [];
-        const used = new Set();
-        for (let i = 0; i < rawPrev.length; i++) {
+      // 🌟 [NotebookLM 공간 일관성 헝가리안 매칭] 프레임 간 손 인덱스 뒤바뀜 완벽 방지!
+      // 1손 또는 2손 환경에서 손이 교차하거나 하나를 치워도 슬롯이 순간이동하지 않음
+      const mapped = new Array(MAX_HANDS).fill(null);
+      const used = new Set();
+      if (rawPrev.some((p) => p !== null)) {
+        for (let i = 0; i < MAX_HANDS; i++) {
+          if (!rawPrev[i]) continue;
           let bestJ = -1, bestDist = 1e9;
           for (let j = 0; j < raw.length; j++) {
             if (used.has(j)) continue;
             const d = Math.hypot(raw[j].x - rawPrev[i].x, raw[j].y - rawPrev[i].y);
             if (d < bestDist) { bestDist = d; bestJ = j; }
           }
-          if (bestJ !== -1 && bestDist < W * 0.45) {
-            sortedRaw.push(raw[bestJ]);
+          if (bestJ !== -1 && bestDist < Math.max(W, H) * 0.45) {
+            mapped[i] = raw[bestJ];
             used.add(bestJ);
           }
         }
-        for (let j = 0; j < raw.length; j++) {
-          if (!used.has(j)) sortedRaw.push(raw[j]);
+      }
+      // 매칭되지 않은 신규 손은 빈 슬롯에 배치
+      for (let j = 0; j < raw.length; j++) {
+        if (!used.has(j)) {
+          const emptyIdx = mapped.findIndex((m) => m === null);
+          if (emptyIdx !== -1) {
+            mapped[emptyIdx] = raw[j];
+            used.add(j);
+          }
         }
       }
 
-      // 📍 추적기에 "이 시각에 여기서 봤어요"를 알려 줘요. 화면 위치는 updatePointers에서 매 프레임 계산해요
-      sortedRaw.forEach((p, i) => handTracks[i].update(p.x, p.y, t0));
-      for (let i = sortedRaw.length; i < MAX_HANDS; i++) handTracks[i].reset();
-      lastHands = sortedRaw.map((p) => ({ x: p.x, y: p.y }));
-      rawPrev = sortedRaw;
+      // 각 슬롯별 추적기에 갱신
+      const newLastHands = [];
+      for (let i = 0; i < MAX_HANDS; i++) {
+        if (mapped[i]) {
+          handTracks[i].update(mapped[i].x, mapped[i].y, t0);
+          newLastHands[i] = { x: mapped[i].x, y: mapped[i].y };
+        } else {
+          // 손이 안 보인 슬롯은 바로 리셋하지 않고 300ms 유예 윈도우 유지
+          if (t0 - (handTracks[i].t || 0) > 300) {
+            handTracks[i].reset();
+          }
+        }
+      }
+      lastHands = newLastHands.filter((h) => !!h);
+      rawPrev = mapped;
     } else {
-      // 그레이스 윈도우 감쇠
+      // 🛡️ NotebookLM 320ms Grace Window & Freeze Guard
+      // 일시적 감지 누락(가림/조명/고속 스윙) 시 관성으로 날리지 않고 마지막 유효 좌표 유지!
       const dtMs = t0 - lastSeen;
-      if (dtMs < 220 && lastHands.length > 0) {
-        lastHands = lastHands.map((p, i) => {
-          const vel = handVelocities[i] || { vx: 0, vy: 0 };
-          vel.vx *= 0.75; vel.vy *= 0.75;
-          return {
-            x: Math.max(0, Math.min(W, p.x + vel.vx * 0.4)),
-            y: Math.max(0, Math.min(H, p.y + vel.vy * 0.4))
-          };
-        });
-      } else if (dtMs >= 220) {
+      if (dtMs >= 320) {
         lastHands = []; lastFist = []; rawPrev = []; sizeHist = [];
         handTracks.forEach((t) => t.reset());
         handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
-        euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
       }
     }
   } catch (err) {
@@ -10402,82 +10416,68 @@ function drawBodyRunner(ctx, ux, hipY, feetY, u, run, t) {
     ctx.restore();
   }
 
-  // 4. 러너 전신 스켈레톤 (네온 사이버 신체 & 실제 커스튬 도킹)
+  // 4. 🤖 탈출런 주인공: 우리만의 귀여운 로봇 '볼트(Bolt)' 캐릭터 렌더링!
   const tilt = Math.max(-0.25, Math.min(0.25, (run.laneX - run.lane) * 0.4));
   ctx.translate(ux, hipY);
   ctx.rotate(tilt);
 
   // 달리기 애니메이션 사이클
-  const runFreq = 11;
+  const runFreq = 12;
   const legCycle = Math.sin(t * runFreq);
   const armCycle = Math.cos(t * runFreq);
 
-  // 러너 스켈레톤 앵커 계산 (u 기준 상대 좌표)
-  const duckScale = run.duck ? 0.55 : 1.0;
-  const headPos = { x: 0, y: -u * 1.55 * duckScale };
-  const chestPos = { x: 0, y: -u * 0.95 * duckScale };
-  const hipPos = { x: 0, y: 0 };
-  const lHand = { x: -u * 0.55, y: chestPos.y + armCycle * u * 0.4 * duckScale };
-  const rHand = { x: u * 0.55, y: chestPos.y - armCycle * u * 0.4 * duckScale };
-  const lFoot = { x: -u * 0.35, y: u * 1.55 * (run.duck ? 0.6 : 1.0) + legCycle * u * 0.3 };
-  const rFoot = { x: u * 0.35, y: u * 1.55 * (run.duck ? 0.6 : 1.0) - legCycle * u * 0.3 };
+  const duckScale = run.duck ? 0.62 : 1.0;
+  const charU = u * 1.05 * duckScale;
 
-  // 4-1. 사이버 네온 관절 라인 렌더링
-  ctx.save();
-  ctx.strokeStyle = run.duck ? "#00ffcc" : "#00d2ff";
-  ctx.shadowColor = ctx.strokeStyle;
-  ctx.shadowBlur = 12;
-  ctx.lineWidth = 6;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  // 볼트(Bolt) 캐릭터용 정밀 3D 뼈대(sk) 구축
+  const headPos = [0, -charU * 1.55];
+  const neckPos = [0, -charU * 1.12];
+  const chestPos = [0, -charU * 0.95];
+  const hipMid = [0, 0];
+  const ls = [-charU * 0.34, -charU * 0.95];
+  const rs = [charU * 0.34, -charU * 0.95];
+  const le = [-charU * 0.44, -charU * 0.5 + armCycle * charU * 0.18];
+  const re = [charU * 0.44, -charU * 0.5 - armCycle * charU * 0.18];
+  const lw = [-charU * 0.50, -charU * 0.1 + armCycle * charU * 0.35];
+  const rw = [charU * 0.50, -charU * 0.1 - armCycle * charU * 0.35];
+  const lh = [-charU * 0.20, 0];
+  const rh = [charU * 0.20, 0];
+  const lk = [-charU * 0.24, charU * 0.65 + (run.duck ? 0 : legCycle * charU * 0.22)];
+  const rk = [charU * 0.24, charU * 0.65 - (run.duck ? 0 : legCycle * charU * 0.22)];
+  const la = [-charU * 0.26, charU * 1.45 + (run.duck ? -charU * 0.35 : legCycle * charU * 0.32)];
+  const ra = [charU * 0.26, charU * 1.45 - (run.duck ? -charU * 0.35 : legCycle * charU * 0.32)];
 
-  // 척추 & 몸통
-  ctx.beginPath();
-  ctx.moveTo(headPos.x, headPos.y);
-  ctx.lineTo(chestPos.x, chestPos.y);
-  ctx.lineTo(hipPos.x, hipPos.y);
-  ctx.stroke();
-
-  // 양팔
-  ctx.beginPath();
-  ctx.moveTo(lHand.x, lHand.y);
-  ctx.lineTo(chestPos.x, chestPos.y);
-  ctx.lineTo(rHand.x, rHand.y);
-  ctx.stroke();
-
-  // 양다리
-  ctx.beginPath();
-  ctx.moveTo(lFoot.x, lFoot.y);
-  ctx.lineTo(hipPos.x, hipPos.y);
-  ctx.lineTo(rFoot.x, rFoot.y);
-  ctx.stroke();
-
-  // 관절 노드 점
-  ctx.fillStyle = "#ffffff";
-  [headPos, chestPos, hipPos, lHand, rHand, lFoot, rFoot].forEach((p) => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  ctx.restore();
-
-  // 5. 플레이어 커스튬 파츠 렌더링! (모자, 얼굴, 상의, 하의, 신발 등 실시간 연동)
-  const runnerSkel = new Array(33).fill(null);
-  runnerSkel[0] = { x: headPos.x, y: headPos.y };               // 머리
-  runnerSkel[11] = { x: chestPos.x - u * 0.4, y: chestPos.y }; // 왼어깨
-  runnerSkel[12] = { x: chestPos.x + u * 0.4, y: chestPos.y }; // 오른어깨
-  runnerSkel[15] = lHand;                                       // 왼손
-  runnerSkel[16] = rHand;                                       // 오른손
-  runnerSkel[23] = { x: hipPos.x - u * 0.25, y: hipPos.y };   // 골반좌
-  runnerSkel[24] = { x: hipPos.x + u * 0.25, y: hipPos.y };   // 골반우
-  runnerSkel[27] = lFoot;                                       // 왼발
-  runnerSkel[28] = rFoot;                                       // 오른발
+  const boltSk = {
+    u: charU,
+    head: headPos,
+    neck: neckPos,
+    ls, rs, le, re, lw, rw,
+    lh, rh, lk, rk, la, ra,
+    hipMid,
+    est: { hips: false, legs: false, arms: false, head: false }
+  };
 
   try {
-    drawEquippedCostumesOnBody(ctx, runnerSkel, [lHand, rHand], false);
+    drawCharacter(ctx, "bolt", boltSk, { t, mood: run.lives > 1 ? "happy" : "normal", shadow: false });
   } catch (err) {
-    // 🛡️ Zero-Crash Policy: 커스튬 예외 격리
+    console.warn("볼트 캐릭터 렌더링 예외:", err);
   }
+
+  // 5. 플레이어 커스튬 파츠 도킹 (모자/가면/오라 등)
+  const runnerSkel = new Array(33).fill(null);
+  runnerSkel[0] = { x: headPos[0], y: headPos[1] };
+  runnerSkel[11] = { x: ls[0], y: ls[1] };
+  runnerSkel[12] = { x: rs[0], y: rs[1] };
+  runnerSkel[15] = { x: lw[0], y: lw[1] };
+  runnerSkel[16] = { x: rw[0], y: rw[1] };
+  runnerSkel[23] = { x: lh[0], y: lh[1] };
+  runnerSkel[24] = { x: rh[0], y: rh[1] };
+  runnerSkel[27] = { x: la[0], y: la[1] };
+  runnerSkel[28] = { x: ra[0], y: ra[1] };
+
+  try {
+    drawEquippedCostumesOnBody(ctx, runnerSkel, [{ x: lw[0], y: lw[1] }, { x: rw[0], y: rw[1] }], false);
+  } catch (err) {}
 
   ctx.restore();
 }
