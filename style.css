@@ -500,23 +500,24 @@ body.playing .bg-ambience { display: none; }
   100% { opacity: 1; box-shadow: inset 0 0 90px rgba(255, 50, 100, 0.95), inset 0 0 160px rgba(255, 200, 0, 0.7); }
 }
 
-/* 웨이브 전환 배너 */
-.wave-banner { position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%) scale(0.8); pointer-events: none; z-index: 35; text-align: center;
-  background: radial-gradient(circle, rgba(20, 6, 43, 0.95) 0%, rgba(20, 6, 43, 0.7) 70%, transparent 100%);
-  padding: 24px 60px; border-radius: 36px; border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(12px);
-  animation: bannerPop 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.wave-banner-text { font-family: var(--font-display); font-size: clamp(2.5rem, 8vw, 4.8rem); font-weight: 900; color: #fff; text-shadow: 0 0 30px rgba(0, 210, 255, 0.9); letter-spacing: -0.02em; }
-.wave-banner-sub { font-family: var(--font-display); font-size: clamp(1.2rem, 3.5vw, 2.2rem); font-weight: 800; color: var(--neon-gold); text-shadow: 0 0 20px rgba(251, 181, 0, 0.8); }
-.wave-banner.fever-mode { border-color: rgba(255, 50, 100, 0.8); box-shadow: 0 0 50px rgba(255, 0, 80, 0.5); }
-.wave-banner.fever-mode .wave-banner-text { color: #fff; text-shadow: 0 0 40px #ff0055, 0 0 70px #ff7700; }
+/* 웨이브 및 피버 전환 배너 (화면 중앙 플레이 필드를 가리지 않도록 상단 HUD 아래 컴팩트하게 배치) */
+.wave-banner { position: fixed; top: 14%; left: 50%; transform: translate(-50%, -50%) scale(0.85); pointer-events: none; z-index: 35; text-align: center;
+  background: radial-gradient(circle, rgba(20, 6, 43, 0.88) 0%, rgba(20, 6, 43, 0.65) 75%, transparent 100%);
+  padding: 8px 32px; border-radius: 20px; border: 1.5px solid rgba(255, 255, 255, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  animation: bannerPop 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.wave-banner-text { font-family: var(--font-display); font-size: clamp(1.4rem, 3.6vw, 2.3rem); font-weight: 900; color: #fff; text-shadow: 0 0 20px rgba(0, 210, 255, 0.85); letter-spacing: -0.01em; line-height: 1.1; }
+.wave-banner-sub { font-family: var(--font-display); font-size: clamp(0.85rem, 1.8vw, 1.15rem); font-weight: 800; color: var(--neon-gold); text-shadow: 0 0 14px rgba(251, 181, 0, 0.7); }
+.wave-banner.fever-mode { border-color: rgba(255, 50, 100, 0.85); box-shadow: 0 0 30px rgba(255, 0, 80, 0.5); }
+.wave-banner.fever-mode .wave-banner-text { color: #fff; text-shadow: 0 0 25px #ff0055, 0 0 45px #ff7700; }
 .wave-banner.fever-mode .wave-banner-sub { color: #ffeb3b; }
 
 @keyframes bannerPop {
-  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
-  25% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
-  45% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0; }
+  0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0; }
+  18% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+  35% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  72% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.06); opacity: 0; }
 }
 @keyframes feverPulse {
   0% { transform: scale(1); filter: brightness(1); }

@@ -1409,7 +1409,7 @@ function triggerWaveBanner(text, sub, isFever = false) {
     clearTimeout(waveBannerTimeout);
     waveBannerTimeout = setTimeout(() => {
       try { banner.classList.add("hidden"); } catch {}
-    }, 1600);
+    }, 850);
   } catch {}
 }
 
@@ -1832,13 +1832,21 @@ function updateLiveHud(force = false) {
     }
   }
 
-  // 6. 상단 가이드 배너
-  const guideIcon = $("hudGuideIcon");
-  const guideMain = $("hudGuideMain");
-  const guideSub = $("hudGuideSub");
-  if (guideIcon) guideIcon.textContent = meta.guideIcon || "⚡";
-  if (guideMain) guideMain.textContent = meta.guideMain;
-  if (guideSub) guideSub.textContent = meta.guideSub;
+  // 6. 상단 가이드 배너 (준비타임에만 안내하고 게임 시작 시 사라져 게임에 집중)
+  const guideBanner = $("hudGuideBanner");
+  if (guideBanner) {
+    if (isReadyTime) {
+      guideBanner.classList.remove("hidden");
+      const guideIcon = $("hudGuideIcon");
+      const guideMain = $("hudGuideMain");
+      const guideSub = $("hudGuideSub");
+      if (guideIcon) guideIcon.textContent = meta.guideIcon || "⚡";
+      if (guideMain) guideMain.textContent = meta.guideMain;
+      if (guideSub) guideSub.textContent = meta.guideSub;
+    } else {
+      guideBanner.classList.add("hidden");
+    }
+  }
 
   // 7. 실시간 모션 스피드 / 텔레메트리
   let leftSpd = 0, rightSpd = 0;
