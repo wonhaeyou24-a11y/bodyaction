@@ -35,8 +35,13 @@ export class AlphaBeta {
     if (Math.hypot(rx, ry) > this.jumpPx) {              // 큰 점프: 바로 따라가고 속도는 다시 시작
       this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.t = t; this.cx = this.cy = 0; this._last = null; return;
     }
-    this.x = px + this.alpha * rx;
-    this.y = py + this.alpha * ry;
+    // ⚡ One Euro Filter 원리: 빠른 손 휘두름(0.2px/ms 이상) 시 지연 시간(Lag) 최소화
+    const spd = Math.hypot(this.vx, this.vy);
+    const effAlpha = this.adaptive && spd > 0.18
+      ? Math.min(0.72, this.alpha + Math.min(0.18, (spd - 0.18) * 0.15))
+      : this.alpha;
+    this.x = px + effAlpha * rx;
+    this.y = py + effAlpha * ry;
     const k = this.beta / Math.max(16, step);            // 결과가 너무 자주 와도 속도가 폭주하지 않게 최소 16ms
     this.vx += k * rx;
     this.vy += k * ry;

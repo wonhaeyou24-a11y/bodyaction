@@ -216,22 +216,22 @@ function beep(freq, dur = 0.12, type = "sine", vol = 0.15, pan) { try { tone(fre
 // 효과음 모음: x(화면 가로 위치)를 주면 그쪽에서 소리가 남
 const sfx = {
   pop(x, gold) {
-    const t = ac().currentTime, p = panOf(x);
-    noise(t, 0.08, 0.3, 1500, p); tone(gold ? 1200 : 700 + Math.random() * 250, t, 0.12, "triangle", 0.15, 200, p);
-    if (gold) { tone(1568, t + 0.06, 0.2, "sine", 0.12, undefined, p); tone(2093, t + 0.12, 0.25, "sine", 0.1, undefined, p); }
+    const t = ac().currentTime, p = panOf(x), pitch = this.comboPitch();
+    noise(t, 0.08, 0.3, 1500, p); tone((gold ? 1200 : 700 + Math.random() * 250) * pitch, t, 0.12, "triangle", 0.15, 200, p);
+    if (gold) { tone(1568 * pitch, t + 0.06, 0.2, "sine", 0.12, undefined, p); tone(2093 * pitch, t + 0.12, 0.25, "sine", 0.1, undefined, p); }
   },
   slice(x) {
-    const t = ac().currentTime, p = panOf(x);
-    noise(t, 0.16, 0.28, 2500, p); tone(1300, t, 0.12, "sawtooth", 0.05, 300, p); tone(260, t + 0.04, 0.1, "square", 0.08, 100, p);
+    const t = ac().currentTime, p = panOf(x), pitch = this.comboPitch();
+    noise(t, 0.16, 0.28, 2500, p); tone(1300 * pitch, t, 0.12, "sawtooth", 0.05, 300, p); tone(260 * pitch, t + 0.04, 0.1, "square", 0.08, 100, p);
   },
   bomb(x) {
     const t = ac().currentTime, p = panOf(x);
     noise(t, 0.7, 0.5, 200, p); tone(120, t, 0.55, "sawtooth", 0.3, 35, p);
   },
   whack(x, bonus) {
-    const t = ac().currentTime, p = panOf(x);
-    tone(320, t, 0.12, "square", 0.12, 120, p); tone(bonus ? 900 : 520, t + 0.05, 0.15, "triangle", 0.15, undefined, p);
-    if (bonus) tone(1175, t + 0.12, 0.2, "triangle", 0.12, undefined, p);
+    const t = ac().currentTime, p = panOf(x), pitch = this.comboPitch();
+    tone(320 * pitch, t, 0.12, "square", 0.12, 120, p); tone((bonus ? 900 : 520) * pitch, t + 0.05, 0.15, "triangle", 0.15, undefined, p);
+    if (bonus) tone(1175 * pitch, t + 0.12, 0.2, "triangle", 0.12, undefined, p);
   },
   meteor(x, big) {
     const t = ac().currentTime, p = panOf(x);
@@ -283,6 +283,23 @@ const sfx = {
   tick() {
     const t = ac().currentTime;
     tone(1200, t, 0.03, "sine", 0.08); // 롤링 카운터 틱음
+  },
+  comboPitch() {
+    return Math.min(1.5, Math.pow(1.05946, Math.min(8, (combo || 1) - 1)));
+  },
+  nearMiss(x) {
+    const t = ac().currentTime, p = panOf(x);
+    // ⚡ 아슬아슬 회피! 순간 슬로우모션 휘파람 윈드 사운드 + 카운터 벨
+    tone(880, t, 0.18, "sine", 0.35, 1400, p);
+    tone(1760, t + 0.04, 0.22, "triangle", 0.4, 2200, p);
+    noise(t, 0.18, 0.22, 3500, p);
+  },
+  feverStart() {
+    const t = ac().currentTime;
+    // 🔥 FEVER OVERDRIVE! 묵직한 베이스 킥 + 상승 팡파르
+    tone(85, t, 0.55, "sawtooth", 0.65, 30);
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + 0.05 + i * 0.06, 0.22, "triangle", 0.35));
+    noise(t, 0.35, 0.3, 1400);
   },
   fanfare() {
     const t = ac().currentTime;
@@ -1324,6 +1341,14 @@ function award(x, y, pts, color = "#fff") {
   comboTimer = COMBO_WINDOW; maxCombo = Math.max(maxCombo, combo);
   const bonus = combo >= 3 ? Math.min(combo - 2, 10) : 0;
   
+  // 🔥 [스킬 기반 피버] 10 콤보 돌파 시 즉각 피버 오버드라이브 발동!
+  if (combo === 10 && !isFeverTime) {
+    isFeverTime = true;
+    triggerWaveBanner("🔥 FEVER OVERDRIVE!", "10 COMBO 돌파! 점수 2배 폭발!", true);
+    sfx.feverStart?.();
+    addShake?.(0.22, 7);
+  }
+
   // 🔥 피버 타임일 때는 기본 획득 점수 2배!
   const multiplier = isFeverTime ? 2 : 1;
   const gained = (pts + bonus) * multiplier;
@@ -3127,6 +3152,13 @@ games.dodge = {
             endGame();
             return; // 🛡️ 사망 시 남은 루프 즉시 안전 탈출
           }
+        } else if (!it.coin && !it.nearMissed && torso.some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 52)) {
+          // ⚡ [Near-Miss] 바위를 간발의 차로 아슬아슬하게 피했을 때 스릴 보너스!
+          it.nearMissed = true;
+          award(it.x, it.y, 2, "#00ffff");
+          popup(it.x, it.y - 25, "⚡ NEAR MISS! +2", "#00ffff");
+          sfx.nearMiss?.(it.x);
+          addShake?.(0.12, 4);
         }
         if (!it.dead && it.y > H + it.r) { it.dead = true; if (!it.coin && b) { score += 1; popup(it.x, H - 60, "+1", "#9fe8ff"); } }
       }
@@ -9645,7 +9677,18 @@ games.crun = {
     for (const e of ev) {
       if (e.type === "jump") { tone(480, ac().currentTime, 0.14, "triangle", 0.16, 900); burst(px, H * 0.9, "#00d2ff", 10); }
       else if (e.type === "coin") { award(px, py - 40, 1, "#ffd166"); sfx.pop(px, true); }
-      else if (e.type === "pass") { award(px, py - 60, e.obs === "wall" ? 2 : 3, "#7df9ff"); }
+      else if (e.type === "pass") {
+        // ⚡ [Near-Miss] 아슬아슬하게 점프/슬라이딩/레인 비켜서 통과 시 쾌감 보너스!
+        const isNear = (e.obs === "low" && run.y < 0.65) || (e.obs === "high" && run.ducking) || (e.obs === "wall" && Math.abs(run.laneX - e.lane) < 1.25);
+        if (isNear) {
+          award(px, py - 60, e.obs === "wall" ? 4 : 5, "#00ffff");
+          popup(px, py - 95, "⚡ NEAR MISS! +5", "#00ffff");
+          sfx.nearMiss?.(px);
+          addShake?.(0.12, 4);
+        } else {
+          award(px, py - 60, e.obs === "wall" ? 2 : 3, "#7df9ff");
+        }
+      }
       else if (e.type === "hit") { combo = 0; this.flash = 1; sfx.crash(); addShake?.(0.18, 8); popup(px, py - 40, "쾅! 💥", "#ff6b6b"); if (run.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (run.lives > 1) speak("앗, 조심!"); }
       else if (e.type === "life") { popup(px, py - 80, "❤️ 목숨 회복!", "#ff9ad5"); sfx.levelUp(); }
       else if (e.type === "over") { endGame(); return; }
