@@ -193,9 +193,52 @@ body.playing .bg-ambience { display: none; }
 
 /* ------------------ 게임 카드 그리드 ------------------ */
 .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
-.card { --accent: #00d2ff; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; background: linear-gradient(135deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04));
-  border: 1.5px solid rgba(255, 255, 255, .2); backdrop-filter: blur(10px); transition: transform .25s, box-shadow .25s, border-color .25s; }
+.card { --accent: #00d2ff; position: relative; cursor: pointer; user-select: none; display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; background: linear-gradient(135deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04));
+  border: 1.5px solid rgba(255, 255, 255, .2); backdrop-filter: blur(10px); transition: transform .18s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow .18s, border-color .18s; }
 .card:hover { transform: translateY(-8px); border-color: var(--accent); box-shadow: 0 16px 34px color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* 💥 카드 클릭 시 즉각적인 3D 압축 피드백 (눌렀다는 느낌 100% 보장) */
+.card:active, .card.card-pressing {
+  transform: translateY(6px) scale(0.96) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7), 0 0 35px var(--accent) !important;
+  transition: transform 0.05s ease !important;
+}
+.card.card-launching {
+  animation: cardLaunchAnim 0.55s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  pointer-events: none;
+}
+@keyframes cardLaunchAnim {
+  0% { transform: translateY(6px) scale(0.96); box-shadow: 0 0 30px var(--accent); }
+  45% { transform: translateY(-10px) scale(1.04); box-shadow: 0 0 60px var(--accent), 0 0 100px #ffffff; border-color: #ffffff; }
+  100% { transform: translateY(0) scale(1); box-shadow: 0 0 35px var(--accent); }
+}
+
+/* ⚡ 카드 로딩 중 오버레이 칩 */
+.card-loading-badge {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 24px;
+  background: rgba(18, 6, 40, 0.94);
+  border: 2.5px solid var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 0 30px var(--accent), 0 12px 30px rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  animation: badgePopAnim 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes badgePopAnim {
+  0% { transform: translate(-50%, -40%) scale(0.65); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
 .card-img { position: relative; height: 190px; overflow: hidden; background: #14062b; }
 .card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
 .card:hover .card-img img { transform: scale(1.1); }

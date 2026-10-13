@@ -2575,28 +2575,170 @@ const Art = {
     } catch {}
   },
 
-  // 10. 3D 축구 골대 & 축구공 (모션 키퍼)
+  // 10. 🏟️ 1인칭 POV 프로페셔널 축구 경기장 & 3D 골대 (내가 골라인에 선 진짜 골키퍼 시점!)
   drawSoccerField(goalW, goalH, lives) {
     try {
-      // 골대 프레임
-      const gx = W / 2 - goalW / 2, gy = H * 0.15;
       ctx.save();
-      // 골 그물망
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.18)"; ctx.lineWidth = 1.5;
-      for (let x = gx; x <= gx + goalW; x += 32) {
-        ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(gx + (x - gx) * 0.9, gy + goalH); ctx.stroke();
+
+      // [1단계: 밤하늘 & 스타디움 서치라이트 & 관중석 배경]
+      const horizonY = H * 0.38;
+      
+      // 밤하늘
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+      skyGrad.addColorStop(0, "#030a14");
+      skyGrad.addColorStop(1, "#0a2218");
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, W, horizonY);
+
+      // 스타디움 볼류메트릭 서치라이트 (조명 4개)
+      [W * 0.15, W * 0.38, W * 0.62, W * 0.85].forEach((lx, i) => {
+        ctx.save();
+        ctx.fillStyle = "rgba(165, 243, 252, 0.08)";
+        ctx.beginPath();
+        ctx.moveTo(lx, 0);
+        ctx.lineTo(lx - 120 + i * 40, horizonY);
+        ctx.lineTo(lx + 120 + i * 40, horizonY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 저 멀리 관중석 스타디움 링 & 전광판 불빛
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      ctx.fillRect(0, horizonY - 45, W, 45);
+      // 관중석 반짝이는 응원 불빛 파티클
+      for (let i = 0; i < 35; i++) {
+        const sx = (i * 37) % W, sy = horizonY - 10 - ((i * 13) % 30);
+        ctx.fillStyle = i % 3 === 0 ? "#ffd166" : (i % 2 === 0 ? "#38bdf8" : "#ffffff");
+        ctx.globalAlpha = 0.4 + (i % 5) * 0.12;
+        ctx.fillRect(sx, sy, 3, 3);
       }
-      for (let y = gy; y <= gy + goalH; y += 28) {
-        ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx + goalW, y); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // [2단계: 원근감 축구장 잔디 피치 (Perspective Soccer Pitch)]
+      const pitchGrad = ctx.createLinearGradient(0, horizonY, 0, H);
+      pitchGrad.addColorStop(0, "#06381f");
+      pitchGrad.addColorStop(0.4, "#0b532d");
+      pitchGrad.addColorStop(1, "#0f6f3a");
+      ctx.fillStyle = pitchGrad;
+      ctx.fillRect(0, horizonY, W, H - horizonY);
+
+      // 잔디 스트라이프 패턴 (원근감 있게 아래로 올수록 넓어짐)
+      const numStripes = 7;
+      for (let i = 0; i < numStripes; i++) {
+        if (i % 2 === 0) {
+          const y1 = horizonY + Math.pow(i / numStripes, 1.6) * (H - horizonY);
+          const y2 = horizonY + Math.pow((i + 1) / numStripes, 1.6) * (H - horizonY);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.045)";
+          ctx.fillRect(0, y1, W, y2 - y1);
+        }
       }
-      // 흰색 골대 포스트
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 14; ctx.lineJoin = "round";
-      ctx.shadowColor = "rgba(0, 210, 255, 0.5)"; ctx.shadowBlur = 16;
+
+      // [3단계: 페널티 박스 라인 & 페널티 스팟 & 아크 (원근법)]
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.lineWidth = 3.5;
+      
+      // 페널티 에어리어 사다리꼴 라인
       ctx.beginPath();
-      ctx.moveTo(gx, gy + goalH); ctx.lineTo(gx, gy); ctx.lineTo(gx + goalW, gy); ctx.lineTo(gx + goalW, gy + goalH);
+      ctx.moveTo(W * 0.28, horizonY + 20);
+      ctx.lineTo(W * 0.72, horizonY + 20);
+      ctx.lineTo(W * 0.88, H * 0.88);
+      ctx.lineTo(W * 0.12, H * 0.88);
+      ctx.closePath();
       ctx.stroke();
+
+      // 페널티 스팟 (저 멀리 키커가 공을 차는 지점! 하얀 원)
+      const penaltySpotY = horizonY + (H * 0.88 - horizonY) * 0.38;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(W / 2, penaltySpotY, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 페널티 아크 (반원)
+      ctx.beginPath();
+      ctx.arc(W / 2, penaltySpotY, 52, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+
+      // [4단계: 골키퍼 발밑의 순백색 골라인 (Goal Line)]
+      // "내가 지금 골라인 위에 서 있다!"는 확실한 1인칭 현장감
+      const goalLineY = H * 0.92;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(0, goalLineY);
+      ctx.lineTo(W, goalLineY);
+      ctx.stroke();
+
+      // [5단계: 1인칭 시점의 거대한 골대 포스트 & 3D 그물 (First-Person Goalpost)]
+      // 골키퍼(나)의 시점: 골대 포스트는 화면 좌/우/상단 가장자리에 거대하게 서서 나를 감싸고 있음!
+      const postLeftX = W * 0.045;
+      const postRightX = W * 0.955;
+      const crossbarY = H * 0.075;
+
+      // 3D 깊이 그물망 (골대 기둥에서 등 뒤 깊은 곳으로 뻗어 나감)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.lineWidth = 1.6;
+
+      // 좌측 그물망 (뒤쪽 벽으로 수렴)
+      for (let y = crossbarY; y <= goalLineY; y += 32) {
+        ctx.beginPath();
+        ctx.moveTo(postLeftX, y);
+        ctx.lineTo(-W * 0.08, y - 25);
+        ctx.stroke();
+      }
+      // 우측 그물망 (뒤쪽 벽으로 수렴)
+      for (let y = crossbarY; y <= goalLineY; y += 32) {
+        ctx.beginPath();
+        ctx.moveTo(postRightX, y);
+        ctx.lineTo(W * 1.08, y - 25);
+        ctx.stroke();
+      }
+      // 천장 그물망
+      for (let x = postLeftX; x <= postRightX; x += 36) {
+        ctx.beginPath();
+        ctx.moveTo(x, crossbarY);
+        ctx.lineTo(x, -H * 0.05);
+        ctx.stroke();
+      }
+
+      // 🌟 [웅장한 순백색 메탈릭 골대 기둥 (좌측 포스트, 우측 포스트, 상단 크로스바)]
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // 그림자/외곽 글로우
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
+      ctx.lineWidth = 26;
+      ctx.beginPath();
+      ctx.moveTo(postLeftX + 3, goalLineY + 12);
+      ctx.lineTo(postLeftX + 3, crossbarY + 3);
+      ctx.lineTo(postRightX + 3, crossbarY + 3);
+      ctx.lineTo(postRightX + 3, goalLineY + 12);
+      ctx.stroke();
+
+      // 메인 화이트 골대 파이프
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 22;
+      ctx.beginPath();
+      ctx.moveTo(postLeftX, goalLineY + 10);
+      ctx.lineTo(postLeftX, crossbarY);
+      ctx.lineTo(postRightX, crossbarY);
+      ctx.lineTo(postRightX, goalLineY + 10);
+      ctx.stroke();
+
+      // 3D 메탈릭 하이라이트 코어 빔
+      ctx.strokeStyle = "rgba(200, 240, 255, 0.85)";
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(postLeftX - 3, goalLineY + 10);
+      ctx.lineTo(postLeftX - 3, crossbarY - 3);
+      ctx.lineTo(postRightX + 3, crossbarY - 3);
+      ctx.lineTo(postRightX + 3, goalLineY + 10);
+      ctx.stroke();
+
       ctx.restore();
-    } catch {}
+    } catch (err) {
+      console.warn("SoccerField 1인칭 렌더 오류:", err);
+    }
   },
   drawSoccerBall(x, y, r, rot = 0) {
     try {
@@ -5222,28 +5364,44 @@ games.keeper = {
     this.flash = 0;
   },
   spawn() {
-    this.goalW = Math.min(W * 0.72, 700);
-    this.goalH = H * 0.65;
     // ⚡ 1.9배 쾌속 슈팅으로 진짜 월드컵 승부차기 같은 날렵한 반응성 부여
     const speed = (0.42 + elapsed() * 0.007) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
-    const gx = W / 2 - this.goalW / 2;
-    const targetX = gx + 60 + Math.random() * (this.goalW - 120);
-    const targetY = H * 0.15 + 40 + Math.random() * (this.goalH - 80);
+    
+    // 저 멀리 페널티 스팟(출발 지점)에서 출발
+    const startX = W / 2 + (Math.random() - 0.5) * 80;
+    const startY = H * 0.44;
+    
+    // 골키퍼(나)가 지키는 골대 안쪽으로 날아오는 착탄 목표 좌표 (좌우 구석, 상단 구석 등)
+    const targetX = W * 0.12 + Math.random() * (W * 0.76);
+    const targetY = H * 0.16 + Math.random() * (H * 0.68);
+    
     objs.push({
-      z: 0.05, speed, targetX, targetY,
-      x: W / 2, y: H * 0.45,
-      rot: 0, r: 18, dead: false, saved: false
+      z: 0.04, speed,
+      startX, startY,
+      targetX, targetY,
+      x: startX, y: startY,
+      rot: 0, r: 14, dead: false, saved: false,
+      bounceVx: 0, bounceVy: 0
     });
   },
   interval: () => Math.max(0.32, 0.72 - elapsed() * 0.008),
   update(dt) {
     this.flash = Math.max(0, this.flash - dt * 2);
     for (const b of objs) {
+      if (b.saved) {
+        // 슈퍼 세이브 후 공이 튕겨나가는 물리 연출
+        b.x += b.bounceVx * dt;
+        b.y += b.bounceVy * dt;
+        b.bounceVy += 400 * dt;
+        b.rot += 0.2;
+        continue;
+      }
+
       b.z += b.speed * dt * (0.8 + b.z * 1.4);
-      b.x = W / 2 + (b.targetX - W / 2) * b.z;
-      b.y = H * 0.45 + (b.targetY - H * 0.45) * b.z;
-      b.r = 16 + b.z * 50;
-      b.rot += 0.08;
+      b.x = b.startX + (b.targetX - b.startX) * b.z;
+      b.y = b.startY + (b.targetY - b.startY) * b.z;
+      b.r = 14 + b.z * 56;
+      b.rot += 0.12;
 
       if (!b.dead && !b.saved && b.z >= 0.75 && b.z <= 1.05) {
         let blocked = false;
@@ -5265,6 +5423,8 @@ games.keeper = {
         }
         if (blocked) {
           b.saved = true;
+          b.bounceVx = (b.x < W / 2 ? -1 : 1) * (200 + Math.random() * 250);
+          b.bounceVy = -(280 + Math.random() * 200);
           this.saves++;
           sfx.gksave(b.x);
           burst(b.x, b.y, "#22c55e", 30);
@@ -7325,20 +7485,71 @@ customAudioInput?.addEventListener("change", (e) => {
 });
 
 // 게임 시작 (카메라/인식 준비 -> 시작). 메뉴 버튼과 온라인 대결이 같이 써요. 시작하지 못하면 false.
+// 게임 시작 (카메라/인식 준비 -> 시작). 메뉴 버튼과 온라인 대결이 같이 써요. 시작하지 못하면 false.
 async function launchGame(modeName, opts = {}) {
+  // 🎵 [1단계: 즉각적인 아케이드 타격 사운드] 0.001초 만에 귀로 눌렸음을 100% 인지!
+  try {
+    ac();
+    const t = actx ? actx.currentTime : 0;
+    tone(480, t, 0.07, "triangle", 0.35);
+    tone(820, t + 0.05, 0.12, "sine", 0.40);
+  } catch {}
+
+  // 💥 [2단계: 즉각적인 카드 3D 압축 & 네온 플래시 피드백]
+  const cardBtn = document.querySelector(`.mode[data-mode="${modeName}"]`);
+  const cardEl = cardBtn?.closest(".card");
+  let loadingBadge = null;
+
+  if (cardEl) {
+    cardEl.classList.add("card-pressing");
+    setTimeout(() => {
+      cardEl.classList.remove("card-pressing");
+      cardEl.classList.add("card-launching");
+    }, 80);
+
+    // 중복 생성 방지 후 네온 로딩 칩 부착
+    if (!cardEl.querySelector(".card-loading-badge")) {
+      loadingBadge = document.createElement("div");
+      loadingBadge.className = "card-loading-badge";
+      loadingBadge.innerHTML = "<span>⚡ 입장 준비 중...</span>";
+      cardEl.appendChild(loadingBadge);
+    }
+  }
+
   useMouse = $("useMouse").checked;
   if (!useMouse) {
-    if (!(await ensureVideo())) return false;
-    if (!(await ensureModel(games[modeName].body ? "pose" : "hand"))) return false;
+    if (!(await ensureVideo())) {
+      loadingBadge?.remove();
+      cardEl?.classList.remove("card-launching");
+      return false;
+    }
+    if (!(await ensureModel(games[modeName].body ? "pose" : "hand"))) {
+      loadingBadge?.remove();
+      cardEl?.classList.remove("card-launching");
+      return false;
+    }
   }
-  // 🎵 네온 노트 슬래시는 곡을 고르지 않고 매번 랜덤으로 시작해요 (온라인 대결은 방장이 이미 곡을 골랐어요). 곡 선택 창(openBeatTrackSelector)은 지금은 쓰지 않아요.
+
+  // 🎵 네온 노트 슬래시는 곡을 고르지 않고 매번 랜덤으로 시작해요 (온라인 대결은 방장이 이미 곡을 골랐어요).
   if (modeName === "beat" && !opts.online) games.beat.chosenTrackId = null;
+  
   startGame(modeName, opts);
+  setTimeout(() => {
+    loadingBadge?.remove();
+    cardEl?.classList.remove("card-launching");
+  }, 400);
+
   return true;
 }
-document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => launchGame(b.dataset.mode)));
-// 카드의 아무 곳이나 눌러도 게임 시작
-document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", (e) => { if (!e.target.closest(".mode")) c.querySelector(".mode")?.click(); }));
+document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", (e) => {
+  e.stopPropagation();
+  launchGame(b.dataset.mode);
+}));
+// 카드의 아무 곳이나 눌러도 게임 시작 & 즉시 3D 스쿼시 반응
+document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", (e) => {
+  const btn = c.querySelector(".mode");
+  if (btn) launchGame(btn.dataset.mode);
+}));
 $("again").onclick = () => {
   if (bus.onlineActive) { bus.emit("online:rematch"); return; }   // 온라인 대결 중: 상대와 서로 눌러야 다시 시작 (재대결)
   startGame(mode);                                                // 혼자: 이전에 고른 곡 유지하여 즉시 재도전
