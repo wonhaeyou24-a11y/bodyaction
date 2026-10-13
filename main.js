@@ -1005,8 +1005,8 @@ function updatePointers() {
         }
       }
     }
-    // 🛡️ 화면 밖으로 나갔을 때 즉각 모션 해제 (사람이 화면을 벗어나면 즉시 잡혀있던 모션을 풀어 굳어버리는 현상 원천 차단)
-    if (now - bodySeen > 350) {
+    // 🛡️ 화면 밖으로 나갔을 때 모션 해제 (워커 지연 및 점프 중 랜드마크 순간 누락에 안전하게 700ms 버퍼 적용)
+    if (now - bodySeen > 700) {
       bodyHave = false;
       body = null;
       bodyVelocities = [];
@@ -1028,7 +1028,7 @@ function updatePointers() {
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
-    if (now - lastHandT0 > 350) {
+    if (now - lastHandT0 > 700) {
       lastHands = [];
       pts = [];
       handTracks.forEach((t) => t.reset());
@@ -6961,6 +6961,9 @@ function frame(now) {
 }
 
 function startGame(m, opts = {}) {
+  // 👑 1, 2, 3등 커스튬 장비: 프로필 등수에 맞게 해당 게임 고유 장비 자동 착용 출전
+  autoEquipRankCostumeForGame(m);
+
   seedGame(opts.seed);                                                            // 온라인 대결이면 같은 시드 = 같은 판
   visionAI.setActive(useMouse ? null : (games[m].body ? "pose" : "hand"));          // ⚡ 이번 게임에 필요한 인식만 작업자에서 돌림
   if (m === "beat" && opts.trackId) games.beat.chosenTrackId = opts.trackId;      // 온라인: 방장이 고른 곡
@@ -8608,8 +8611,44 @@ async function getPlayerRankForGame(gameId) {
   if (!Array.isArray(list) || list.length === 0) return 0;
   const bestVal = +(await SecureStore.loadCheckpoint(recKey("best-" + gameId, pid), 0)) || 0;
   if (bestVal <= 0) return 0;
-  const idx = list.indexOf(bestVal);
+  const idx = list.findIndex((e) => {
+    const s = typeof e === "object" ? Number(e.score ?? e.s) : Number(e);
+    return s === bestVal;
+  });
   return idx >= 0 ? idx + 1 : 0;
+}
+
+// 👑 1, 2, 3등 커스튬 장비: 프로필로 게임에 진입하면 그 프로필의 등수에 맞는 고유 장비를 자동 장착해서 시작
+async function autoEquipRankCostumeForGame(modeId) {
+  if (!modeId) return null;
+  const rewardList = RANK_REWARDS[modeId];
+  if (!rewardList) return null;
+
+  try {
+    const rank = await getPlayerRankForGame(modeId);
+    if (rank >= 1 && rank <= 3) {
+      const rankIdx = rank - 1; // 0: 1등, 1: 2등, 2: 3등
+      const itemId = rewardList[rankIdx];
+      const item = COSTUME_ITEMS[itemId];
+      if (item && item.slot) {
+        costumeInventory.add(itemId);       // 인벤토리 즉시 해금/보유 처리
+        equippedCostume[item.slot] = itemId; // 해당 부위에 자동 장착!
+        saveCostumeData();
+
+        const medalEmoji = ["🥇", "🥈", "🥉"][rankIdx] || "👑";
+        const rankLabels = ["1등 전설", "2등 영웅", "3등 희귀"][rankIdx];
+
+        setTimeout(() => {
+          popup(W / 2, H * 0.40, `${medalEmoji} [${rankLabels} 장비] ${item.name} 자동 착용!`, item.color || "#ffd700");
+          sfx.equip?.();
+        }, 180);
+        return item;
+      }
+    }
+  } catch (err) {
+    console.warn("등수 장비 자동 착용 처리 예외 (안전 복구):", err);
+  }
+  return null;
 }
 
 // 🔒 아이템 착용 자격 검사 (순위 기반 독점 / 강등 판정)
@@ -11324,7 +11363,7 @@ games.crun = {
       let lane = run.lane, bodyJump = false, bodyDuck = false;
       const b = !useMouse ? getBody() : null, sk = b ? skeletonFromBody(b) : null;
       if (sk) {
-        const sw = Math.hypot(sk.rs[0] - sk.ls[0], sk.rs[1] - sk.ls[1]);
+        const sw = Math.max(50, Math.hypot(sk.rs[0] - sk.ls[0], sk.rs[1] - sk.ls[1]) || 80);
         lane = stepLane(this.ls, ((sk.ls[0] + sk.rs[0]) / 2) / sw, dt, (((bodyTracks[11]?.vx ?? 0) + (bodyTracks[12]?.vx ?? 0)) / 2) * 1000 / sw) + 1;
         const sm = jumpSample(b); if (sm) { const r = stepJump(this.js, sm, dt, now); bodyJump = r.jump; bodyDuck = r.duck; }
       }

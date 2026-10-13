@@ -11,7 +11,7 @@ const SH_MIN_V = 0.25;                  // 어깨 가시성 기준 완화 (어�
 const HIP_MIN_V = 0.4;
 const JUMP_V = 0.45;                    // 점프 속도: 몸통 길이/초
 const JUMP_RISE = 0.08;                 // 최근 0.4초 안에 가장 낮았던 곳에서 몸통 길이의 8% 이상 올라가야
-const DUCK_ON = 0.14, DUCK_OFF = 0.10;  // 숙이기 기준
+const DUCK_ON = 0.15, DUCK_OFF = 0.10;  // 숙이기 기준
 const COOLDOWN_MS = 340, STAND_UP_BLOCK_MS = 250, HIST_MS = 400;
 
 /** 몸 점(33개)에서 판정에 쓸 값 {y, tl}을 뽑아요. 못 구하면 null. y=어깨 중심 높이, tl=몸통 길이(없으면 null) */
@@ -65,8 +65,10 @@ export function stepJump(s, sm, dt, now) {
 
   let low = y; for (const h of s.hist) if (h.y > low) low = h.y;
   const rise = low - y;                                               // 최근 0.4초 중 가장 낮은 곳에서 올라온 높이
-  const up = !s.ducking && now - s.lastDuck > STAND_UP_BLOCK_MS && s.vUp > JUMP_V * tl && rise > JUMP_RISE * tl;   // 웅크렸다 일어서는 동작(0.25초)은 점프가 아니에요
-  s.upFrames = up ? s.upFrames + 1 : 0;                               // 한 프레임 튐은 무시: 연속 2프레임 이어져야 해요
+
+  const up = !s.ducking && now - s.lastDuck > STAND_UP_BLOCK_MS && s.vUp > JUMP_V * tl && rise > JUMP_RISE * tl;
+  s.upFrames = up ? s.upFrames + 1 : 0;                               // 한 프레임 튐 무시: 연속 2프레임 필수
+
   const fire = s.upFrames >= 2 && !s.prevUp && now - s.lastJump > COOLDOWN_MS;
   if (fire) s.lastJump = now;
   s.prevUp = s.upFrames >= 2;
