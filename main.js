@@ -10,7 +10,7 @@ import { AlphaBeta } from "./tracker.js?v=20261013_1630";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
 import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength, skeletonFromAngles, poseById } from "./poses.js?v=20261013_0900";
-import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js?v=20261013_0900";
+import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js?v=20261013_2245";
 import { bakeToon } from "./costume-toon.js?v=20261013_0900";
 import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_1630";
 import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
@@ -494,7 +494,6 @@ const INTRO = {
   beat: "음악에 맞춰 날아오는 네온 큐브를 온몸으로 시원하게 베어내세요!",
   keeper: "골대를 향해 날아오는 공을 온몸과 손으로 막아내세요!",
   box: "샌드백을 향해 양주먹으로 신나게 펀치를 연타하세요!",
-  baseball: "타석에 서서 날아오는 공을 배트로 힘차게 휘둘러 홈런을 날리세요!",
 };
 
 // 배경음악: 게임마다 분위기가 다르고, 시간이 갈수록 점점 빨라짐
@@ -667,7 +666,6 @@ const BGM = {
   beat:    { ...BEAT_TRACKS[0] },
   keeper:  { bpm: 130, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "pop", vol: 0.65 },
   box:     { bpm: 136, root: 196, scale: [0, 1, 5, 7, 8], prog: [0, 0, 5, 3], wave: "sawtooth", drums: "taiko", vol: 0.70 },
-  baseball:{ bpm: 128, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 0], wave: "sawtooth", drums: "pop", vol: 0.70 },
 };
 const ARP = [0, 2, 1, 3, 2, 4, 3, 1];
 let bgmNext = 0, bgmStep = 0;
@@ -1662,27 +1660,6 @@ const GAME_HUD_META = {
       { label: "POPPED", val: score },
       { label: "STREAK", val: `${combo}x` },
       { label: "BURST", val: "MAX" }
-    ]
-  },
-  baseball: {
-    theme: "space",
-    badge: "DUAL VIEWPORT & CUSTOM BATTER",
-    title: "NEON SLAM BASEBALL",
-    sub: "3D STADIUM & MOTION MIRROR",
-    guideIcon: "⚾",
-    guideMain: "SWING THE BAT & WATCH YOUR CUSTOM BATTER HIT!",
-    guideSub: "좌측 타석의 커스튬 타자와 내 움직임이 100% 동기화! 온몸으로 시원하게 휘두르세요!",
-    leftName: "BAT SPEED",
-    rightName: "LAUNCH DISTANCE",
-    leftUnit: "KM/H",
-    rightUnit: "M",
-    leftDesc: "ANGULAR VELOCITY",
-    rightDesc: "PROJECTED FLIGHT",
-    odTitle: "🚀 GRAND SLAM FEVER (만루 홈런 피버)",
-    getMetrics: (g) => [
-      { label: "HITS", val: g?.hits ?? 0 },
-      { label: "HOMERUN", val: g?.homeRuns ?? 0 },
-      { label: "LONGEST", val: `${g?.maxDist ?? 0}m` }
     ]
   }
 };
@@ -3658,7 +3635,7 @@ addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") pos
 addEventListener("pointerdown", () => { if (mode === "pose" && useMouse) poseMatchKey = performance.now(); });
 const POSE_PRAISE = ["좋아요! 👍", "잘했어요! 🎉", "멋져요! ✨", "완벽해요! 💯"];
 games.pose = {
-  bg: "#1f1147", camAlpha: 0.85, body: true, noCursor: true, manual: true,
+  bg: "#1f1147", camAlpha: 0.40, body: true, noCursor: true, manual: true,
   init() {
     this.level = 1; this.cfg = levelConfig(1); this.done = 0; this.streak = 0; this.lastId = null; this.pose = null;
     this.t = 0; this.trans = 1; this.happy = 0; this.ok = false; this.match = null; this.syncPct = 0; this.hint = null; this.hintT = 0; this.spoke = false;
@@ -3714,10 +3691,15 @@ games.pose = {
   draw() {
     if (!this.pose) return;
     const body = getBody(), legs = needsLegs(this.pose);
-    // 1) 내 몸 위: 목표 자세 가이드(점선) + 마디별 맞음(초록)/틀림(주황)
-    if (body && bv(body, 11, 0.45) && bv(body, 12, 0.45)) {
+    // 1) 내 몸 위: 실물 1:1 홀로그램 가이드라인 + 사이버 타겟 링 + 마디별 전신 네온 스켈레톤
+    if (body && bv(body, 11, 0.35) && bv(body, 12, 0.35)) {
       const u = torsoLength(body);
-      drawGhost(ctx, this.to, { x: (body[11].x + body[12].x) / 2, y: (body[11].y + body[12].y) / 2 }, u, { legs, alpha: this.level >= 4 ? 0.4 : 0.6 });
+      drawGhost(ctx, this.to, { x: (body[11].x + body[12].x) / 2, y: (body[11].y + body[12].y) / 2 }, u, {
+        body,
+        legs,
+        alpha: this.level >= 4 ? 0.65 : 0.85,
+        t: this.t,
+      });
     }
     drawUserLimbs(ctx, body, this.match, this.pose, { needLegs: legs });
 
@@ -5998,753 +5980,6 @@ games.box = {
 
 // ============================================================================
 // ============================================================================
-// ⚾ 네온 슬램 야구 (NEON SLAM BASEBALL) - 듀얼 분할 화면 & 커스튬 타자 캐릭터 엔진
-// ============================================================================
-games.baseball = {
-  body: true, // 🧍 온몸 피트니스 배팅 모드: 전신 포즈 인식 활성화
-  bg: "#07111e",
-  camAlpha: 0.35,
-  trail: "#00d2ff",
-  init() {
-    this.hits = 0;
-    this.homeRuns = 0;
-    this.maxDist = 0;
-    this.strikes = 0;
-    this.batSpeed = 0;
-    this.isSwinging = false;
-    this.swingTimer = 0;
-    this.batAngle = -0.6;
-    this.flightBalls = []; // 홈런/안타로 장외로 날아가는 타구 목록
-    this.flash = 0;
-    this.stadiumCheer = 0;
-    this.swingTrail = []; // 배트 스윙 궤적 네온 잔상
-
-    // 듀얼 분할 기준 좌표: 화면 너비의 60%를 좌측 야구장, 40%를 우측 웹캠 모션 뷰로 분할
-    this.fieldRatio = 0.60;
-  },
-  spawn() {
-    const fieldW = Math.floor(W * this.fieldRatio);
-    const waveMult = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.15 : 1.0;
-    // ⚡ 1.6배 고속 투구로 실제 야구 타석 같은 생생한 타격 타이밍 제공
-    const baseSpd = 0.48 + elapsed() * 0.008;
-    const speed = baseSpd * waveMult;
-
-    // 0: 직구(Fastball), 1: 슬라이더(Slider), 2: 커브(Curve), 3: 체인지업(Changeup), 4: 골든파이어볼(Fever)
-    const pitchType = isFeverTime ? "fire" : ["fast", "curve", "slider", "change"][(Math.random() * 4) | 0];
-
-    // 투구는 좌측 경기장의 중앙 마운드에서 홈플레이트로 날아옴
-    const fieldCx = fieldW * 0.52;
-    const moundX = fieldCx + (Math.random() - 0.5) * 26;
-    const moundY = H * 0.40;
-    const plateX = fieldCx + (Math.random() - 0.5) * 90;
-    const plateY = H * 0.76 + (Math.random() - 0.5) * 45;
-
-    objs.push({
-      z: 0.05,
-      speed,
-      type: pitchType,
-      moundX, moundY,
-      plateX, plateY,
-      x: moundX,
-      y: moundY,
-      r: 14,
-      rot: 0,
-      hit: false,
-      dead: false,
-      resolved: false
-    });
-  },
-  interval: () => Math.max(0.55, 1.05 - elapsed() * 0.010),
-  update(dt) {
-    this.flash = Math.max(0, this.flash - dt * 2);
-    this.stadiumCheer = Math.max(0, this.stadiumCheer - dt);
-    this.swingTimer = Math.max(0, this.swingTimer - dt);
-    if (this.swingTimer <= 0) this.isSwinging = false;
-
-    const fieldW = Math.floor(W * this.fieldRatio);
-    const fieldCx = fieldW * 0.52;
-    const plateX = fieldCx;
-    const plateY = H * 0.76;
-
-    // 1. 플레이어 모션 인식: 상체 & 양팔 배팅 폼 및 스윙 가속도 산출
-    let curSpeed = 0;
-    let swingImpulse = false;
-    const skel = getBody();
-
-    if (useMouse) {
-      curSpeed = mouse.speed || (mouse.down ? 25 : 0);
-      if (mouse.down && !this.isSwinging) {
-        swingImpulse = true;
-        this.isSwinging = true;
-        this.swingTimer = 0.25;
-        this.batSpeed = Math.floor(105 + Math.random() * 45);
-      }
-    } else if (skel && (skel[15] || skel[16])) {
-      // 🧍 몸 게임 포즈 기반: 손목(15, 16) 및 팔꿈치(13, 14) 가속도 판정
-      const leftWrist = skel[15], rightWrist = skel[16];
-      let maxWristSpeed = 0;
-
-      if (leftWrist && (leftWrist.v ?? 1) > 0.25) {
-        const p0 = pointers.find((p) => p.x === leftWrist.x) || pointers[0];
-        maxWristSpeed = Math.max(maxWristSpeed, p0?.vps ?? (p0?.speed ? p0.speed * 60 : 0));
-      }
-      if (rightWrist && (rightWrist.v ?? 1) > 0.25) {
-        const p1 = pointers.find((p) => p.x === rightWrist.x) || pointers[1] || pointers[0];
-        maxWristSpeed = Math.max(maxWristSpeed, p1?.vps ?? (p1?.speed ? p1.speed * 60 : 0));
-      }
-
-      curSpeed = maxWristSpeed || (pointers[0] ? pointers[0].speed * 45 : 0);
-
-      // 손 이동 속도 피크 또는 스윙 제스처 감지 시 스윙 발동!
-      const swingThreshold = 320.0;
-      if (curSpeed > swingThreshold && !this.isSwinging) {
-        swingImpulse = true;
-        this.isSwinging = true;
-        this.swingTimer = 0.26;
-        this.batSpeed = Math.min(170, Math.floor(85 + (curSpeed / 500) * 85));
-      }
-    } else if (pointers.length > 0) {
-      curSpeed = pointers[0].vps ?? (pointers[0].speed * 60);
-      if (curSpeed > 280 && !this.isSwinging) {
-        swingImpulse = true;
-        this.isSwinging = true;
-        this.swingTimer = 0.25;
-        this.batSpeed = Math.min(160, Math.floor(80 + curSpeed * 0.18));
-      }
-    }
-
-    if (swingImpulse) {
-      sfx.batSwing(fieldCx);
-      addShake(0.06, 5);
-    }
-
-    // 2. 날아오는 투구 3D 물리 업데이트 및 타격 판정
-    const batHitX = plateX, batHitY = plateY - 12;
-    const batReach = 90 + reach;
-
-    for (const b of objs) {
-      if (b.dead || b.hit) continue;
-
-      let curveOffset = 0;
-      if (b.type === "slider") curveOffset = Math.sin(b.z * Math.PI) * 55;
-      else if (b.type === "curve") curveOffset = -Math.sin(b.z * Math.PI) * 55;
-      else if (b.type === "change") curveOffset = Math.sin(b.z * Math.PI * 2) * 20;
-
-      const spdFactor = b.type === "fast" ? 1.25 : b.type === "change" ? 0.85 : 1.0;
-      b.z += b.speed * spdFactor * dt * (0.8 + b.z * 1.5);
-      b.x = b.moundX + (b.plateX - b.moundX) * b.z + curveOffset;
-      b.y = b.moundY + (b.plateY - b.moundY) * b.z;
-      b.r = 10 + b.z * 46;
-      b.rot += 0.15;
-
-      // 타격 판정 존: b.z가 홈플레이트 부근(0.82 ~ 1.08)일 때
-      if (!b.resolved && b.z >= 0.82 && b.z <= 1.08) {
-        const dist = Math.hypot(b.x - batHitX, b.y - batHitY);
-
-        if (this.isSwinging && dist < batReach + b.r) {
-          b.hit = true;
-          b.resolved = true;
-          this.hits++;
-
-          const timingAccuracy = 1 - Math.abs(b.z - 0.95) / 0.13;
-          const centerAccuracy = 1 - Math.min(1, dist / (batReach + b.r));
-          const hitPower = timingAccuracy * 0.6 + centerAccuracy * 0.4;
-
-          if (hitPower > 0.60 || b.type === "fire") {
-            // 🚀 PERFECT HOME RUN!!
-            this.homeRuns++;
-            const launchDist = Math.floor(130 + hitPower * 40 + (this.batSpeed - 80) * 0.38);
-            this.maxDist = Math.max(this.maxDist, launchDist);
-            const pts = b.type === "fire" ? 250 : 160;
-            award(b.x, b.y, pts, "#00d2ff");
-            sfx.homeRun(b.x);
-            burst(b.x, b.y, "#00d2ff", 42);
-            burst(b.x, b.y, "#ffd166", 28);
-            popup(b.x, b.y - 70, `🚀 HOME RUN!! ${launchDist}m`, "#00d2ff");
-            triggerWaveBanner("🚀 HOME RUN!", `${launchDist}M 장외 홈런!`, false);
-            this.stadiumCheer = 1.3;
-            this.flash = 1.0;
-            addShake(0.24, 15);
-
-            this.flightBalls.push({
-              x: b.x, y: b.y,
-              vx: (b.x - fieldCx) * 1.8 - 40,
-              vy: -780 - hitPower * 260,
-              r: b.r,
-              color: "#00d2ff",
-              dist: launchDist,
-              t: 0
-            });
-          } else if (hitPower > 0.35) {
-            // ⚡ GREAT HIT! (안타)
-            const pts = 85;
-            award(b.x, b.y, pts, "#ffd166");
-            sfx.hitHeavy(b.x);
-            burst(b.x, b.y, "#ffd166", 22);
-            popup(b.x, b.y - 45, "GREAT HIT! ⚡", "#ffd166");
-            addShake(0.10, 6);
-
-            this.flightBalls.push({
-              x: b.x, y: b.y,
-              vx: (b.x - fieldCx) * 2.6 - 20,
-              vy: -500,
-              r: b.r * 0.8,
-              color: "#ffd166",
-              dist: Math.floor(75 + hitPower * 35),
-              t: 0
-            });
-          } else {
-            // ⚾ FOUL BALL (파울)
-            award(b.x, b.y, 25, "#94a3b8");
-            sfx.chip(b.x);
-            popup(b.x, b.y - 35, "FOUL 💨", "#94a3b8");
-          }
-        }
-      }
-
-      if (!b.resolved && b.z > 1.08) {
-        b.resolved = true;
-        b.dead = true;
-        this.strikes++;
-        combo = 0;
-        sfx.hitHeavy(b.x);
-        popup(b.x, b.y, "STRIKE! ❌", "#ff4d5e");
-      }
-    }
-
-    for (let i = this.flightBalls.length - 1; i >= 0; i--) {
-      const fb = this.flightBalls[i];
-      fb.t += dt;
-      fb.x += fb.vx * dt;
-      fb.y += fb.vy * dt;
-      fb.vy += 800 * dt;
-      fb.r = Math.max(4, fb.r * 0.985);
-      if (fb.y > H + 50 || fb.t > 2.0) {
-        this.flightBalls.splice(i, 1);
-      }
-    }
-  },
-  draw() {
-    const fieldW = Math.floor(W * this.fieldRatio);
-    const camW = W - fieldW;
-    const camX = fieldW;
-
-    // ========================================================================
-    // 🏟️ [VIEWPORT 1] 좌측: 3D 야구 경기장 & 커스튬 장착 타자 캐릭터
-    // ========================================================================
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, fieldW, H);
-    ctx.clip(); // 좌측 화면으로 렌더링 영역 제한
-
-    const cx = fieldW * 0.52, cy = H * 0.76;
-
-    // 1. 경기장 그라운드 & 조명
-    const stadiumBg = ctx.createLinearGradient(0, 0, 0, H);
-    stadiumBg.addColorStop(0, "#06101e");
-    stadiumBg.addColorStop(0.45, "#0b203a");
-    stadiumBg.addColorStop(1, "#0d281e");
-    ctx.fillStyle = stadiumBg;
-    ctx.fillRect(0, 0, fieldW, H);
-
-    // 외야 펜스 & 네온 라이트
-    const fenceGrad = ctx.createLinearGradient(0, H * 0.22, 0, H * 0.50);
-    fenceGrad.addColorStop(0, "rgba(0, 210, 255, 0.12)");
-    fenceGrad.addColorStop(1, "rgba(7, 17, 30, 0)");
-    ctx.fillStyle = fenceGrad;
-    ctx.fillRect(0, H * 0.22, fieldW, H * 0.30);
-
-    for (let i = 0; i < 6; i++) {
-      const lx = fieldW * (0.12 + i * 0.15);
-      const ly = H * 0.32;
-      const col = i % 2 === 0 ? "#00d2ff" : "#ffd166";
-      ctx.fillStyle = col;
-      ctx.shadowColor = col;
-      ctx.shadowBlur = this.stadiumCheer > 0 ? 30 : 12;
-      ctx.beginPath();
-      ctx.arc(lx, ly, this.stadiumCheer > 0 ? 8 : 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // 야구장 내야 다이아몬드 라인
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.45)";
-    ctx.lineWidth = 2.5;
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.moveTo(cx, H * 0.40);
-    ctx.lineTo(cx + fieldW * 0.32, H * 0.62);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx - fieldW * 0.32, H * 0.62);
-    ctx.closePath();
-    ctx.stroke();
-
-    // 1루, 2루, 3루 베이스
-    const drawBase = (bx, by) => {
-      ctx.save();
-      ctx.translate(bx, by);
-      ctx.rotate(Math.PI / 4);
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#00d2ff";
-      ctx.shadowBlur = 10;
-      ctx.fillRect(-8, -8, 16, 16);
-      ctx.restore();
-    };
-    drawBase(cx + fieldW * 0.32, H * 0.62);
-    drawBase(cx - fieldW * 0.32, H * 0.62);
-    drawBase(cx, H * 0.40);
-
-    // 투수 마운드
-    ctx.strokeStyle = "rgba(255, 209, 102, 0.6)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(cx, H * 0.42, 34, 15, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // 홈플레이트
-    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-    ctx.shadowColor = "#ffffff";
-    ctx.shadowBlur = 15;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy + 20);
-    ctx.lineTo(cx - 22, cy - 5);
-    ctx.lineTo(cx - 22, cy - 18);
-    ctx.lineTo(cx + 22, cy - 18);
-    ctx.lineTo(cx + 22, cy - 5);
-    ctx.closePath();
-    ctx.fill();
-
-    // 좌/우 타자 배터 박스
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.4)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(cx - 72, cy - 35, 38, 70); // 좌타석 (플레이어 타자 위치)
-    ctx.strokeRect(cx + 34, cy - 35, 38, 70);
-
-    // 스트라이크 존 가이드
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.28)";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(cx - 50, cy - 125, 100, 95);
-
-    // 2. 투구(야구공) 렌더링
-    for (const b of objs) {
-      if (b.dead || b.hit) continue;
-
-      ctx.save();
-      ctx.translate(b.x, b.y);
-
-      const tailColor = b.type === "fire" ? "#ff4b72" : b.type === "slider" ? "#a855f7" : "#00d2ff";
-      ctx.fillStyle = tailColor;
-      ctx.shadowColor = tailColor;
-      ctx.shadowBlur = 18;
-      ctx.beginPath();
-      ctx.arc(0, 0, b.r * 1.25, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#ffffff";
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#ff3344";
-      ctx.lineWidth = Math.max(1.5, b.r * 0.16);
-      ctx.shadowBlur = 0;
-      ctx.beginPath();
-      ctx.arc(-b.r * 0.45, 0, b.r * 0.65, -0.9, 0.9);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(b.r * 0.45, 0, b.r * 0.65, Math.PI - 0.9, Math.PI + 0.9);
-      ctx.stroke();
-
-      ctx.restore();
-    }
-
-    // 3. 장외로 날아가는 타구(홈런/안타) 렌더링
-    this.flightBalls.forEach((fb) => {
-      ctx.save();
-      ctx.fillStyle = fb.color;
-      ctx.shadowColor = fb.color;
-      ctx.shadowBlur = 25;
-      ctx.beginPath();
-      ctx.arc(fb.x, fb.y, fb.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    });
-
-    // ========================================================================
-    // 👤 [핵심 기능] 내 움직임에 의해 방망이를 휘두르는 타자 아바타 & 커스튬 100% 장착
-    // ========================================================================
-    const batterX = cx - 52;
-    const batterY = cy;
-    this.drawBatterWithCostumes(ctx, batterX, batterY);
-
-    // 하단 스탯 텍스트 (좌측 뷰포트 내)
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.font = "900 16px 'Rubik', sans-serif";
-    ctx.fillStyle = "#00d2ff";
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 8;
-    ctx.fillText(`⚡ BAT SPEED: ${this.batSpeed || 95} KM/H  |  LONGEST: ${this.maxDist}M  |  HOMERUNS: ${this.homeRuns}`, fieldW * 0.5, H - 28);
-    ctx.restore();
-
-    ctx.restore(); // 좌측 뷰포트 clip 해제
-
-    // ========================================================================
-    // 📹 [VIEWPORT 2] 우측: 내 웹캠 실시간 모션 인식 & 전신 스켈레톤 트래커
-    // ========================================================================
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(camX, 0, camW, H);
-    ctx.clip(); // 우측 화면으로 렌더링 영역 제한
-
-    // 1. 우측 룸 배경
-    const rightBg = ctx.createLinearGradient(camX, 0, W, H);
-    rightBg.addColorStop(0, "#0c081a");
-    rightBg.addColorStop(1, "#15092a");
-    ctx.fillStyle = rightBg;
-    ctx.fillRect(camX, 0, camW, H);
-
-    // 사이버 네온 그리드
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.12)";
-    ctx.lineWidth = 1;
-    for (let gy = 0; gy < H; gy += 45) {
-      ctx.beginPath(); ctx.moveTo(camX, gy); ctx.lineTo(W, gy); ctx.stroke();
-    }
-    for (let gx = camX; gx < W; gx += 45) {
-      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
-    }
-
-    // 2. 실시간 웹캠 비디오 피드 (우측 뷰포트에 거울 모드로 꽉 채움)
-    if (!useMouse && video && video.readyState >= 2) {
-      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-      const s = Math.max(camW / vw, H / vh);
-      ctx.save();
-      // 우측 영역 기준 좌우 반전(미러)
-      ctx.translate(camX + camW, 0);
-      ctx.scale(-1, 1);
-      ctx.globalAlpha = 0.45; // 선명하면서도 네온 UI와 매끄럽게 융합
-      try {
-        ctx.drawImage(video, (camW - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
-      } catch {}
-      ctx.restore();
-    }
-
-    // 3. 전신 스켈레톤 & 관절 렌더링 (우측 뷰포트 좌표계로 매핑)
-    const bodySkel = getBody();
-    if (!useMouse && bodySkel) {
-      // 본체 스켈레톤의 원본 좌표(0~W, 0~H)를 우측 뷰포트(camX~W)로 리매핑하여 그리기
-      this.drawRightMotionSkeleton(ctx, bodySkel, camX, camW);
-    }
-
-    // 4. 우측 뷰포트 상단 HUD 배지
-    ctx.save();
-    ctx.fillStyle = "rgba(12, 6, 24, 0.82)";
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.6)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(camX + 16, 20, camW - 32, 54, 12);
-    ctx.fill();
-    ctx.stroke();
-
-    // 펄스 녹색 닷
-    ctx.fillStyle = "#22c55e";
-    ctx.shadowColor = "#22c55e";
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    ctx.arc(camX + 38, 47, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.font = "900 15px 'Rubik', sans-serif";
-    ctx.fillStyle = "#00d2ff";
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 6;
-    ctx.textAlign = "left";
-    ctx.fillText("📹 MOTION TRACKER", camX + 54, 42);
-
-    ctx.font = "700 12px 'Nunito Sans', sans-serif";
-    ctx.fillStyle = "#e2e8f0";
-    ctx.shadowBlur = 0;
-    ctx.fillText("실시간 전신 배팅 폼 인식 중", camX + 54, 60);
-
-    // 5. 하단 배팅 코칭 가이드
-    ctx.fillStyle = "rgba(12, 6, 24, 0.85)";
-    ctx.strokeStyle = "rgba(255, 209, 102, 0.5)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(camX + 16, H - 76, camW - 32, 54, 12);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.font = "900 14px 'Rubik', sans-serif";
-    ctx.fillStyle = "#ffd166";
-    ctx.textAlign = "center";
-    ctx.fillText("⚾ 배팅 팁: 양손을 올리고 몸을 돌려 강하게 스윙하세요!", camX + camW / 2, H - 44);
-
-    ctx.restore();
-
-    ctx.restore(); // 우측 뷰포트 clip 해제
-
-    // ========================================================================
-    // ⚡ [DIVIDER] 중앙 네온 레이저 분할선
-    // ========================================================================
-    ctx.save();
-    const beamGrad = ctx.createLinearGradient(fieldW, 0, fieldW, H);
-    beamGrad.addColorStop(0, "rgba(0, 210, 255, 0.2)");
-    beamGrad.addColorStop(0.5, "rgba(0, 210, 255, 0.95)");
-    beamGrad.addColorStop(1, "rgba(225, 3, 125, 0.2)");
-    ctx.strokeStyle = beamGrad;
-    ctx.lineWidth = 4;
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.moveTo(fieldW, 0);
-    ctx.lineTo(fieldW, H);
-    ctx.stroke();
-
-    // 분할선 중앙 에너지 노드
-    ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 16;
-    ctx.beginPath();
-    ctx.arc(fieldW, H * 0.5, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  },
-
-  // 👤 타자 아바타 & 커스튬 100% 렌더링 함수
-  drawBatterWithCostumes(ctx, bx, by) {
-    const isSwinging = this.isSwinging;
-    const swingProg = isSwinging ? Math.min(1, Math.max(0, 1 - this.swingTimer / 0.26)) : 0;
-
-    // 배팅 회전 각도 및 신체 비틀림(Torso Twist)
-    // 준비 자세: -35도 뒤로 와인드업 / 스윙 중: -60도에서 +65도까지 맹렬히 회전
-    const swingAngle = isSwinging
-      ? -Math.PI * 0.75 + swingProg * Math.PI * 1.25
-      : -Math.PI * 0.28;
-    const bodyTwist = isSwinging ? Math.sin(swingProg * Math.PI) * 0.45 : -0.15;
-
-    ctx.save();
-    ctx.translate(bx, by);
-
-    // 타자 발밑 배터 박스 그림자
-    ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-    ctx.beginPath();
-    ctx.ellipse(0, 24, 42, 14, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 1. 타자 기본 아바타 몸체 (스킨 & 네온 사이버 아틀레틱스)
-    ctx.save();
-    // 다리 & 발
-    ctx.fillStyle = "#1e293b";
-    ctx.beginPath();
-    ctx.roundRect(-22, 0, 14, 28, 5); // 왼다리
-    ctx.roundRect(8, 0, 14, 28, 5);  // 오른다리
-    ctx.fill();
-
-    // 몸통/상체
-    ctx.rotate(bodyTwist);
-    ctx.fillStyle = "#0f172a";
-    ctx.beginPath();
-    ctx.roundRect(-24, -46, 48, 50, 8);
-    ctx.fill();
-
-    // 머리
-    ctx.fillStyle = "#ffd1a4"; // 살구색 피부
-    ctx.beginPath();
-    ctx.arc(0, -64, 18, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 눈 (투수 쪽을 응시)
-    ctx.fillStyle = "#111827";
-    ctx.beginPath();
-    ctx.arc(6, -65, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 양팔 & 배트 그립
-    const armX = 14 + Math.cos(swingAngle) * 16;
-    const armY = -34 + Math.sin(swingAngle) * 12;
-    ctx.strokeStyle = "#ffd1a4";
-    ctx.lineWidth = 10;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-12, -38);
-    ctx.lineTo(armX, armY);
-    ctx.moveTo(12, -38);
-    ctx.lineTo(armX, armY);
-    ctx.stroke();
-
-    ctx.restore(); // 몸통 로컬 회전 해제
-
-    // 2. 👗 커스튬 파츠 100% 장착 렌더링 (플레이어가 장착한 모든 복장 연동)
-    try {
-      const scale = 0.85;
-
-      // A. 오라 (Aura)
-      if (equippedCostume.aura && COSTUME_ITEMS[equippedCostume.aura]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.aura], { x: 0, y: -20, scale: scale * 1.3 });
-      }
-
-      // B. 등 / 날개 (Back)
-      if (equippedCostume.back && COSTUME_ITEMS[equippedCostume.back]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.back], { x: -8, y: -30, scale: scale * 0.95 });
-      }
-
-      // C. 하의 / 팬츠 (Legs)
-      if (equippedCostume.legs && COSTUME_ITEMS[equippedCostume.legs]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.legs], { x: 0, y: 10, scale, sx: 0.8, sy: 0.75 });
-      }
-
-      // D. 신발 / 스파이크 (Feet)
-      if (equippedCostume.feet && COSTUME_ITEMS[equippedCostume.feet]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.feet], { x: -15, y: 24, scale: scale * 0.75 });
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.feet], { x: 15, y: 24, scale: scale * 0.75 });
-      }
-
-      // E. 상의 / 유니폼 / 저지 (Body)
-      if (equippedCostume.body && COSTUME_ITEMS[equippedCostume.body]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.body], {
-          x: 0, y: -24, scale, sx: 0.85, sy: 0.85, angle: bodyTwist
-        });
-      }
-
-      // F. 머리 / 캡 / 헬멧 (Head)
-      if (equippedCostume.head && COSTUME_ITEMS[equippedCostume.head]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.head], {
-          x: 0, y: -72, scale: scale * 0.95, angle: bodyTwist * 0.6
-        });
-      }
-
-      // G. 얼굴 / 선글라스 / 마스크 (Face)
-      if (equippedCostume.face && COSTUME_ITEMS[equippedCostume.face]) {
-        drawCostumePiece(ctx, COSTUME_ITEMS[equippedCostume.face], {
-          x: 4, y: -64, scale: scale * 0.8, angle: bodyTwist * 0.6
-        });
-      }
-    } catch (err) {
-      console.warn("Baseball costume render error:", err);
-    }
-
-    // 3. 🏏 야구 배트 렌더링 (커스튬 무기 or 사이버 골든 배트)
-    ctx.save();
-    const gripX = 16 + Math.cos(swingAngle) * 18;
-    const gripY = -34 + Math.sin(swingAngle) * 14;
-    ctx.translate(gripX, gripY);
-    ctx.rotate(swingAngle);
-
-    // 만약 커스튬 손/무기(예: bat_gold 등)가 장착되어 있으면 해당 파츠 렌더링
-    if (equippedCostume.hand && COSTUME_ITEMS[equippedCostume.hand]) {
-      const batItem = COSTUME_ITEMS[equippedCostume.hand];
-      drawCostumePiece(ctx, batItem, { x: 45, y: 0, scale: 1.1, angle: Math.PI / 2 });
-    } else {
-      // 기본 크롬 & 네온 사이버 야구 배트
-      const batLen = 115 + (reach > 0 ? reach * 0.6 : 0);
-      const batGrad = ctx.createLinearGradient(0, 0, batLen, 0);
-      batGrad.addColorStop(0, "#ffffff");
-      batGrad.addColorStop(0.35, "#00d2ff");
-      batGrad.addColorStop(1, "#ffd166");
-
-      ctx.fillStyle = batGrad;
-      ctx.shadowColor = "#00d2ff";
-      ctx.shadowBlur = isSwinging ? 30 : 14;
-
-      ctx.beginPath();
-      ctx.moveTo(0, -4);
-      ctx.lineTo(28, -4);
-      ctx.lineTo(batLen - 12, -14);
-      ctx.arc(batLen - 12, 0, 14, -Math.PI / 2, Math.PI / 2);
-      ctx.lineTo(28, 4);
-      ctx.lineTo(0, 4);
-      ctx.closePath();
-      ctx.fill();
-
-      // 배트 노브
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(-3, 0, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-
-    // 4. 스윙 모션 블러 네온 아크
-    if (isSwinging) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(0, 210, 255, 0.85)";
-      ctx.shadowColor = "#00d2ff";
-      ctx.shadowBlur = 24;
-      ctx.lineWidth = 12;
-      ctx.beginPath();
-      ctx.arc(16, -34, 110, -Math.PI * 0.80, swingAngle);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    ctx.restore(); // 전체 타자 트랜스레이트 해제
-  },
-
-  // 📹 우측 뷰포트용 스켈레톤 및 관절 렌더링
-  drawRightMotionSkeleton(ctx, skel, camX, camW) {
-    if (!skel || !skel[0]) return;
-
-    // 원본 좌표 x: 0~W -> 우측 뷰포트 camX ~ camX + camW 로 사상 (거울 반전 고려)
-    const mapPt = (pt) => {
-      if (!pt) return null;
-      // 웹캠이 미러 반전되어 있으므로 좌표도 대칭 반전 매핑
-      const normX = 1 - (pt.x / W);
-      const mappedX = camX + normX * camW;
-      return { x: mappedX, y: pt.y, v: pt.v ?? 1 };
-    };
-
-    const connections = [
-      [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // 양팔
-      [11, 23], [12, 24], [23, 24],                     // 몸통/골반
-      [23, 25], [25, 27], [24, 26], [26, 28]           // 양다리
-    ];
-
-    ctx.save();
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.85)";
-    ctx.lineWidth = 4;
-    ctx.shadowColor = "#00d2ff";
-    ctx.shadowBlur = 12;
-
-    connections.forEach(([i1, i2]) => {
-      const p1 = mapPt(skel[i1]), p2 = mapPt(skel[i2]);
-      if (p1 && p2 && p1.v > 0.25 && p2.v > 0.25) {
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
-      }
-    });
-
-    // 관절 노드 (머리, 어깨, 팔꿈치, 손목 등)
-    [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].forEach((idx) => {
-      const p = mapPt(skel[idx]);
-      if (p && p.v > 0.25) {
-        const isHand = idx === 15 || idx === 16;
-        ctx.fillStyle = isHand ? "#ffd166" : "#ffffff";
-        ctx.shadowColor = isHand ? "#ffd166" : "#00d2ff";
-        ctx.shadowBlur = isHand ? 18 : 10;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, isHand ? 8 : 5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 손목 위치에 배팅 조준 링 표시
-        if (isHand) {
-          ctx.strokeStyle = "#ffd166";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-    });
-
-    ctx.restore();
-  }
-};
-
 let currentGameTotalSeconds = GAME_SECONDS;
 function elapsed() { return currentGameTotalSeconds - timeLeft; }
 
@@ -6921,7 +6156,7 @@ function drawBackground(color, camAlpha = 0.20) {
       ctx.fillStyle = "rgba(125,249,255,.8)"; ctx.fillRect(dx - 2, dy - 2, dw + 4, dh + 4);
       ctx.save(); ctx.translate(dx + dw, dy); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, dw, dh); ctx.restore(); } catch {}
   }
-  if (!pip && !useMouse && video && video.readyState >= 2 && mode !== "baseball") {
+  if (!pip && !useMouse && video && video.readyState >= 2) {
     const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
     const s = Math.max((W + 48) / vw, (H + 48) / vh);
     ctx.save();
@@ -7065,10 +6300,10 @@ function frame(now) {
       drawCombo();
       // 👗 모든 인게임 모드에서 장착된 커스튬 파츠(모자, 날개, 의상, 무기, 오라) 실시간 렌더링
       // (야구 모드는 좌측 타자 아바타 캐릭터가 커스튬을 100% 장착하고 출전하므로 중복 방지)
-      if (mode !== "baseball" && !g?.noCostume) {        // 캐릭터 게임(noCostume)은 고른 캐릭터가 주인공이라 몸 위에 커스튬을 덧입히지 않아요
+      if (!g?.noCostume) {        // 캐릭터 게임(noCostume)은 고른 캐릭터가 주인공이라 몸 위에 커스튬을 덧입히지 않아요
         drawEquippedCostumesOnBody(ctx, getBody(), pointers);
       }
-      if (g && !g.noCursor && mode !== "baseball") drawTrails(g.trail ?? "#fff");
+      if (g && !g.noCursor) drawTrails(g.trail ?? "#fff");
     } catch (fxErr) {
       console.warn("In-game FX draw error:", fxErr);
     }
@@ -7157,7 +6392,6 @@ const RANK_THRESHOLDS = {
   keeper:  [68, 210, 580, 980, 1400],
   box:     [640, 1300, 1800, 2200, 2800],
   beat:    [11000, 19000, 34000, 61000, 120000],   // 점수 이중 계산 수정 후 다시 계산
-  baseball:[450, 900, 1500, 2200, 3200],
 };
 const RANK_DEFAULT = [35, 70, 120, 180, 260];   // 기준이 없는 게임용 기본값 (예전 기준)
 
@@ -7408,7 +6642,7 @@ async function showBest() {
     ["balloon", "풍선"], ["ninja", "과일"], ["space", "유성"], ["bballoon", "몸풍선"], ["bspace", "몸유성"], ["crun", "캐릭터런"], ["cduel", "검방패"],
     ["brick", "벽돌"], ["kungfu", "쿵푸"], ["dodge", "피하기"],
     ["pose", "포즈"], ["runner", "달리기"], ["beat", "슬래시"],
-    ["keeper", "골키퍼"], ["box", "펀치백"], ["baseball", "야구"]
+    ["keeper", "골키퍼"], ["box", "펀치백"]
   ];
   const items = await Promise.all(modesList.map(async ([m, n]) => {
     const val = await SecureStore.loadCheckpoint(recKey("best-" + m), 0);
@@ -8480,25 +7714,7 @@ const COSTUME_ITEMS = {
     id: "aura_dark_dragon", name: "칠흑 흑염룡 마계 각성 오라", slot: "aura", tier: "hero", price: 450000,
     icon: "🔮", desc: "보랏빛 흑염과 검은 마기가 몸 주변을 격렬하게 휘감는 다크 포스 오라!", color: "#c026d3"
   },
-
-  // --- [1. 야구 게임 (baseball)] ---
-  bat_gold: {
-    id: "bat_gold", name: "골든 슬러거 배트", slot: "hand", tier: "legend",
-    icon: "⚡", desc: "1등 최고급 독점! 장외 홈런을 터뜨리는 전설의 골든 배트. 1등을 뺏기면 회수됩니다.",
-    color: "#ffd700", game: "baseball"
-  },
-  cap_cyber: {
-    id: "cap_cyber", name: "사이버 홈런 캡", slot: "head", tier: "hero",
-    icon: "🧢", desc: "2등 중고급 독점! 레이저 바이저가 장착된 미래형 야구 모자.",
-    color: "#00d2ff", game: "baseball"
-  },
-  jersey_neon: {
-    id: "jersey_neon", name: "네온 베이스볼 저지", slot: "body", tier: "rare",
-    icon: "👕", desc: "3등 보급형 독점! 네온 스트라이프가 숨 쉬듯 깜빡이는 야구 유니폼.",
-    color: "#ff2e93", game: "baseball"
-  },
-
-  // --- [2. 쿵푸 대전 (kungfu)] ---
+  // --- [1. 쿵푸 대전 (kungfu)] ---
   aura_dragon: {
     id: "aura_dragon", name: "비룡 용오름 각성 오라", slot: "aura", tier: "legend",
     icon: "🐉", desc: "1등 최고급 독점! 전신을 휘감으며 회전하는 전설의 푸른 용오름 기운. 1등 상징 복장.",
@@ -8688,7 +7904,6 @@ const COSTUME_ITEMS = {
 
 // 2. 12개 게임 전체 1등 독점 보상 매핑 테이블 (모자/가면/오라 카테고리만 & 1등만 적용)
 const RANK_REWARDS = {
-  baseball: ["cap_cyber"],       // 🧢 모자·헤드 (1등 전설 사이버 홈런 캡)
   kungfu:   ["aura_dragon"],     // 🐉 오라 (1등 전설 비룡 용오름 각성 오라)
   runner:   ["helm_visor"],      // 🥽 모자·헤드 (1등 전설 홀로그램 러너 바이저 헬멧)
   beat:     ["head_phones"],     // 🎧 모자·헤드 (1등 전설 사이버 비트 헤드폰)
@@ -10980,7 +10195,7 @@ async function resetAllGameScores() {
   const modesList = [
     "balloon", "ninja", "space", "bballoon", "bspace", "crun", "cduel",
     "brick", "kungfu", "dodge", "pose", "runner", "beat",
-    "keeper", "box", "baseball"
+    "keeper", "box"
   ];
   try {
     // 1. 등록된 모든 프로필 및 기본 프로필의 최고점수와 순위표 완전 초기화
