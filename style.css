@@ -2448,26 +2448,90 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   opacity: 0.65;
   transform: scale(0.92);
 }
-.ribbon-item-card:hover {
-  opacity: 0.92;
+
+/* 🔒 미소장(미보유) 장비: 어둡고 흑백 톤다운하여 명확히 구분 */
+.ribbon-item-card.is-unowned {
+  opacity: 0.35;
+  filter: brightness(0.45) grayscale(0.85);
+  background: rgba(8, 4, 16, 0.72);
+  border: 1.5px dashed rgba(255, 255, 255, 0.16);
+}
+.ribbon-item-card.is-unowned .ric-name {
+  color: #8892b0;
+}
+.ribbon-item-card.is-unowned .ric-status-badge {
+  background: rgba(0, 0, 0, 0.55);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.ribbon-item-card.is-unowned:hover {
+  opacity: 0.72;
+  filter: brightness(0.72) grayscale(0.4);
   transform: scale(1.0);
-  border-color: rgba(0, 240, 255, 0.6);
+  border-color: rgba(255, 215, 0, 0.5);
+}
+
+/* 🔒 미소장 카드에 표시되는 자물쇠 아이콘 */
+.ribbon-item-card .ric-lock-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.85rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9));
+  z-index: 2;
+  line-height: 1;
+}
+
+/* ✨ 소장 완료 장비: 밝고 선명한 네온 컬러 */
+.ribbon-item-card.is-owned {
+  opacity: 0.88;
+  filter: none;
+  background: rgba(16, 9, 34, 0.88);
+  border: 2px solid rgba(0, 240, 255, 0.3);
+}
+.ribbon-item-card.is-owned .ric-name {
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.35);
+}
+.ribbon-item-card.is-owned:hover {
+  opacity: 1;
+  transform: scale(1.0);
+  border-color: rgba(0, 240, 255, 0.8);
 }
 
 /* 중앙 포커스된 활성 카드 (확대 & 발광) */
 .ribbon-item-card.active {
   width: 130px;
   height: 140px;
-  opacity: 1;
   transform: scale(1.15);
+  z-index: 10;
+}
+
+/* 활성 상태 - 미소장 아이템 포커스 (골드 톤 쇼케이스) */
+.ribbon-item-card.is-unowned.active {
+  opacity: 0.94;
+  filter: brightness(0.85) grayscale(0.15);
+  background: rgba(24, 14, 8, 0.95);
+  border: 2px solid #f59e0b;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.55), inset 0 0 15px rgba(245, 158, 11, 0.2);
+}
+.ribbon-item-card.is-unowned.active .ric-name {
+  color: #ffffff;
+}
+
+/* 활성 상태 - 소장 아이템 포커스 (사이언 톤 쇼케이스) */
+.ribbon-item-card.is-owned.active {
+  opacity: 1;
+  filter: none;
   border-color: #00f0ff;
   background: rgba(28, 14, 58, 0.96);
   box-shadow: 0 0 35px rgba(0, 240, 255, 0.7), inset 0 0 20px rgba(0, 240, 255, 0.25);
-  z-index: 10;
 }
+
+/* 현재 착용 중 카드 */
 .ribbon-item-card.equipped-now {
-  border-color: #ff2e93;
-  box-shadow: 0 0 35px rgba(255, 46, 147, 0.7), inset 0 0 20px rgba(255, 46, 147, 0.25);
+  border-color: #ff2e93 !important;
+  box-shadow: 0 0 35px rgba(255, 46, 147, 0.75), inset 0 0 20px rgba(255, 46, 147, 0.25) !important;
 }
 
 .ribbon-item-card .ric-icon-wrap {
@@ -2486,7 +2550,6 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 .ribbon-item-card .ric-name {
   font-size: 0.8rem;
   font-weight: 800;
-  color: #ffffff;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;

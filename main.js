@@ -10065,10 +10065,12 @@ async function renderCostumeWheel() {
 
     let statusText = itEquipped ? "착용 중" : (itOwned ? "소장 중" : `🪙 ${itPrice.toLocaleString()}`);
     let statusClass = itEquipped ? "status-equipped" : (itOwned ? "status-owned" : "status-buy");
+    const ownedClass = itOwned ? "is-owned" : "is-unowned";
 
     return `
-      <div class="ribbon-item-card ${active ? 'active' : ''} ${itEquipped ? 'equipped-now' : ''}" 
+      <div class="ribbon-item-card ${active ? 'active' : ''} ${itEquipped ? 'equipped-now' : ''} ${ownedClass}" 
            data-idx="${idx}" data-item-id="${it.id}">
+        ${!itOwned ? '<div class="ric-lock-badge" title="미보유 아이템">🔒</div>' : ''}
         <div class="ric-icon-wrap">${iconHtml}</div>
         <div class="ric-name">${escapeHtml(it.name)}</div>
         <div class="ric-status-badge ${statusClass}">${statusText}</div>
