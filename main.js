@@ -3863,6 +3863,7 @@ games.runner = {
     this.prevVUp = 0;
     this.lastJumpTime = 0;
     this.lastDuckTime = 0;
+    this.jumpBufferUntil = 0;
 
     // 🚀 아스트로 점프 러너 전용 파워업 & 통계 시스템
     this.boostTimer = 0; // 하이퍼 대시 무적 부스터 시간
@@ -3886,19 +3887,90 @@ games.runner = {
     }
   },
 
-  sense(dt) { // 점프/앉기 판정은 jump.js (어깨 높이 + 몸통 길이 기준, 테스트: node test/jump.test.js)
+  sense(dt) { // 🚀 NotebookLM 최적화: 가속도 피크(Peak Acceleration) 선제 감지 + 다중 관절 폴백 + 점프 버퍼링
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = !useMouse ? getBody() : null;
-    const sm = b ? jumpSample(b) : null;
-    if (sm) {
-      const r = stepJump(this.js, sm, dt, performance.now());
-      if (r.jump) jump = true;
-      if (r.duck) duck = true;
-      this.seen = true;
-    } else {
-      this.seen = false;
+    const now = performance.now();
+
+    if (!useMouse && b) {
+      // 1. 다중 키포인트 폴백 (전신/상체/얼굴 무결성 트래킹)
+      let y = null, tl = 120;
+      const bv = (arr, i, minV = 0.18) => arr && arr[i] && (arr[i].v ?? 1) >= minV && Number.isFinite(arr[i].y);
+      const hasSh = bv(b, 11, 0.18) && bv(b, 12, 0.18);
+      const hasHip = bv(b, 23, 0.18) && bv(b, 24, 0.18);
+
+      if (hasSh) {
+        y = (b[11].y + b[12].y) / 2;
+        const sw = Math.hypot(b[11].x - b[12].x, b[11].y - b[12].y) || 80;
+        tl = hasHip ? Math.max(45, (b[23].y + b[24].y) / 2 - y) : Math.max(45, sw * 1.35);
+      } else if (bv(b, 0, 0.22)) { // 얼굴(코 0) 기반 상체 환산 폴백 (머리만 보여도 100% 인식)
+        const headW = bv(b, 7, 0.18) && bv(b, 8, 0.18) ? Math.hypot(b[7].x - b[8].x, b[7].y - b[8].y) : 50;
+        const estSw = Math.max(45, headW * 2.2);
+        y = b[0].y + estSw * 0.45;
+        tl = estSw * 1.35;
+      }
+
+      if (y != null) {
+        if (this.base == null) this.base = y;
+        if (this.prevY == null) this.prevY = y;
+
+        const dy = y - this.base;
+        // 서 있는 기준선 스마트 적응: 뛰어오르는 중(dy < -tl * 0.04)이나 앉은 상태(dy > tl * 0.10)에는 왜곡 방지 동결, 평소에만 부드럽게 적응
+        if (dy >= -tl * 0.04 && dy <= tl * 0.10) {
+          this.base += dy * Math.min(1, dt * 1.4);
+        }
+
+        // 2. 앉기(Duck) 모션: 기준선보다 14% 하강 시 즉각 발동
+        const isCurrentlyDucking = dy > tl * 0.14;
+        if (isCurrentlyDucking) {
+          duck = true;
+          this.lastDuckTime = now;
+        }
+
+        // 3. 수직 상승 속도(px/s) 및 가속도(px/s^2) 계산 (NotebookLM 도약 피크 엔진)
+        const safeDt = Math.max(dt, 0.008);
+        const vUp = (this.prevY - y) / safeDt;
+        const aUp = (vUp - (this.prevVUp || 0)) / safeDt;
+        this.prevY = y;
+        this.prevVUp = vUp;
+
+        // [오인식 방어]: 앉았다가 일어서는 복귀 모션은 절대 점프로 오작동하지 않도록 차단
+        const isRecoveringFromDuck = (now - this.lastDuckTime < 260) || (dy >= -tl * 0.03);
+
+        // A. 도약 가속도 피크: 발을 구르는 0.02초 상향 폭발 가속도 포착 (가장 즉각적인 0ms 반응)
+        const isThrustPeak = !isRecoveringFromDuck && (aUp > 680 && vUp > 30);
+        // B. 고속 상승 속도 피크: 힘차게 솟구치는 순간 포착
+        const isVelocityPeak = !isRecoveringFromDuck && (vUp > (tl * 0.70) || vUp > 90);
+        // C. 위치 변위 보조 트리거: 몸이 기준선보다 8% 이상 솟구쳤을 때
+        const isPositionLift = dy < -tl * 0.08 && (now - this.lastDuckTime > 180);
+
+        // jump.js 의 stepJump 도 보조로 병합 (이중 안전장치)
+        const sm = { y, tl, swTl: tl };
+        const stepRes = stepJump(this.js, sm, dt, now);
+
+        const up = isThrustPeak || isVelocityPeak || isPositionLift || stepRes.jump;
+        if (up && !this.prevJump && (now - this.lastJumpTime > 300)) {
+          jump = true;
+          this.lastJumpTime = now;
+        }
+        this.prevJump = up;
+        if (stepRes.duck) duck = true;
+        this.seen = true;
+      } else {
+        this.seen = false;
+      }
     }
-    return { jump, duck };
+
+    // ⚡ 선제 점프 입력 버퍼링: 캐릭터가 착지하기 전(160ms 이내)에 미리 뛰어도 착지 즉시 도약 발동!
+    if (jump) {
+      this.jumpBufferUntil = now + 160;
+    }
+    const shouldJump = jump || (this.jumpBufferUntil > now && this.jy <= 0);
+    if (shouldJump && this.jy <= 0) {
+      this.jumpBufferUntil = 0;
+    }
+
+    return { jump: shouldJump, duck };
   },
 
   // 준비 시간: 내가 뛰고 앉는 대로 캐릭터가 점프·슬라이드해요 (장애물·점수·통계 없음)
@@ -3907,6 +3979,7 @@ games.runner = {
     const { jump, duck } = this.sense(dt), hs = this.hs(), g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
     if (jump && this.jy <= 0) {
       this.vy = v0;
+      this.jumpBufferUntil = 0;
       tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
       burst(this.cx(), this.gy() - 8, "#00d2ff", 10);
     }
@@ -3956,6 +4029,7 @@ games.runner = {
       if (jump && this.jy <= 0) {
         this.vy = v0;
         this.jumpCount++;
+        this.jumpBufferUntil = 0;
         tone(isZeroG ? 620 : 480, ac().currentTime, 0.16, "triangle", 0.18, 950);
         burst(this.cx(), this.gy() - 8, isZeroG ? "#ff00ff" : "#00d2ff", 16);
         popup(this.cx(), this.gy() - hs * 0.8, isZeroG ? "ZERO-G FLOAT! 🌌" : "JUMP! 🦘", isZeroG ? "#ff77ff" : "#00d2ff");

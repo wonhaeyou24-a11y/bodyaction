@@ -7,8 +7,8 @@
 // 이제는: 어깨 높이만 쓰고(골반 유무와 상관없이 같은 값), 기준선은 천천히 움직이는 변화를 따라가고,
 // 점프는 "몸통 길이 기준으로 충분히 빠르고(속도) + 충분히 올라가고(높이) + 연속 두 프레임 이어질 때"만 인정해요.
 
-const SH_MIN_V = 0.25;                  // 어깨 가시성 기준 완화 (어두운 조명/먼 거리에서도 안정 인식)
-const HIP_MIN_V = 0.4;
+const SH_MIN_V = 0.20;                  // 어깨 가시성 기준 완화 (어두운 조명/먼 거리에서도 안정 인식)
+const HIP_MIN_V = 0.35;
 const JUMP_V = 0.45;                    // 점프 속도: 몸통 길이/초
 const JUMP_RISE = 0.08;                 // 최근 0.4초 안에 가장 낮았던 곳에서 몸통 길이의 8% 이상 올라가야
 const DUCK_ON = 0.15, DUCK_OFF = 0.10;  // 숙이기 기준
@@ -17,16 +17,16 @@ const COOLDOWN_MS = 340, STAND_UP_BLOCK_MS = 250, HIST_MS = 400;
 /** 몸 점(33개)에서 판정에 쓸 값 {y, tl}을 뽑아요. 못 구하면 null. y=어깨 중심 높이, tl=몸통 길이(없으면 null) */
 export function jumpSample(b) {
   if (!b) return null;
-  const ok = (i, m) => b[i] && b[i].v >= m && Number.isFinite(b[i].y);
+  const ok = (i, m) => b[i] && (b[i].v ?? 1) >= m && Number.isFinite(b[i].y);
   if (ok(11, SH_MIN_V) && ok(12, SH_MIN_V)) {
     const shY = (b[11].y + b[12].y) / 2;
     const tl = ok(23, HIP_MIN_V) && ok(24, HIP_MIN_V) ? Math.max(40, (b[23].y + b[24].y) / 2 - shY) : null;
     const sw = Math.hypot(b[11].x - b[12].x, b[11].y - b[12].y);
     return { y: shY, tl, swTl: Math.max(40, sw * 1.35) };
   }
-  if (ok(0, 0.5)) {
+  if (ok(0, 0.25)) {
     // 머리/얼굴만 보일 때: 양쪽 귀(7, 8) 거리로 거리 적응형 어깨 너비 및 기준 높이 환산
-    const headW = ok(7, 0.35) && ok(8, 0.35) ? Math.hypot(b[7].x - b[8].x, b[7].y - b[8].y) : 55;
+    const headW = ok(7, 0.20) && ok(8, 0.20) ? Math.hypot(b[7].x - b[8].x, b[7].y - b[8].y) : 55;
     const estSw = Math.max(45, headW * 2.3);
     return { y: b[0].y + estSw * 0.45, tl: null, swTl: estSw * 1.35 };
   }
