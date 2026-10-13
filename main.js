@@ -179,8 +179,19 @@ function ac() {
     bgmBus = actx.createGain();
     bgmBus.gain.value = soundOn ? (playerSettings.bgmVol / 100) * 0.9 : 0;
     bgmBus.connect(bgmMaster);
+
+    // ⚡ iOS / iPadOS Safari AudioContext 강제 잠금 해제 더미 버퍼 재생
+    try {
+      const unlockBuf = actx.createBuffer(1, 1, 22050);
+      const unlockSrc = actx.createBufferSource();
+      unlockSrc.buffer = unlockBuf;
+      unlockSrc.connect(actx.destination);
+      unlockSrc.start(0);
+    } catch {}
   }
-  if (actx.state === "suspended") actx.resume();
+  if (actx.state === "suspended") {
+    try { actx.resume(); } catch {}
+  }
   setMasterGain(soundOn ? (playerSettings.sfxVol / 100) : 0);
   return actx;
 }
@@ -523,7 +534,7 @@ const BEAT_TRACKS = [
     firstBeat: 0.38, // 🎵 0.38초에 첫 피아노 타건 비트 시작!
     approachTime: 1.6,
     root: 261.63, // C4
-    audioFile: "assets/music/virus.ogg", // 🎵 베토벤 비창 3악장 실제 피아노 실연 음원!
+    audioFile: "assets/music/virus.mp3", // 🎵 베토벤 비창 3악장 실제 피아노 실연 음원 (iPad/Safari 100% 호환 MP3)!
     melody: [
       7, 12, 14, 15,   14, 12, 11, 12,   14, null, 7, null,   11, 12, 14, null,
       12, 11, 8, 11,   12, null, 7, null,   12, 14, 15, 17,   15, 14, 12, null,
@@ -545,7 +556,7 @@ const BEAT_TRACKS = [
     firstBeat: 0.12, // 🎵 0.12초에 첫 음 시작!
     approachTime: 1.7,
     root: 220, // A3
-    audioFile: "assets/music/turkish.ogg", // 🎵 모차르트 터키 행진곡 실제 피아노 실연 음원!
+    audioFile: "assets/music/turkish.mp3", // 🎵 모차르트 터키 행진곡 실제 피아노 실연 음원 (iPad/Safari 100% 호환 MP3)!
     melody: [
       2, 0, -1, 0,   3, null, null, null,   5, 3, 2, 3,   7, null, null, null,
       8, 7, 6, 7,   14, 12, 11, 12,   14, null, 14, null,   12, 11, 9, 7,
@@ -567,7 +578,7 @@ const BEAT_TRACKS = [
     firstBeat: 0.64, // 🎵 0.64초에 첫 브라스 비트 시작!
     approachTime: 1.8,
     root: 261.63, // C4
-    audioFile: "assets/music/saints.ogg", // 🎵 실제 브라스 밴드 연주 실연 음원!
+    audioFile: "assets/music/saints.mp3", // 🎵 실제 브라스 밴드 연주 실연 음원 (iPad/Safari 100% 호환 MP3)!
     melody: [
       0, null, 4, null,   5, null, 7, null,   null, null, null, null,   null, null, null, null,
       0, null, 4, null,   5, null, 7, null,   null, null, null, null,   null, null, null, null,
@@ -589,7 +600,7 @@ const BEAT_TRACKS = [
     firstBeat: 0.60, // 🎵 0.60초에 첫 현악 소절 시작!
     approachTime: 1.8,
     root: 293.66, // D4
-    audioFile: "assets/music/canon.ogg", // 🎵 실제 현악 오케스트라 실연 음원!
+    audioFile: "assets/music/canon.mp3", // 🎵 실제 현악 오케스트라 실연 음원 (iPad/Safari 100% 호환 MP3)!
     melody: [
       9, null, 7, null,   5, null, 4, null,   2, null, 0, null,   2, null, 4, null,
       5, null, 4, null,   2, null, 0, null,   -1, null, -3, null,   -1, null, 0, null,
@@ -670,7 +681,13 @@ function prepareRealTrackAudio(fileUrl, loop = true) {
     bgmAudio = new Audio(fileUrl);
     bgmAudio.loop = loop;
     bgmAudio.preload = "auto";
-    bgmAudio.volume = soundOn ? 0.95 : 0;
+    // ⚡ iOS / iPadOS Safari 자동재생 언락: 사용자가 카드를 터치한 바로 이 순간에 무음 play()를 시작하여
+    // 5초 레디타임 종료 후 비동기 호출 시 NotAllowedError 차단 방지
+    bgmAudio.volume = 0;
+    const p = bgmAudio.play();
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {});
+    }
     bgmAudio.addEventListener("error", (e) => {
       console.warn("오디오 파일 로드 에러 감지 -> 신스 엔진으로 즉각 폴백:", e);
       if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
@@ -4749,13 +4766,28 @@ games.beat = {
   body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 오디오 타임스탬프 100% 동기화 엔진 가동
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
 
-  // 🎵 [Audio-Driven Clock] 실제 오디오의 현재 재생 시점을 유일한 단일 기준 시간으로 반환
+  // 🎵 [초정밀 듀얼 클록 (Dual-Clock Audio Sync)]
+  // 아이패드 Safari 자동재생 차단 또는 Web Audio suspended 상태에서도 큐브가 절대 멈추지 않는 무중단 하이브리드 엔진
   getSongTime() {
+    // 1. 실제 오디오가 정상 재생 중이고 시간이 흐르고 있다면 오디오 시각 우선 (오디오 100% 칼박 일치)
     if (bgmAudio && !bgmAudio.paused && !isNaN(bgmAudio.currentTime) && bgmAudio.currentTime > 0) {
+      this.simSongTime = bgmAudio.currentTime;
       return bgmAudio.currentTime;
     }
-    if (this.songStartTime > 0 && actx) {
-      return Math.max(0, actx.currentTime - this.songStartTime);
+    // 2. Web Audio Context가 실행 중이고 시간이 실제로 전진할 때
+    if (this.songStartTime > 0 && actx && actx.state === "running") {
+      const actxElapsed = actx.currentTime - this.songStartTime;
+      if (actxElapsed > 0) {
+        this.simSongTime = Math.max(this.simSongTime || 0, actxElapsed);
+        return this.simSongTime;
+      }
+    }
+    // 3. 🛡️ [iOS / 아이패드 절대 정지 방지 폴백]
+    // 오디오가 Safari 정책으로 멈췄거나 actx가 suspended여도 자체 시계(simSongTime)로 100% 무중단 전진!
+    if (this.realStartTime > 0) {
+      const wallElapsed = (performance.now() - this.realStartTime) / 1000;
+      this.simSongTime = Math.max(this.simSongTime || 0, wallElapsed);
+      return this.simSongTime;
     }
     return Math.max(0, elapsed());
   },
@@ -4792,6 +4824,8 @@ games.beat = {
     this.laserAngle = 0; // 소실점 회전 레이저 각도
     this.beatFlash = 0; // 비트 싱크 플래시 & 페이드 조명
 
+    this.realStartTime = 0; // 실제 게임 진행 물리 시작 시각 (performance.now)
+    this.simSongTime = 0;   // 내부 무중단 전진 시계
     this.songStartTime = 0; // 게임 본편 시작 시각 (actx.currentTime)
     this.nextBeatIdx = 0; // 다음에 등장할 소절 박자 인덱스
     this.nextHit = null;   // 다음 노트 시각(초)
@@ -4820,15 +4854,21 @@ games.beat = {
 
   // 🎵 레디타임(카운트다운) 종료 시점에 정확히 0.00초부터 오디오 및 비트 시퀀서 동기화 시작!
   onGameRealStart() {
-    this.songStartTime = actx ? actx.currentTime : performance.now() / 1000;
+    this.realStartTime = performance.now();
+    this.simSongTime = 0;
+    this.songStartTime = (actx && actx.state === "running") ? actx.currentTime : 0;
     this.nextBeatIdx = 0; this.nextHit = null;
     this.nextWallBeat = 16;
     objs = []; // 레디타임 잔여물 리셋
-    if (bgmAudio && bgmAudio.paused) {
+    if (bgmAudio) {
       try {
+        bgmAudio.currentTime = 0;
+        bgmAudio.volume = soundOn ? (playerSettings.bgmVol / 100) * 0.95 : 0;
         const p = bgmAudio.play();
         if (p && typeof p.catch === "function") p.catch(() => {});
-      } catch {}
+      } catch (err) {
+        console.warn("오디오 재생 호출 예외 -> 신스/자체 시계 엔진 유지:", err);
+      }
     }
   },
 
@@ -4929,6 +4969,11 @@ games.beat = {
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
     this.beatFlash = Math.max(0, this.beatFlash - dt * 2.8);
     this.laserAngle += dt * 0.95;
+
+    // ⚡ 레디타임 종료 후에는 프레임 dt를 시계에 즉각 합산하여 프레임 동기화 보장
+    if (!isReadyTime && this.realStartTime > 0) {
+      this.simSongTime = (this.simSongTime || 0) + dt;
+    }
 
     // 🎵 1. 오디오 단일 기준 시간(songTime)을 기준으로 비트 스케줄러 가동
     const songTime = this.getSongTime();
