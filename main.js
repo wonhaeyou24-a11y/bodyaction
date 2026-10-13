@@ -3887,7 +3887,7 @@ games.runner = {
     }
   },
 
-  sense(dt) { // 🚀 NotebookLM 최적화: 가속도 피크(Peak Acceleration) 선제 감지 + 다중 관절 폴백 + 점프 버퍼링
+  sense(dt) { // 🚀 점프 반동 웅크림과 앉기 완벽 분리 + 복귀 시 점프 오작동 100% 차단
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = !useMouse ? getBody() : null;
     const now = performance.now();
@@ -3915,46 +3915,69 @@ games.runner = {
         if (this.prevY == null) this.prevY = y;
 
         const dy = y - this.base;
-        // 서 있는 기준선 스마트 적응: 뛰어오르는 중(dy < -tl * 0.04)이나 앉은 상태(dy > tl * 0.10)에는 왜곡 방지 동결, 평소에만 부드럽게 적응
-        if (dy >= -tl * 0.04 && dy <= tl * 0.10) {
+        const safeDt = Math.max(dt, 0.008);
+        const vUp = (this.prevY - y) / safeDt; // 위로 솟구치는 속도 (px/s)
+        const aUp = (vUp - (this.prevVUp || 0)) / safeDt; // 상향 가속도 (px/s^2)
+        this.prevY = y;
+        this.prevVUp = vUp;
+
+        // 서 있는 기준선 스마트 적응: 뛰어오르는 중이나 앉은 상태에는 왜곡 방지 동결, 평소에만 부드럽게 적응
+        if (dy >= -tl * 0.04 && dy <= tl * 0.12) {
           this.base += dy * Math.min(1, dt * 1.4);
         }
 
-        // 2. 앉기(Duck) 모션: 기준선보다 14% 하강 시 즉각 발동
-        const isCurrentlyDucking = dy > tl * 0.14;
-        if (isCurrentlyDucking) {
+        // 2. 앉기(Duck) 모션:
+        // [점프 반동 웅크림 분리]: 뛰려고 무릎을 살짝 구부리는 동작(dy ~ 10-18%)은 절대 앉기로 처리하지 않음!
+        // 진짜 슬라이딩은 확실하게 깊이 몸을 숙이거나 웅크릴 때(dy > tl * 0.22)만 발동.
+        // 또한 웅크린 상태에서 위로 솟구치기 시작하면(vUp > 60 or aUp > 350) 점프 반동이므로 즉시 슬라이드 해제!
+        const isCountermovementLift = vUp > 60 || aUp > 350;
+        const isDeepDucking = dy > tl * 0.22 && !isCountermovementLift;
+
+        if (isDeepDucking) {
+          duck = true;
+          this.lastDuckTime = now;
+          this.wasDucking = true;
+        } else if (dy <= tl * 0.10) {
+          // 몸이 원래 높이 부근으로 복귀 완료 시
+          if (this.wasDucking && (now - this.lastDuckTime > 400)) {
+            this.wasDucking = false;
+          }
+        }
+
+        // 3. 점프(Jump) 모션:
+        // [앉았다 일어설 때 점프 오작동 100% 차단!]
+        // 앉아 있다가 일어서는 것은 원래 서 있던 기준선(base)으로 복귀하는 것이므로,
+        // (1) 앉았던 후 복귀 중(now - this.lastDuckTime < 450ms)이거나,
+        // (2) 몸이 아직 기준선 위로 솟구치지 못했을 때(dy >= -tl * 0.05)는
+        // 아무리 일어서는 속도(vUp)가 빨라도 절대로 점프로 오작동하지 않도록 철저히 차단!
+        const isStandingUpFromDuck = (now - this.lastDuckTime < 450) || (dy >= -tl * 0.05);
+
+        // 진짜 점프 조건:
+        // A. 몸이 원래 서 있던 기준선보다 확연히 위로 솟구쳤는가? (위치 돌파: dy < -tl * 0.07)
+        // B. 그리고 상향 속도나 도약 가속도가 동반되었는가?
+        // C. 또는 jump.js의 정밀 상태머신(stepJump) 판정 + 기준선 돌파 검증 통과
+        const sm = { y, tl, swTl: tl };
+        const stepRes = stepJump(this.js, sm, dt, now);
+
+        const isTruePositionJump = dy < -tl * 0.07 && (vUp > 40 || aUp > 200);
+        const isDynamicThrustJump = !isStandingUpFromDuck && (aUp > 650 && vUp > 50 && dy < -tl * 0.04);
+        const isVelocityLeap = !isStandingUpFromDuck && (vUp > Math.max(75, tl * 0.65) && dy < -tl * 0.04);
+        const isStepJumpVerified = stepRes.jump && !isStandingUpFromDuck;
+
+        const up = isTruePositionJump || isDynamicThrustJump || isVelocityLeap || isStepJumpVerified;
+        if (up && !this.prevJump && (now - this.lastJumpTime > 320)) {
+          jump = true;
+          this.lastJumpTime = now;
+          this.wasDucking = false; // 점프 발동 시 복귀 상태 해제
+        }
+        this.prevJump = up;
+
+        // stepJump의 duck도 깊은 숙임일 때만 보조 반영
+        if (stepRes.duck && dy > tl * 0.20 && !isCountermovementLift) {
           duck = true;
           this.lastDuckTime = now;
         }
 
-        // 3. 수직 상승 속도(px/s) 및 가속도(px/s^2) 계산 (NotebookLM 도약 피크 엔진)
-        const safeDt = Math.max(dt, 0.008);
-        const vUp = (this.prevY - y) / safeDt;
-        const aUp = (vUp - (this.prevVUp || 0)) / safeDt;
-        this.prevY = y;
-        this.prevVUp = vUp;
-
-        // [오인식 방어]: 앉았다가 일어서는 복귀 모션은 절대 점프로 오작동하지 않도록 차단
-        const isRecoveringFromDuck = (now - this.lastDuckTime < 260) || (dy >= -tl * 0.03);
-
-        // A. 도약 가속도 피크: 발을 구르는 0.02초 상향 폭발 가속도 포착 (가장 즉각적인 0ms 반응)
-        const isThrustPeak = !isRecoveringFromDuck && (aUp > 680 && vUp > 30);
-        // B. 고속 상승 속도 피크: 힘차게 솟구치는 순간 포착
-        const isVelocityPeak = !isRecoveringFromDuck && (vUp > (tl * 0.70) || vUp > 90);
-        // C. 위치 변위 보조 트리거: 몸이 기준선보다 8% 이상 솟구쳤을 때
-        const isPositionLift = dy < -tl * 0.08 && (now - this.lastDuckTime > 180);
-
-        // jump.js 의 stepJump 도 보조로 병합 (이중 안전장치)
-        const sm = { y, tl, swTl: tl };
-        const stepRes = stepJump(this.js, sm, dt, now);
-
-        const up = isThrustPeak || isVelocityPeak || isPositionLift || stepRes.jump;
-        if (up && !this.prevJump && (now - this.lastJumpTime > 300)) {
-          jump = true;
-          this.lastJumpTime = now;
-        }
-        this.prevJump = up;
-        if (stepRes.duck) duck = true;
         this.seen = true;
       } else {
         this.seen = false;
@@ -4189,6 +4212,16 @@ games.runner = {
       if (!this.obs) return;
     const hs = this.hs(), gy = this.gy(), cx = this.cx();
     const isBoosting = this.boostTimer > 0;
+
+    // 🌟 [모션인식 피드백] 플레이어 전신 실시간 네온 스켈레톤 렌더링 (스켈레톤 가시화)
+    if (!useMouse) {
+      const b = getBody();
+      if (b) {
+        drawSkeleton(b, isFeverTime ? "rgba(255, 46, 147, 0.70)" : (isBoosting ? "rgba(0, 240, 255, 0.85)" : "rgba(0, 210, 255, 0.65)"), 0.7);
+      } else {
+        bodyHint();
+      }
+    }
 
     // 1. 네온 사이버 하이웨이 트랙 바닥 (Stitch 아케이드 3D 펄스 트랙)
     ctx.save();

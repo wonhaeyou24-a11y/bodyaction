@@ -53,11 +53,11 @@ body.playing .bg-ambience { display: none; }
 
 /* 🌟 상단 메뉴바: 가로 스와이프 없이 한 화면에 모든 컨트롤이 깔끔하게 정렬 */
 .hub-top {
-  position: relative; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  position: relative; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 12px clamp(16px, 2.5vw, 32px); min-height: 64px; box-sizing: border-box;
   background: rgba(25, 11, 48, .96); backdrop-filter: blur(16px);
   border-bottom: 1.5px solid rgba(0, 210, 255, .25); box-shadow: 0 8px 32px rgba(0, 0, 0, .55);
-  overflow: hidden !important; flex-shrink: 0; flex-wrap: nowrap;
+  overflow: visible !important; flex-shrink: 0; flex-wrap: nowrap;
 }
 .top-brand-cluster {
   display: flex; align-items: center; gap: 14px; flex-shrink: 0;
@@ -147,9 +147,9 @@ body.playing .bg-ambience { display: none; }
 .tmb-icon { font-size: 1.05rem; line-height: 1; }
 .tmb-text { line-height: 1; letter-spacing: -0.01em; }
 
-/* 📋 통합 메뉴선택창 드롭다운 팝업 */
+/* 📋 통합 메뉴선택창 드롭다운 팝업 (모든 화면 요소보다 최상위에 노출) */
 .top-quick-menu {
-  position: absolute; right: 0; top: calc(100% + 10px); z-index: 100;
+  position: absolute; right: 0; top: calc(100% + 10px); z-index: 9999 !important;
   width: 280px; max-width: 90vw; padding: 14px; border-radius: 20px;
   background: rgba(22, 10, 44, 0.98); backdrop-filter: blur(24px);
   border: 1.5px solid rgba(0, 210, 255, 0.5); box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75), 0 0 30px rgba(0, 210, 255, 0.2);
