@@ -3118,18 +3118,85 @@ games.bspace = {
 // 🏃 몸으로 피하기: 온몸을 움직여 돌은 피하고, 손으로 동전을 모아요. 하트 3개
 games.dodge = {
   bg: "#0f2027", camAlpha: 0.85, body: true, noCursor: true, manual: true,
-  init() { this.items = []; this.spawnT = 0.6; this.lives = 3; this.inv = 0; this.flash = 0; this.coins = 0; },
+  init() {
+    this.items = []; this.spawnT = 0.6; this.lives = 3; this.inv = 0; this.flash = 0; this.coins = 0;
+    this.phase = 1; this.event = null; this.eventTimer = 0; this.nextEventT = 11;
+    this.shield = false; this.magnetT = 0;
+  },
   result() { return ` · 동전 ${this.coins}개`; },
   update(dt) {
     try {
       const b = getBody(), e = elapsed();
+
+      // 1. 🌋 진행형 스테이지 페이즈 진화 (0~20s: 동굴, 20~40s: 화산마그마, 40s+: 우주카오스)
+      if (e >= 40) { this.phase = 3; this.bg = "#180930"; }
+      else if (e >= 20) { this.phase = 2; this.bg = "#250d18"; }
+      else { this.phase = 1; this.bg = "#0f2027"; }
+
+      // 2. 🎲 서프라이즈 이벤트 스케줄러 (골드러시 & 회오리 돌개바람)
+      this.nextEventT -= dt;
+      if (this.nextEventT <= 0 && !this.event) {
+        const evTypes = ["goldRush", "tornado"];
+        this.event = evTypes[Math.floor(Math.random() * evTypes.length)];
+        if (this.event === "goldRush") {
+          this.eventTimer = 6.0;
+          triggerWaveBanner("🌟 GOLD RUSH FEVER!", "황금 코인과 보석이 쏟아집니다! 온몸으로 쓸어담으세요!", true);
+          sfx.feverStart?.();
+        } else if (this.event === "tornado") {
+          this.eventTimer = 7.0;
+          triggerWaveBanner("🌪️ TORNADO WARNING!", "강력한 회오리바람! 바위가 요동치며 휘몰아칩니다!", false);
+          sfx.crash?.();
+        }
+        this.nextEventT = 15 + Math.random() * 6;
+      }
+      if (this.event) {
+        this.eventTimer -= dt;
+        if (this.eventTimer <= 0) this.event = null;
+      }
+
+      this.magnetT = Math.max(0, this.magnetT - dt);
+      this.inv = Math.max(0, this.inv - dt);
+      this.flash = Math.max(0, this.flash - dt * 2);
+
+      // 3. 🎯 동적 스폰 간격
       this.spawnT -= dt;
       if (this.spawnT <= 0) {
-        this.spawnT = Math.max(0.3, 0.85 - e * 0.009) * (0.7 + Math.random() * 0.6);
-        const coin = Math.random() < 0.35, r = coin ? 30 : 38 + Math.random() * 18;
-        this.items.push({ x: r + Math.random() * (W - 2 * r), y: -r, r, vy: (230 + e * 4.5) * (H / 800) * (coin ? 0.8 : 1), coin, rot: 0 });
+        if (this.event === "goldRush") {
+          // 골드러시: 0.14초마다 초고속 코인 & 다이아몬드 폭포 스폰
+          this.spawnT = 0.14;
+          const isDia = Math.random() < 0.25;
+          const r = isDia ? 26 : 28;
+          this.items.push({
+            type: isDia ? "diamond" : "coin",
+            x: r + Math.random() * (W - 2 * r), baseX: 0,
+            y: -r, r,
+            vy: (260 + e * 4) * (H / 800),
+            rot: 0
+          });
+        } else {
+          this.spawnT = Math.max(0.28, 0.82 - e * 0.009) * (0.7 + Math.random() * 0.6);
+          const rand = Math.random();
+          let type = "rock";
+          let r = 38 + Math.random() * 18;
+          if (rand < 0.30) {
+            type = "coin"; r = 28;
+          } else if (rand < 0.35 && !this.shield) {
+            type = "shield"; r = 32; // 🛡️ 방어막 아이템
+          } else if (rand < 0.40 && this.magnetT <= 0) {
+            type = "magnet"; r = 32; // 🧲 자석 아이템
+          }
+          const spawnX = r + Math.random() * (W - 2 * r);
+          this.items.push({
+            type,
+            x: spawnX, baseX: spawnX,
+            y: -r, r,
+            vy: (240 + e * 4.8) * (H / 800) * (type === "coin" ? 0.85 : 1),
+            rot: 0
+          });
+        }
       }
-      this.inv = Math.max(0, this.inv - dt); this.flash = Math.max(0, this.flash - dt * 2);
+
+      // 플레이어 관절 추출
       const torso = [], hands = [];
       if (b) {
         for (const i of [0, 11, 12, 23, 24]) if (bv(b, i, 0.3) && b[i]) torso.push(b[i]);
@@ -3137,31 +3204,106 @@ games.dodge = {
         if (bv(b, 23, 0.3) && bv(b, 24, 0.3) && b[23] && b[24]) torso.push({ x: (b[23].x + b[24].x) / 2, y: (b[23].y + b[24].y) / 2 });
         for (const i of [15, 16]) if (bv(b, i, 0.3) && b[i]) hands.push(b[i]);
       }
+      const centerBody = torso[0] || (hands[0] ? { x: hands[0].x, y: hands[0].y + 100 } : null);
+
+      // 4. 아이템 이동 및 상호작용
       for (const it of this.items) {
-        it.y += it.vy * dt; it.rot += dt * 2.5;
+        it.y += it.vy * dt;
+        it.rot += dt * 2.5;
+
+        // 돌개바람 이벤트 중에는 좌우 사인파 요동
+        if (this.event === "tornado" && it.type === "rock") {
+          it.x = Math.max(it.r, Math.min(W - it.r, it.baseX + Math.sin(it.y * 0.018 + e * 4) * 85));
+        }
+
+        // 🧲 자석 파워업 효과: 코인과 다이아가 몸 쪽으로 유도
+        if (this.magnetT > 0 && (it.type === "coin" || it.type === "diamond") && centerBody) {
+          const dx = centerBody.x - it.x, dy = centerBody.y - it.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 380) {
+            it.x += (dx / dist) * dt * 500;
+            it.y += (dy / dist) * dt * 500;
+          }
+        }
+
         if (it.dead) continue;
-        if (it.coin) {
-          if ([...torso, ...hands].some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 24)) {
-            it.dead = true; this.coins++; award(it.x, it.y, 1, "#ffd166"); sfx.pop(it.x, true); burst(it.x, it.y, "#ffd166", 14);
+
+        // [A] 코인 & 다이아몬드 획득
+        if (it.type === "coin" || it.type === "diamond") {
+          if ([...torso, ...hands].some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 28)) {
+            it.dead = true;
+            this.coins++;
+            const pts = it.type === "diamond" ? 3 : 1;
+            award(it.x, it.y, pts, it.type === "diamond" ? "#00ffff" : "#ffd166");
+            sfx.pop(it.x, true);
+            burst(it.x, it.y, it.type === "diamond" ? "#00ffff" : "#ffd166", 16);
           }
-        } else if (this.inv <= 0 && torso.some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r * 0.85 + 8)) {
-          it.dead = true; this.lives--; this.inv = 1.5; this.flash = 1; combo = 0;
-          burst(it.x, it.y, "#ff6b4a", 26); sfx.crash();
-          if (this.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (this.lives > 1) speak("앗, 조심!");
-          if (this.lives <= 0) {
-            endGame();
-            return; // 🛡️ 사망 시 남은 루프 즉시 안전 탈출
+        }
+        // [B] 🧲 자석 아이템 획득
+        else if (it.type === "magnet") {
+          if ([...torso, ...hands].some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 28)) {
+            it.dead = true;
+            this.magnetT = 6.0;
+            popup(it.x, it.y - 30, "🧲 MAGNET ON!", "#00d2ff");
+            sfx.levelUp?.();
+            burst(it.x, it.y, "#00d2ff", 22);
           }
-        } else if (!it.coin && !it.nearMissed && torso.some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 52)) {
-          // ⚡ [Near-Miss] 바위를 간발의 차로 아슬아슬하게 피했을 때 스릴 보너스!
+        }
+        // [C] 🛡️ 보호막 아이템 획득
+        else if (it.type === "shield") {
+          if ([...torso, ...hands].some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 28)) {
+            it.dead = true;
+            this.shield = true;
+            popup(it.x, it.y - 30, "🛡️ SHIELD READY!", "#00ffcc");
+            sfx.levelUp?.();
+            burst(it.x, it.y, "#00ffcc", 22);
+          }
+        }
+        // [D] 바위 피격 / 보호막 방어
+        else if (it.type === "rock" && this.inv <= 0 && torso.some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r * 0.85 + 8)) {
+          it.dead = true;
+          if (this.shield) {
+            // 🛡️ 보호막이 대신 막아줌! 목숨 차감 없음
+            this.shield = false;
+            this.inv = 0.9;
+            burst(it.x, it.y, "#00ffcc", 28);
+            sfx.whack?.(it.x, true);
+            popup(it.x, it.y - 30, "🛡️ SHIELD SAVED!", "#00ffcc");
+            addShake?.(0.16, 7);
+          } else {
+            this.lives--;
+            this.inv = 1.5;
+            this.flash = 1;
+            combo = 0;
+            burst(it.x, it.y, "#ff6b4a", 28);
+            sfx.crash();
+            if (this.lives === 1) speak("한 번 더 맞으면 끝이에요!");
+            else if (this.lives > 1) speak("앗, 조심!");
+            if (this.lives <= 0) {
+              endGame();
+              return;
+            }
+          }
+        }
+        // [E] ⚡ [Near-Miss] 아슬아슬 근접 회피 보너스
+        else if (it.type === "rock" && !it.nearMissed && torso.some((p) => p && Math.hypot(p.x - it.x, p.y - it.y) < it.r + 52)) {
           it.nearMissed = true;
           award(it.x, it.y, 2, "#00ffff");
           popup(it.x, it.y - 25, "⚡ NEAR MISS! +2", "#00ffff");
           sfx.nearMiss?.(it.x);
           addShake?.(0.12, 4);
         }
-        if (!it.dead && it.y > H + it.r) { it.dead = true; if (!it.coin && b) { score += 1; popup(it.x, H - 60, "+1", "#9fe8ff"); } }
+
+        // 바닥 통과 보너스
+        if (!it.dead && it.y > H + it.r) {
+          it.dead = true;
+          if (it.type === "rock" && b) {
+            score += 1;
+            popup(it.x, H - 60, "+1", "#9fe8ff");
+          }
+        }
       }
+
       this.items = this.items.filter((it) => !it.dead);
     } catch (err) {
       console.warn("Dodge update safe catch:", err);
@@ -3171,14 +3313,68 @@ games.dodge = {
     try {
       if (!this.items) return;
       const b = getBody();
+
+      // 아이템 렌더링
       for (const it of this.items) {
-        ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${it.r * 2}px serif`;
-        ctx.fillText(it.coin ? "🪙" : "🪨", 0, 0); ctx.restore();
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        ctx.rotate(it.rot);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `${it.r * 2}px serif`;
+
+        let emo = "🪨";
+        if (it.type === "coin") emo = "🪙";
+        else if (it.type === "diamond") emo = "💎";
+        else if (it.type === "magnet") emo = "🧲";
+        else if (it.type === "shield") emo = "🛡️";
+        else {
+          // 페이즈별 바위 비주얼 변화
+          emo = this.phase === 3 ? "☄️" : (this.phase === 2 ? "🔥" : "🪨");
+        }
+        ctx.fillText(emo, 0, 0);
+        ctx.restore();
       }
+
+      // 플레이어 스켈레톤 & 🛡️ 보호막 링 렌더링
       drawSkeleton(b, this.inv > 0 ? "#ff6b4a" : "#7df9ff", this.inv > 0 && ((this.inv * 10) | 0) % 2 ? 0.35 : 1);
-      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "32px serif";
+
+      if (this.shield && b && b[11] && b[12]) {
+        const cx = (b[11].x + b[12].x) / 2, cy = (b[11].y + b[12].y) / 2 + 50;
+        ctx.save();
+        ctx.strokeStyle = "rgba(0, 255, 200, 0.75)";
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = "#00ffcc";
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 95 + Math.sin(performance.now() * 0.008) * 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 상단 HUD: 목숨 + 활성 이벤트/파워업 배지
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = "32px serif";
       ctx.fillText("❤️".repeat(Math.max(this.lives, 0)) + "🖤".repeat(3 - Math.max(this.lives, 0)), W / 2, 104);
-      if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`; ctx.fillRect(0, 0, W, H); }
+
+      // 이벤트/파워업 알림 태그
+      ctx.font = "bold 18px Nunito Sans, sans-serif";
+      if (this.event === "goldRush") {
+        ctx.fillStyle = "#ffd700";
+        ctx.fillText(`🌟 GOLD RUSH (${this.eventTimer.toFixed(1)}s)`, W / 2, 134);
+      } else if (this.event === "tornado") {
+        ctx.fillStyle = "#ff5599";
+        ctx.fillText(`🌪️ TORNADO WARNING (${this.eventTimer.toFixed(1)}s)`, W / 2, 134);
+      } else if (this.magnetT > 0) {
+        ctx.fillStyle = "#00d2ff";
+        ctx.fillText(`🧲 MAGNET ACTIVE (${this.magnetT.toFixed(1)}s)`, W / 2, 134);
+      }
+
+      if (this.flash > 0) {
+        ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.4})`;
+        ctx.fillRect(0, 0, W, H);
+      }
       bodyHint();
     } catch (err) {
       console.warn("Dodge draw safe catch:", err);
@@ -3405,6 +3601,10 @@ games.runner = {
     this.jumpCount = 0;
     this.duckCount = 0;
     this.coinsCollected = 0;
+    this.event = null;
+    this.eventTimer = 0;
+    this.nextEventT = 11;
+    this.milestone = 0;
 
     // 광속 스피드 라인 파티클 풀
     this.speedLines = [];
@@ -3457,18 +3657,41 @@ games.runner = {
         return;
       }
 
+      // 🎲 서프라이즈 이벤트 스케줄러 (무중력 우주유영 & 추격 드론 레이저)
+      this.nextEventT -= dt;
+      if (this.nextEventT <= 0 && !this.event) {
+        const evTypes = ["zeroG", "droneChase"];
+        this.event = evTypes[Math.floor(Math.random() * evTypes.length)];
+        if (this.event === "zeroG") {
+          this.eventTimer = 7.0;
+          triggerWaveBanner("🌌 ZERO-G SPACE FLOAT!", "무중력 구역 진입! 체공 시간이 2배로 증가합니다!", true);
+          sfx.levelUp?.();
+        } else if (this.event === "droneChase") {
+          this.eventTimer = 6.5;
+          triggerWaveBanner("⚠️ DRONE LASER CHASE!", "상공 추격 드론 출현! 연속 레이저 빔 회피!", false);
+          sfx.incoming?.(W / 2);
+        }
+        this.nextEventT = 16 + Math.random() * 6;
+      }
+      if (this.event) {
+        this.eventTimer -= dt;
+        if (this.eventTimer <= 0) this.event = null;
+      }
+
       // 부스터 타이머 갱신
       this.boostTimer = Math.max(0, this.boostTimer - dt);
       const isBoosting = this.boostTimer > 0;
+      const isZeroG = this.event === "zeroG";
 
-      // 점프 물리
-      const g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
+      // 🌌 무중력 상태 반영 점프 물리 (체공 시간 및 높이 2배)
+      const g = isZeroG ? H * 1.6 : H * 3.4;
+      const v0 = Math.sqrt(2 * g * hs * (isZeroG ? 1.45 : 1.05));
       if (jump && this.jy <= 0) {
         this.vy = v0;
         this.jumpCount++;
-        tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
-        burst(this.cx(), this.gy() - 8, "#00d2ff", 16);
-        popup(this.cx(), this.gy() - hs * 0.8, "JUMP! 🦘", "#00d2ff");
+        tone(isZeroG ? 620 : 480, ac().currentTime, 0.16, "triangle", 0.18, 950);
+        burst(this.cx(), this.gy() - 8, isZeroG ? "#ff00ff" : "#00d2ff", 16);
+        popup(this.cx(), this.gy() - hs * 0.8, isZeroG ? "ZERO-G FLOAT! 🌌" : "JUMP! 🦘", isZeroG ? "#ff77ff" : "#00d2ff");
       }
       this.jy += this.vy * dt;
       this.vy -= g * dt;
@@ -3489,6 +3712,16 @@ games.runner = {
       const v = W * 0.46 * waveMult * boostMult * (1 + e * 0.008);
       this.dist += v * dt;
 
+      // 🏁 진행형 마일스톤 돌파 & 테마 배경 전환
+      const m100 = Math.floor(this.dist / (W * 0.46 * 3.5));
+      if (m100 > this.milestone) {
+        this.milestone = m100;
+        popup(W / 2, H * 0.35, `${this.milestone * 100}m 돌파! 🏁`, "#ffd166");
+        sfx.levelUp?.();
+        if (this.milestone === 1) this.bg = "#1f0933"; // 2단계: 네온 시티
+        else if (this.milestone >= 2) this.bg = "#081830"; // 3단계: 하이퍼 우주
+      }
+
       this.spawnT -= dt;
       this.inv = Math.max(0, this.inv - dt);
       this.flash = Math.max(0, this.flash - dt * 2);
@@ -3504,22 +3737,36 @@ games.runner = {
 
       // 장애물 & 파워업 동적 스케줄링
       if (this.spawnT <= 0) {
-        // 웨이브 단계가 높을수록 장애물 스폰 간격이 빨라짐
         const baseInterval = currentWave === 3 ? 1.0 : (currentWave === 2 ? 1.25 : 1.5);
-        this.spawnT = Math.max(0.75, baseInterval - e * 0.01) * (0.85 + rng() * 0.4);
+        this.spawnT = Math.max(0.70, baseInterval - e * 0.01) * (0.85 + rng() * 0.4);
         const r = rng(), x = W + 70;
 
-        if (r < 0.15 && !isBoosting) {
-          // 🚀 [신규] 하이퍼 부스터 링 (점프로 통과 시 무적 질주 가속!)
+        if (this.event === "droneChase") {
+          // ⚠️ 드론 체이스: 고공 레이저 드론 연속 스폰 (슬라이딩 회피 필요)
+          this.obs.push({ type: "bar", x, w: hs * 0.75, h: hs * 0.55, y0: hs * 0.58 });
+        } else if (this.event === "zeroG") {
+          // 🌌 무중력 상태: 공중 높은 코인 트레일 대량 배치!
+          for (let k = 0; k < 4; k++) {
+            this.obs.push({
+              type: "coin",
+              x: x + k * hs * 0.55,
+              w: hs * 0.35,
+              h: hs * 0.35,
+              y0: hs * 1.35 + Math.sin(k * 0.8) * hs * 0.3,
+              coinRot: k * 0.4
+            });
+          }
+        } else if (r < 0.15 && !isBoosting) {
+          // 🚀 하이퍼 부스터 링
           this.obs.push({ type: "ring", x, w: hs * 0.75, h: hs * 0.75, y0: hs * 0.45 });
-        } else if (r < 0.45) {
-          // [점프 허들] 네온 사이버 레이저 바리케이드
+        } else if (r < 0.48) {
+          // [점프 허들] 레이저 바리케이드
           this.obs.push({ type: "rock", x, w: hs * 0.52, h: hs * 0.44, y0: 0 });
-        } else if (r < 0.75) {
-          // [슬라이딩 장애물] 고공 사이버 드론 & 하향 레이저 빔
+        } else if (r < 0.78) {
+          // [슬라이딩 장애물] 고공 사이버 드론
           this.obs.push({ type: "bar", x, w: hs * 0.72, h: hs * 0.52, y0: hs * 0.60 });
         } else {
-          // [보너스] 3D 골든 스타 코인 3연속 트레일
+          // [보너스 코인] 3연속 코인 트레일
           const hi = rng() < 0.45;
           for (let k = 0; k < 3; k++) {
             this.obs.push({
@@ -3906,6 +4153,15 @@ games.runner = {
       ctx.fillStyle = "#00f0ff"; ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 10;
       ctx.fillRect(W * 0.35, 120, W * 0.30 * bRatio, 8);
       ctx.shadowBlur = 0;
+    }
+
+    // 🌌 서프라이즈 이벤트 활성 배지
+    if (this.event === "zeroG") {
+      ctx.fillStyle = "#ff77ff"; ctx.font = "bold 17px Nunito Sans, sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(`🌌 ZERO-G SPACE FLOAT (${this.eventTimer.toFixed(1)}s)`, W / 2, 136);
+    } else if (this.event === "droneChase") {
+      ctx.fillStyle = "#ff3366"; ctx.font = "bold 17px Nunito Sans, sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(`⚠️ DRONE LASER CHASE (${this.eventTimer.toFixed(1)}s)`, W / 2, 136);
     }
     ctx.restore();
 
@@ -9649,82 +9905,225 @@ function drawBodyRunner(ctx, ux, hipY, feetY, u, run, t) {
 games.crun = {
   bg: "#0b0b22", camAlpha: 0.32, camPip: true, noCostume: false, body: true, noCursor: true, manual: true,
   init() {
-    this.run = createRun({ rng }); this.ls = newLaneState(); this.js = newJumpState(); this.t = 0; this.flash = 0; this.kp = {}; this.kbLane = null; this.kbT = -1e9; this.dist10 = 0; this.milestone = 0; this.src = "body";
+    this.run = createRun({ rng });
+    this.ls = newLaneState();
+    this.js = newJumpState();
+    this.t = 0;
+    this.flash = 0;
+    this.kp = {};
+    this.kbLane = null;
+    this.kbT = -1e9;
+    this.dist10 = 0;
+    this.milestone = 0;
+    this.src = "body";
+    // 🌟 진행형 스테이지 페이즈 & 서프라이즈 이벤트 시스템
+    this.stagePhase = 1;
+    this.event = null;
+    this.eventTimer = 0;
+    this.nextEventT = 11;
+    this.goldRushSpawnT = 0;
   },
   result() { return ` · ${Math.round(this.run.dist)}m · 코인 ${this.run.coinCount} · 맞은 횟수 ${this.run.hits}`; },
   update(dt) {
-    this.t += dt; this.flash = Math.max(0, this.flash - dt * 2.2);
-    const now = performance.now(), run = this.run;
-    // 키보드 (마우스 모드 · 보조)
-    let jump = false, duck = false;
-    if (kbEdge(this.kp, "arrowleft") || kbEdge(this.kp, "a")) { this.kbLane = Math.max(0, (this.kbLane ?? run.lane) - 1); this.kbT = now; }
-    if (kbEdge(this.kp, "arrowright") || kbEdge(this.kp, "d")) { this.kbLane = Math.min(2, (this.kbLane ?? run.lane) + 1); this.kbT = now; }
-    if (kbEdge(this.kp, " ") || kbEdge(this.kp, "arrowup") || kbEdge(this.kp, "w")) { jump = true; this.kbT = now; }
-    if (ckeys.has("arrowdown") || ckeys.has("s")) { duck = true; this.kbT = now; }
-    const kbOn = useMouse || now - this.kbT < 800;
-    // 몸 입력: 길 = lane.js (몸 중심/어깨너비), 점프·웅크리기 = jump.js
-    let lane = run.lane, bodyJump = false, bodyDuck = false;
-    const b = !useMouse ? getBody() : null, sk = b ? skeletonFromBody(b) : null;
-    if (sk) {
-      const sw = Math.hypot(sk.rs[0] - sk.ls[0], sk.rs[1] - sk.ls[1]);
-      lane = stepLane(this.ls, ((sk.ls[0] + sk.rs[0]) / 2) / sw, dt, (((bodyTracks[11]?.vx ?? 0) + (bodyTracks[12]?.vx ?? 0)) / 2) * 1000 / sw) + 1;
-      const sm = jumpSample(b); if (sm) { const r = stepJump(this.js, sm, dt, now); bodyJump = r.jump; bodyDuck = r.duck; }
-    }
-    if (kbOn) { if (this.kbLane != null) lane = this.kbLane; } else { jump = bodyJump; duck = bodyDuck; }
-    const speedMul = currentWave === 3 ? 1.1 : currentWave === 2 ? 1.05 : 1;
-    const ev = stepRun(run, { lane, jump, duck }, dt, speedMul);
-    const px = W / 2 + (run.laneX - 1) * W * 0.2, py = H * 0.55;
-    for (const e of ev) {
-      if (e.type === "jump") { tone(480, ac().currentTime, 0.14, "triangle", 0.16, 900); burst(px, H * 0.9, "#00d2ff", 10); }
-      else if (e.type === "coin") { award(px, py - 40, 1, "#ffd166"); sfx.pop(px, true); }
-      else if (e.type === "pass") {
-        // ⚡ [Near-Miss] 아슬아슬하게 점프/슬라이딩/레인 비켜서 통과 시 쾌감 보너스!
-        const isNear = (e.obs === "low" && run.y < 0.65) || (e.obs === "high" && run.ducking) || (e.obs === "wall" && Math.abs(run.laneX - e.lane) < 1.25);
-        if (isNear) {
-          award(px, py - 60, e.obs === "wall" ? 4 : 5, "#00ffff");
-          popup(px, py - 95, "⚡ NEAR MISS! +5", "#00ffff");
-          sfx.nearMiss?.(px);
-          addShake?.(0.12, 4);
-        } else {
-          award(px, py - 60, e.obs === "wall" ? 2 : 3, "#7df9ff");
+    try {
+      this.t += dt; this.flash = Math.max(0, this.flash - dt * 2.2);
+      const now = performance.now(), run = this.run;
+
+      // 1. 🏁 진행형 스테이지 페이즈 진화 (0~100m: Phase 1 네온 시티, 100~250m: Phase 2 하이퍼 터널, 250m+: Phase 3 카오스 매트릭스)
+      if (run.dist >= 250) { this.stagePhase = 3; }
+      else if (run.dist >= 100) { this.stagePhase = 2; }
+      else { this.stagePhase = 1; }
+
+      // 2. 🎲 서프라이즈 이벤트 스케줄러 (골드로드 피버 & 터보 오버드라이브)
+      this.nextEventT -= dt;
+      if (this.nextEventT <= 0 && !this.event) {
+        const evTypes = ["goldRoad", "turbo"];
+        this.event = evTypes[Math.floor(Math.random() * evTypes.length)];
+        if (this.event === "goldRoad") {
+          this.eventTimer = 6.5;
+          triggerWaveBanner("🌟 GOLD ROAD FEVER!", "모든 길에 황금 코인이 쏟아집니다! 온몸으로 쓸어담으세요!", true);
+          sfx.feverStart?.();
+        } else if (this.event === "turbo") {
+          this.eventTimer = 7.0;
+          triggerWaveBanner("⚡ TURBO OVERDRIVE!", "광속 질주 가속! 무적 파괴 보너스 발동!", false);
+          sfx.levelUp?.();
+        }
+        this.nextEventT = 16 + Math.random() * 6;
+      }
+      if (this.event) {
+        this.eventTimer -= dt;
+        if (this.eventTimer <= 0) this.event = null;
+      }
+
+      // 골드로드 피버 중에는 모든 레인(0, 1, 2)에 코인 폭풍 스폰!
+      if (this.event === "goldRoad") {
+        this.goldRushSpawnT = (this.goldRushSpawnT || 0) - dt;
+        if (this.goldRushSpawnT <= 0) {
+          this.goldRushSpawnT = 0.22;
+          for (let l = 0; l < 3; l++) {
+            run.coins.push({ lane: l, d: CRUN.D_MAX, got: false, h: 0.25 });
+          }
         }
       }
-      else if (e.type === "hit") { combo = 0; this.flash = 1; sfx.crash(); addShake?.(0.18, 8); popup(px, py - 40, "쾅! 💥", "#ff6b6b"); if (run.lives === 1) speak("한 번 더 맞으면 끝이에요!"); else if (run.lives > 1) speak("앗, 조심!"); }
-      else if (e.type === "life") { popup(px, py - 80, "❤️ 목숨 회복!", "#ff9ad5"); sfx.levelUp(); }
-      else if (e.type === "over") { endGame(); return; }
+
+      // 키보드 (마우스 모드 · 보조)
+      let jump = false, duck = false;
+      if (kbEdge(this.kp, "arrowleft") || kbEdge(this.kp, "a")) { this.kbLane = Math.max(0, (this.kbLane ?? run.lane) - 1); this.kbT = now; }
+      if (kbEdge(this.kp, "arrowright") || kbEdge(this.kp, "d")) { this.kbLane = Math.min(2, (this.kbLane ?? run.lane) + 1); this.kbT = now; }
+      if (kbEdge(this.kp, " ") || kbEdge(this.kp, "arrowup") || kbEdge(this.kp, "w")) { jump = true; this.kbT = now; }
+      if (ckeys.has("arrowdown") || ckeys.has("s")) { duck = true; this.kbT = now; }
+      const kbOn = useMouse || now - this.kbT < 800;
+
+      // 몸 입력: 길 = lane.js (몸 중심/어깨너비), 점프·웅크리기 = jump.js
+      let lane = run.lane, bodyJump = false, bodyDuck = false;
+      const b = !useMouse ? getBody() : null, sk = b ? skeletonFromBody(b) : null;
+      if (sk) {
+        const sw = Math.hypot(sk.rs[0] - sk.ls[0], sk.rs[1] - sk.ls[1]);
+        lane = stepLane(this.ls, ((sk.ls[0] + sk.rs[0]) / 2) / sw, dt, (((bodyTracks[11]?.vx ?? 0) + (bodyTracks[12]?.vx ?? 0)) / 2) * 1000 / sw) + 1;
+        const sm = jumpSample(b); if (sm) { const r = stepJump(this.js, sm, dt, now); bodyJump = r.jump; bodyDuck = r.duck; }
+      }
+      if (kbOn) { if (this.kbLane != null) lane = this.kbLane; } else { jump = bodyJump; duck = bodyDuck; }
+
+      // 터보 이벤트 시 속도 1.35배 가속
+      let speedMul = (currentWave === 3 ? 1.1 : currentWave === 2 ? 1.05 : 1);
+      if (this.event === "turbo") speedMul *= 1.35;
+
+      const ev = stepRun(run, { lane, jump, duck }, dt, speedMul);
+      const px = W / 2 + (run.laneX - 1) * W * 0.2, py = H * 0.55;
+
+      for (const e of ev) {
+        if (e.type === "jump") { tone(480, ac().currentTime, 0.14, "triangle", 0.16, 900); burst(px, H * 0.9, "#00d2ff", 10); }
+        else if (e.type === "coin") { award(px, py - 40, this.event === "goldRoad" ? 2 : 1, "#ffd166"); sfx.pop(px, true); }
+        else if (e.type === "pass") {
+          // ⚡ [Near-Miss] 아슬아슬하게 점프/슬라이딩/레인 비켜서 통과 시 쾌감 보너스!
+          const isNear = (e.obs === "low" && run.y < 0.65) || (e.obs === "high" && run.ducking) || (e.obs === "wall" && Math.abs(run.laneX - e.lane) < 1.25);
+          if (isNear) {
+            award(px, py - 60, e.obs === "wall" ? 4 : 5, "#00ffff");
+            popup(px, py - 95, "⚡ NEAR MISS! +5", "#00ffff");
+            sfx.nearMiss?.(px);
+            addShake?.(0.12, 4);
+          } else {
+            award(px, py - 60, e.obs === "wall" ? 2 : 3, "#7df9ff");
+          }
+        }
+        else if (e.type === "hit") {
+          if (this.event === "turbo") {
+            // 🚀 터보 오버드라이브 중에는 장애물 무적 돌파 & 파괴 보너스!
+            run.lives = Math.min(CRUN.LIVES, run.lives + 1); // 깎인 목숨 복구
+            award(px, py - 40, 5, "#ff0055");
+            popup(px, py - 65, "💥 SMASH! +5", "#ff0055");
+            burst(px, py, "#ff0055", 16);
+            addShake?.(0.14, 6);
+            sfx.pop(px, true);
+          } else {
+            combo = 0; this.flash = 1; sfx.crash(); addShake?.(0.18, 8);
+            popup(px, py - 40, "쾅! 💥", "#ff6b6b");
+            if (run.lives === 1) speak("한 번 더 맞으면 끝이에요!");
+            else if (run.lives > 1) speak("앗, 조심!");
+          }
+        }
+        else if (e.type === "life") { popup(px, py - 80, "❤️ 목숨 회복!", "#ff9ad5"); sfx.levelUp(); }
+        else if (e.type === "over") { endGame(); return; }
+      }
+
+      const d10 = Math.floor(run.dist / 10);
+      if (d10 > this.dist10) { score += d10 - this.dist10; this.dist10 = d10; }
+
+      // 100m 단위 마일스톤 돌파
+      const curMile = Math.floor(run.dist / 100);
+      if (curMile > this.milestone) {
+        this.milestone = curMile;
+        popup(W / 2, H * 0.32, `🚩 ${this.milestone * 100}m 돌파!`, "#ffd166");
+        sfx.levelUp();
+        addShake?.(0.1, 3);
+      }
+    } catch (err) {
+      console.warn("crun update err:", err);
     }
-    const d10 = Math.floor(run.dist / 10); if (d10 > this.dist10) { score += d10 - this.dist10; this.dist10 = d10; }       // 달린 거리 10m마다 1점
-    if (Math.floor(run.dist / 200) > this.milestone) { this.milestone++; popup(W / 2, H * 0.32, `${this.milestone * 200}m 돌파! 🏁`, "#ffd166"); sfx.levelUp(); }
   },
   draw() {
     const run = this.run; if (!run) return;
     const hz = H * 0.26, gy = H * 0.93, laneSp = W * 0.2, S = (d) => 1 / (1 + d * 0.075), X = (lane, d) => W / 2 + (lane - 1) * laneSp * S(d), Y = (d) => hz + (gy - hz) * S(d);
-    // 하늘 + 멀리 보이는 도시 + 바닥색: 안 변하는 그림이라 한 번만 그려 두고 매 프레임 한 장으로 찍어요 (화면 크기가 바뀔 때만 다시)
-    ctx.drawImage(staticLayer("crun", (c) => {
-      const sky = c.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, "#0b0b22"); sky.addColorStop(1, "#5a2a8a"); c.fillStyle = sky; c.fillRect(0, 0, W, hz + 1);
-      c.fillStyle = "rgba(20,8,50,.85)"; for (let i = 0; i < 16; i++) { const bw = W / 14, bh = H * (0.05 + 0.07 * ((i * 37) % 7) / 7); c.fillRect(i * bw - 20, hz - bh, bw - 6, bh); }
-      const floor = c.createLinearGradient(0, hz, 0, H); floor.addColorStop(0, "#2a1450"); floor.addColorStop(1, "#120a2c"); c.fillStyle = floor; c.fillRect(0, hz, W, H - hz);
+    
+    // 🎨 페이즈별 테마 색상 설정
+    const isP3 = this.stagePhase === 3;
+    const isP2 = this.stagePhase === 2;
+    const laneCol = isP3 ? "rgba(255,215,0,.55)" : isP2 ? "rgba(255,0,128,.55)" : "rgba(125,249,255,.45)";
+    const postCol1 = isP3 ? "#ffd700" : isP2 ? "#ff007f" : "#00d2ff";
+    const postCol2 = isP3 ? "#a855f7" : isP2 ? "#ff7700" : "#ff3377";
+
+    // 하늘 + 멀리 보이는 도시 + 바닥색: 안 변하는 그림이라 한 번만 그려 두고 매 프레임 한 장으로 찍어요
+    const bgLayerName = `crun_p${this.stagePhase}`;
+    ctx.drawImage(staticLayer(bgLayerName, (c) => {
+      const sky = c.createLinearGradient(0, 0, 0, hz);
+      if (isP3) { sky.addColorStop(0, "#19082b"); sky.addColorStop(1, "#4c1d95"); }
+      else if (isP2) { sky.addColorStop(0, "#200516"); sky.addColorStop(1, "#831843"); }
+      else { sky.addColorStop(0, "#0b0b22"); sky.addColorStop(1, "#5a2a8a"); }
+      c.fillStyle = sky; c.fillRect(0, 0, W, hz + 1);
+      c.fillStyle = isP3 ? "rgba(50,15,80,.85)" : isP2 ? "rgba(60,10,40,.85)" : "rgba(20,8,50,.85)";
+      for (let i = 0; i < 16; i++) { const bw = W / 14, bh = H * (0.05 + 0.07 * ((i * 37) % 7) / 7); c.fillRect(i * bw - 20, hz - bh, bw - 6, bh); }
+      const floor = c.createLinearGradient(0, hz, 0, H);
+      if (isP3) { floor.addColorStop(0, "#3b1260"); floor.addColorStop(1, "#180628"); }
+      else if (isP2) { floor.addColorStop(0, "#4a0e2e"); floor.addColorStop(1, "#1c0512"); }
+      else { floor.addColorStop(0, "#2a1450"); floor.addColorStop(1, "#120a2c"); }
+      c.fillStyle = floor; c.fillRect(0, hz, W, H - hz);
     }), 0, 0, W, H);
+
     // 길(레인) 선 + 흘러가는 점선
-    ctx.strokeStyle = "rgba(125,249,255,.45)"; ctx.lineWidth = 2.5;
+    ctx.strokeStyle = laneCol; ctx.lineWidth = 2.5;
     for (const off of [-1.5, -0.5, 0.5, 1.5]) { ctx.beginPath(); ctx.moveTo(W / 2 + off * laneSp * S(CRUN.D_MAX + 20), Y(CRUN.D_MAX + 20)); ctx.lineTo(W / 2 + off * laneSp * S(-3), Y(-3)); ctx.stroke(); }
-    ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 3;
+    ctx.strokeStyle = this.event === "goldRoad" ? "rgba(255,215,0,.7)" : "rgba(255,255,255,.28)"; ctx.lineWidth = 3;
     for (let i = 0; i < 12; i++) { const d = i * 5 - (run.dist % 5); if (d < 0) continue; for (const k of [0.5, 1.5]) { const s1 = S(d), s2 = S(d + 1.6); ctx.beginPath(); ctx.moveTo(W / 2 + (k - 1) * laneSp * s1, hz + (gy - hz) * s1); ctx.lineTo(W / 2 + (k - 1) * laneSp * s2, hz + (gy - hz) * s2); ctx.stroke(); } }
+    
     // 길가의 네온 기둥
-    for (let i = 0; i < 9; i++) { const d = i * 8 - (run.dist % 8); if (d < 0.5) continue; for (const sgn of [-1, 1]) { const s = S(d), x = W / 2 + sgn * laneSp * 2.0 * s, y = hz + (gy - hz) * s; ctx.fillStyle = sgn < 0 ? "#00d2ff" : "#ff3377"; ctx.fillRect(x - 3 * s, y - H * 0.26 * s, 6 * s, H * 0.26 * s); ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y - H * 0.26 * s, 14 * s, 0, 7); ctx.fill(); ctx.globalAlpha = 1; } }
+    for (let i = 0; i < 9; i++) { const d = i * 8 - (run.dist % 8); if (d < 0.5) continue; for (const sgn of [-1, 1]) { const s = S(d), x = W / 2 + sgn * laneSp * 2.0 * s, y = hz + (gy - hz) * s; ctx.fillStyle = sgn < 0 ? postCol1 : postCol2; ctx.fillRect(x - 3 * s, y - H * 0.26 * s, 6 * s, H * 0.26 * s); ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y - H * 0.26 * s, 14 * s, 0, 7); ctx.fill(); ctx.globalAlpha = 1; } }
+    
     // 코인 + 장애물 (먼 것부터)
     for (const c of run.coins) { if (c.d > CRUN.D_MAX || c.d < -1) continue; const s = S(Math.max(c.d, 0)), x = X(c.lane, Math.max(c.d, 0)), y = Y(Math.max(c.d, 0)) - (0.2 + c.h) * H * 0.14 * s; ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#a86b00"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 14 * s + 3, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.beginPath(); ctx.arc(x - 4 * s, y - 4 * s, 4 * s + 1, 0, 7); ctx.fill(); }
     for (const o of [...run.obs].sort((a, b) => b.d - a.d)) { if (o.d > CRUN.D_MAX) continue; const d = Math.max(o.d, -0.5), s = S(d), x = X(o.lane, d), yb = Y(d), w = laneSp * 0.8 * s; drawCrunObstacle(o.type, x, yb, w, s, o.d < 14 ? 1 : 0.85); }
+    
     // ⚡ [순수 몸게임 러너] 플레이어 실제 신체 & 커스튬 기반 네온 러너 렌더링
     const u = H * 0.122, ux = W / 2 + (run.laneX - 1) * laneSp, feetY = H * 0.9 - run.y * H * 0.14, hipY = feetY - 1.72 * u;
     ctx.save();
     if (run.inv > 0 && Math.floor(this.t * 14) % 2) ctx.globalAlpha = 0.4;
+    // 터보 이벤트 중 잔상 효과
+    if (this.event === "turbo") {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      drawBodyRunner(ctx, ux - 18, hipY, feetY, u, run, this.t - 0.05);
+      drawBodyRunner(ctx, ux + 18, hipY, feetY, u, run, this.t - 0.05);
+      ctx.restore();
+    }
     drawBodyRunner(ctx, ux, hipY, feetY, u, run, this.t);
     ctx.restore();
+
     // 점선 위험 표시는 생략, 안내/상태
     heartsLine(run.lives, CRUN.LIVES);
     ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = "900 22px sans-serif"; ctx.fillStyle = "#fff"; ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.6)";
-    const dm = `🏃 ${Math.round(run.dist)}m   🪙 ${run.coinCount}`; ctx.strokeText(dm, 16, H * 0.2); ctx.fillText(dm, 16, H * 0.2); ctx.restore();
+    const phaseLabel = isP3 ? "PHASE 3 • CHAOS VORTEX ☄️" : isP2 ? "PHASE 2 • HYPER TUNNEL 🔥" : "PHASE 1 • CYBER CITY 🌆";
+    const dm = `🏃 ${Math.round(run.dist)}m   🪙 ${run.coinCount}   [${phaseLabel}]`; ctx.strokeText(dm, 16, H * 0.2); ctx.fillText(dm, 16, H * 0.2); ctx.restore();
+
+    // 🌟 서프라이즈 이벤트 HUD 배지
+    if (this.event) {
+      ctx.save();
+      const badgeText = this.event === "goldRoad" ? `🌟 GOLD ROAD FEVER (${Math.ceil(this.eventTimer)}s)` : `⚡ TURBO OVERDRIVE (${Math.ceil(this.eventTimer)}s)`;
+      const badgeCol = this.event === "goldRoad" ? "#ffd700" : "#ff007f";
+      ctx.font = "900 19px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const bw = ctx.measureText(badgeText).width + 36;
+      ctx.fillStyle = "rgba(10, 10, 25, 0.82)";
+      ctx.strokeStyle = badgeCol;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(W / 2 - bw / 2, H * 0.14, bw, 34, 17);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = badgeCol;
+      ctx.fillText(badgeText, W / 2, H * 0.14 + 17);
+      ctx.restore();
+    }
+
     if (this.flash > 0) { ctx.fillStyle = `rgba(255,50,50,${this.flash * 0.35})`; ctx.fillRect(0, 0, W, H); }
     hintText(useMouse ? "← → 길 바꾸기 · Space 점프 · ↓ 웅크리기" : "몸을 옆으로 기울여 길 바꾸기 · 점프로 넘기 · 웅크려서 아래로!", H * 0.4, 9, this.t);
     bodyHint();
