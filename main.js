@@ -1028,7 +1028,8 @@ function updatePointers() {
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
-    if (now - lastHandT0 > 700) {
+    // 🛡️ 화면 밖으로 손이 나갔을 때 모션 해제 (워커 지연 및 순간 누락 방지를 위해 700ms 버퍼 적용)
+    if (now - lastSeen > 700) {
       lastHands = [];
       pts = [];
       handTracks.forEach((t) => t.reset());
@@ -1084,6 +1085,11 @@ function detectHandsNow() {
   const wr = handWorker ? visionAI.take("hand") : null;
   const workerStalled = handWorker && (now - lastHandInferEndTime > workerStallMs());
 
+  // 워커가 지연되고 메인 모델이 없으면 비동기로 메인 모델도 대비 로드
+  if (workerStalled && !handLandmarker && !isDetectingHands) {
+    ensureModel("hand").catch(() => {});
+  }
+
   if (handWorker && !wr) {
     if (!workerStalled || !handLandmarker) return;
   } else if (!handWorker && now - lastHandInferEndTime < 35) {
@@ -1108,6 +1114,7 @@ function detectHandsNow() {
 
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0;
+      lastHandT0 = t0;
       lastHandsInferFresh = true; // 이번 프레임에서 신선한 AI 데이터 수신됨
       const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
 
@@ -6980,6 +6987,7 @@ function startGame(m, opts = {}) {
   currentGameTotalSeconds = (m === "beat") ? 90 : GAME_SECONDS;
   mode = m; score = 0; timeLeft = currentGameTotalSeconds; spawnTimer = 0.3;
   objs = []; halves = []; particles = []; popups = []; playing = true; body = null; shield = SHIELD_MAX; flash = 0;
+  lastSeen = performance.now(); lastHandT0 = performance.now(); bodySeen = performance.now();
   combo = 0; comboTimer = 0; maxCombo = 0;
   currentWave = 1; isFeverTime = false;
   games[m].init?.();
@@ -7839,7 +7847,7 @@ const TAB_HINT = {
 };
 function setTab(t) {
   t = t || "all";
-  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
+  document.querySelectorAll(".tab, .top-nav-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
   document.querySelectorAll(".modes").forEach((m) => {
     if (t === "all") {
       m.classList.remove("hidden");
@@ -7850,8 +7858,13 @@ function setTab(t) {
   $("tabHint").textContent = TAB_HINT[t] || TAB_HINT.all;
   try { localStorage.setItem("tab", t); } catch {}
 }
-document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+document.querySelectorAll(".tab, .top-nav-tab").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
 setTab((() => { try { return localStorage.getItem("tab") || "all"; } catch { return "all"; } })());
+
+// 🌟 상단 핫 액션 바로가기 바인딩 (2P 대결, 카메라 가이드, TV 전체화면)
+$("btnTopParty")?.addEventListener("click", () => $("btnParty")?.click());
+$("btnTopCamGuide")?.addEventListener("click", () => $("btnSetupGuide")?.click());
+$("btnTopFs")?.addEventListener("click", () => $("btnFsHub")?.click());
 
 // ============================================================================
 // 🎮 플레이어 설정 모달 (Player Settings Modal) UI 컨트롤러 & 이벤트 바인딩
