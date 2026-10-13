@@ -42,7 +42,7 @@ export function initOnline(hooks) {
 
   // ---------- 방 만들기 / 참가 ----------
   function makeRoom() {
-    const r = new Room({ transport: createTransport("local"), self: hooks.getProfile() });
+    const r = new Room({ transport: createTransport("remote"), self: hooks.getProfile() });
     offs = [
       r.on("lobby", renderLobby),
       r.on("start", onStart),
@@ -192,6 +192,33 @@ export function initOnline(hooks) {
     try { await navigator.clipboard.writeText(room.code); toast("초대 코드를 복사했어요"); }
     catch { toast("코드를 직접 알려 주세요: " + room.code); }
   });
+  $("onlineCopyLink")?.addEventListener("click", async () => {
+    if (!room?.code) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("room", room.code);
+      await navigator.clipboard.writeText(url.toString());
+      toast("🔗 초대 링크를 복사했어요! 친구에게 보내보세요");
+    } catch {
+      toast("코드를 알려 주세요: " + room.code);
+    }
+  });
+
+  // URL 초대 링크(?room=KABOOM-XXXXXX)로 들어온 경우 자동 참가 유도
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get("room");
+    if (roomFromUrl && /^KABOOM-[A-Za-z0-9]{6}$/i.test(roomFromUrl.trim())) {
+      setTimeout(() => {
+        openModal();
+        const codeInput = $("onlineCodeInput");
+        if (codeInput) {
+          codeInput.value = roomFromUrl.trim().toUpperCase();
+          toast("초대 코드가 자동으로 입력되었어요. [참가]를 눌러주세요!");
+        }
+      }, 400);
+    }
+  } catch {}
 
   // 모드 선택 목록 채우기
   const modeSel = $("onlineMode");

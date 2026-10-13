@@ -926,11 +926,11 @@
 <div id="onlineModal" class="online-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="onlineTitle">
   <div class="online-card">
     <div class="online-head">
-      <h3 id="onlineTitle">👥 친구와 대결</h3>
-      <span class="beta-chip">준비 중</span>
+      <h3 id="onlineTitle">👥 친구와 원격 실시간 대결</h3>
+      <span class="beta-chip live" style="background:#10b981; color:#fff;">P2P E2EE</span>
       <button id="onlineClose" class="online-x" aria-label="닫기">✕</button>
     </div>
-    <p class="online-note">지금은 <b>같은 컴퓨터의 다른 탭/창</b>끼리 연결돼요. 멀리 있는 친구와의 연결은 나중에 추가할 수 있게 준비해 두었어요.</p>
+    <p class="online-note">🌐 <b>멀리 있는 친구와 인터넷을 통해 실시간 1:1 대결</b>을 즐겨보세요! 초대 코드나 링크를 보내면 다른 컴퓨터나 스마트폰에서도 바로 연결돼요 (AES-256 E2EE 종단간 암호화 적용).</p>
 
     <div id="onlineStepStart">
       <div class="online-box">
@@ -953,7 +953,8 @@
       <div class="invite-box">
         <span>초대 코드</span>
         <b id="onlineCode">KABOOM-------</b>
-        <button id="onlineCopy" class="online-btn small">복사</button>
+        <button id="onlineCopy" class="online-btn small" title="코드만 복사">코드 복사</button>
+        <button id="onlineCopyLink" class="online-btn small" style="background:#0284c7; color:#fff;" title="친구에게 보낼 바로접속 링크 복사">🔗 링크 복사</button>
       </div>
       <ul id="onlinePlayers" class="online-players"></ul>
       <p id="onlineModeInfo" class="online-info"></p>
@@ -1095,6 +1096,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay" style="pointer-events: none;"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_2358"></script>
+<script type="module" src="main.js?v=20261014_0040"></script>
 </body>
 </html>

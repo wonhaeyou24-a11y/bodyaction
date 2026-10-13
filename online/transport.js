@@ -12,14 +12,8 @@
 // 나중에 추가할 구현 (이 인터페이스만 맞추면 방 규칙·화면은 그대로 쓸 수 있어요)
 //   RemoteTransport : 진짜 원격 연결. 무료로 가능한 후보는 online/README.md 참고.
 
-export class Transport {
-  constructor() { this.handlers = new Set(); }
-  async open(_roomCode) { throw new Error("구현되지 않았어요"); }
-  send(_obj) { throw new Error("구현되지 않았어요"); }
-  close() { this.handlers.clear(); }
-  onMessage(fn) { this.handlers.add(fn); return () => this.handlers.delete(fn); }
-  _deliver(obj) { for (const h of [...this.handlers]) { try { h(obj); } catch (e) { console.error("메시지 처리 오류", e); } } }
-}
+import { Transport } from "./base-transport.js";
+export { Transport };
 
 /** 같은 브라우저 탭끼리 연결 (BroadcastChannel). 보낸 탭 자신에게는 전달되지 않아요. */
 export class LocalTransport extends Transport {
@@ -54,8 +48,12 @@ export class MemoryTransport extends Transport {
   close() { this.hub.rooms.get(this.room)?.delete(this); super.close(); }
 }
 
-/** kind에 맞는 전송 방식을 만들어 줘요. 원격 연결은 아직 준비 중이에요. */
-export function createTransport(kind = "local") {
+import { RemoteTransport } from "./remote-transport.js";
+export { RemoteTransport };
+
+/** kind에 맞는 전송 방식을 만들어 줘요. 기본값은 원격(Remote & Local 하이브리드)이에요. */
+export function createTransport(kind = "remote") {
   if (kind === "local") return new LocalTransport();
-  throw new Error(`'${kind}' 연결은 아직 준비 중이에요`);
+  if (kind === "remote" || kind === "hybrid") return new RemoteTransport();
+  throw new Error(`'${kind}' 연결은 지원하지 않아요`);
 }

@@ -26,7 +26,7 @@ export class Room {
    * @param {import("./transport.js").Transport} o.transport
    * @param {{name:string, avatar?:string}} o.self
    */
-  constructor({ transport, self, pingMs = 2000, staleMs = 7000, joinTimeoutMs = 1500, now = () => Date.now() }) {
+  constructor({ transport, self, pingMs = 2000, staleMs = 7000, joinTimeoutMs = 5000, now = () => Date.now() }) {
     this.transport = transport;
     this.id = randomId();
     this.self = { name: cleanName(self?.name), avatar: cleanAvatar(self?.avatar) };
@@ -73,7 +73,7 @@ export class Room {
     if (!ONLINE_MODES.includes(mode)) throw new RoomError("bad_mode", "온라인 대결을 지원하지 않는 게임이에요");
     this.isHost = true; this.hostId = this.id; this.mode = mode; this.trackId = trackId;
     this.code = makeInviteCode();
-    await this.transport.open(this.code);
+    await this.transport.open(this.code, { isHost: true });
     this._attach();
     this._addPlayer(this.id, this.self.name, this.self.avatar);
     this.phase = "lobby";
@@ -87,7 +87,7 @@ export class Room {
     const code = normalizeCode(codeInput);
     if (!ROOM_CODE_RE.test(code)) throw new RoomError("bad_code", "초대 코드가 올바르지 않아요");
     this.isHost = false; this.code = code;
-    await this.transport.open(code);
+    await this.transport.open(code, { isHost: false });
     this._attach();
     const reply = new Promise((resolve, reject) => {
       this._joinWait = { resolve, reject };
