@@ -12,7 +12,7 @@ import { ArmVel } from "./armtrack.js?v=20261013_0900";
 import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength, skeletonFromAngles, poseById } from "./poses.js?v=20261013_0900";
 import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js?v=20261013_2245";
 import { bakeToon } from "./costume-toon.js?v=20261013_0900";
-import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_1630";
+import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_2250";
 import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
 import { CHARACTERS, loadCharacterId, saveCharacterId, characterById, skeletonFromBody, skeletonRetarget } from "./character.js?v=20261013_1500";
 import { skeletonToPx } from "./character.js?v=20261013_1500";
@@ -3845,6 +3845,8 @@ games.runner = {
     this.prevVUp = 0;
     this.lastJumpTime = 0;
     this.lastDuckTime = 0;
+    this.lastStandUpTime = 0;
+    this.isDuckingState = false;
     this.jumpBufferUntil = 0;
 
     // 🚀 아스트로 점프 러너 전용 파워업 & 통계 시스템
@@ -3869,7 +3871,7 @@ games.runner = {
     }
   },
 
-  sense(dt) { // 🚀 점프 반동 웅크림과 앉기 완벽 분리 + 복귀 시 점프 오작동 100% 차단
+  sense(dt) { // 🚀 [NotebookLM 최적화] 점프 반동 웅크림과 앉기 완전 분리 + 복귀 시 점프 오작동 100% 차단 + 초저지연 반응
     let jump = rkJump, duck = rkDuck; rkJump = false;
     const b = !useMouse ? getBody() : null;
     const now = performance.now();
@@ -3904,61 +3906,61 @@ games.runner = {
         this.prevVUp = vUp;
 
         // 서 있는 기준선 스마트 적응: 뛰어오르는 중이나 앉은 상태에는 왜곡 방지 동결, 평소에만 부드럽게 적응
-        if (dy >= -tl * 0.04 && dy <= tl * 0.12) {
-          this.base += dy * Math.min(1, dt * 1.4);
+        if (dy >= -tl * 0.04 && dy <= tl * 0.12 && Math.abs(vUp) < tl * 0.35) {
+          this.base += dy * Math.min(1, dt * 1.2);
         }
 
-        // 2. 앉기(Duck) 모션:
-        // [점프 반동 웅크림 분리]: 뛰려고 무릎을 살짝 구부리는 동작(dy ~ 10-18%)은 절대 앉기로 처리하지 않음!
-        // 진짜 슬라이딩은 확실하게 깊이 몸을 숙이거나 웅크릴 때(dy > tl * 0.22)만 발동.
-        // 또한 웅크린 상태에서 위로 솟구치기 시작하면(vUp > 60 or aUp > 350) 점프 반동이므로 즉시 슬라이드 해제!
-        const isCountermovementLift = vUp > 60 || aUp > 350;
-        const isDeepDucking = dy > tl * 0.22 && !isCountermovementLift;
+        // 2. 🧎 앉기(Duck/Slide) 모션:
+        // [점프 반동 웅크림과 앉기 완전 분리]:
+        // 뛰려고 무릎을 살짝 구부리는 동작(하강 10~18%)은 절대 앉기로 처리하지 않음!
+        // 진짜 슬라이딩은 확실하게 깊이 몸을 숙였을 때(dy > tl * 0.23)만 진입.
+        // 그리고 일어설 때는 dy <= tl * 0.12 이하로 확실히 올라올 때까지 안정 유지(히스테리시스 23% vs 12%).
+        // 도약 준비 반동 후 솟구치는 순간(vUp > tl * 0.35 또는 aUp > 400)에는 즉시 슬라이드 해제!
+        const isRisingFast = vUp > tl * 0.35 || aUp > 400;
 
-        if (isDeepDucking) {
-          duck = true;
-          this.lastDuckTime = now;
-          this.wasDucking = true;
-        } else if (dy <= tl * 0.10) {
-          // 몸이 원래 높이 부근으로 복귀 완료 시
-          if (this.wasDucking && (now - this.lastDuckTime > 400)) {
-            this.wasDucking = false;
+        if (this.isDuckingState) {
+          // 앉아 있는 상태 유지 검증
+          if (dy <= tl * 0.12 || isRisingFast) {
+            this.isDuckingState = false;
+            this.lastStandUpTime = now; // 일어선 시각 기록
+          }
+        } else {
+          // 앉기 상태 신규 진입 검증
+          if (dy > tl * 0.23 && !isRisingFast) {
+            this.isDuckingState = true;
+            this.lastDuckTime = now;
           }
         }
+        duck = this.isDuckingState;
 
-        // 3. 점프(Jump) 모션:
-        // [앉았다 일어설 때 점프 오작동 100% 차단!]
+        // 3. 🦘 점프(Jump) 모션:
+        // [앉았다 일어설 때 점프 오작동 100% 원천 차단!]
         // 앉아 있다가 일어서는 것은 원래 서 있던 기준선(base)으로 복귀하는 것이므로,
-        // (1) 앉았던 후 복귀 중(now - this.lastDuckTime < 450ms)이거나,
-        // (2) 몸이 아직 기준선 위로 솟구치지 못했을 때(dy >= -tl * 0.05)는
-        // 아무리 일어서는 속도(vUp)가 빨라도 절대로 점프로 오작동하지 않도록 철저히 차단!
-        const isStandingUpFromDuck = (now - this.lastDuckTime < 450) || (dy >= -tl * 0.05);
+        // (1) 앉았던 후 복귀 중(now - this.lastDuckTime < 400ms 또는 now - this.lastStandUpTime < 380ms)일 때는
+        // (2) 몸이 원래 서 있던 기준선 위로 실제로 떠오르지 않는 한(dy >= -tl * 0.04) 절대로 점프로 오작동하지 않음!
+        const isReturningFromDuck = (now - this.lastDuckTime < 400) || (now - (this.lastStandUpTime || 0) < 380);
+        const reachedAboveBase = dy < -tl * 0.035;
+        const standUpBlocked = isReturningFromDuck && !reachedAboveBase;
 
-        // 진짜 점프 조건:
-        // A. 몸이 원래 서 있던 기준선보다 확연히 위로 솟구쳤는가? (위치 돌파: dy < -tl * 0.07)
-        // B. 그리고 상향 속도나 도약 가속도가 동반되었는가?
-        // C. 또는 jump.js의 정밀 상태머신(stepJump) 판정 + 기준선 돌파 검증 통과
+        // jump.js의 정밀 상태머신(stepJump) 결과
         const sm = { y, tl, swTl: tl };
         const stepRes = stepJump(this.js, sm, dt, now);
 
-        const isTruePositionJump = dy < -tl * 0.07 && (vUp > 40 || aUp > 200);
-        const isDynamicThrustJump = !isStandingUpFromDuck && (aUp > 650 && vUp > 50 && dy < -tl * 0.04);
-        const isVelocityLeap = !isStandingUpFromDuck && (vUp > Math.max(75, tl * 0.65) && dy < -tl * 0.04);
-        const isStepJumpVerified = stepRes.jump && !isStandingUpFromDuck;
+        // 진짜 점프 조건:
+        // A. jump.js 정밀 상태머신에서 점프 감지되고 일어서기 차단 구간이 아닐 때
+        // B. 도약 가속도 피크(aUp > 700) + 충분한 속도(vUp > 0.40 * tl)로 기준선 부근을 뚫고 솟구칠 때 (초저지연 1프레임 도약)
+        // C. 확실한 공중 위치 도약 (dy < -tl * 0.06 && vUp > 40)
+        const isStepJumpVerified = stepRes.jump && !standUpBlocked;
+        const isAccelPeakJump = !this.isDuckingState && !isReturningFromDuck && aUp > 700 && vUp > tl * 0.38 && dy < tl * 0.02;
+        const isTruePositionJump = !standUpBlocked && dy < -tl * 0.06 && vUp > 35;
 
-        const up = isTruePositionJump || isDynamicThrustJump || isVelocityLeap || isStepJumpVerified;
-        if (up && !this.prevJump && (now - this.lastJumpTime > 320)) {
+        const up = isStepJumpVerified || isAccelPeakJump || isTruePositionJump;
+        if (up && !this.prevJump && (now - this.lastJumpTime > 300)) {
           jump = true;
           this.lastJumpTime = now;
-          this.wasDucking = false; // 점프 발동 시 복귀 상태 해제
+          this.isDuckingState = false; // 점프 발동 시 앉기 해제
         }
         this.prevJump = up;
-
-        // stepJump의 duck도 깊은 숙임일 때만 보조 반영
-        if (stepRes.duck && dy > tl * 0.20 && !isCountermovementLift) {
-          duck = true;
-          this.lastDuckTime = now;
-        }
 
         this.seen = true;
       } else {
@@ -3966,9 +3968,9 @@ games.runner = {
       }
     }
 
-    // ⚡ 선제 점프 입력 버퍼링: 캐릭터가 착지하기 전(160ms 이내)에 미리 뛰어도 착지 즉시 도약 발동!
+    // ⚡ 선제 점프 입력 버퍼링: 캐릭터가 착지하기 전(180ms 이내)에 미리 뛰어도 착지 즉시 도약 발동!
     if (jump) {
-      this.jumpBufferUntil = now + 160;
+      this.jumpBufferUntil = now + 180;
     }
     const shouldJump = jump || (this.jumpBufferUntil > now && this.jy <= 0);
     if (shouldJump && this.jy <= 0) {
@@ -4107,10 +4109,10 @@ games.runner = {
           this.obs.push({ type: "ring", x, w: hs * 0.75, h: hs * 0.75, y0: hs * 0.45 });
         } else if (r < 0.48) {
           // [점프 허들] 레이저 바리케이드
-          this.obs.push({ type: "rock", x, w: hs * 0.52, h: hs * 0.44, y0: 0 });
+          this.obs.push({ type: "rock", x, w: hs * 0.48, h: hs * 0.40, y0: 0 });
         } else if (r < 0.78) {
-          // [슬라이딩 장애물] 고공 사이버 드론
-          this.obs.push({ type: "bar", x, w: hs * 0.72, h: hs * 0.52, y0: hs * 0.60 });
+          // [슬라이딩 장애물] 고공 사이버 드론 (충분한 하단 통과 높이 제공)
+          this.obs.push({ type: "bar", x, w: hs * 0.70, h: hs * 0.50, y0: hs * 0.65 });
         } else {
           // [보너스 코인] 3연속 코인 트레일
           const hi = rng() < 0.45;
@@ -4127,13 +4129,14 @@ games.runner = {
         }
       }
 
-      const cx = this.cx(), cw = hs * 0.35, ch = this.duck ? hs * 0.52 : hs;
+      // 공정한 피격 판정: 슬라이딩 시 캐릭터 높이를 대폭 낮춰(0.40) 쾌적한 회피 보장
+      const cx = this.cx(), cw = hs * 0.32, ch = this.duck ? hs * 0.40 : hs;
       for (const o of this.obs) {
         o.x -= v * dt;
         if (o.type === "coin") o.coinRot = (o.coinRot || 0) + dt * 4;
 
-        const overlapX = o.x < cx + cw * 0.42 && o.x + o.w > cx - cw * 0.42;
-        const overlapY = o.y0 < this.jy + ch * 0.95 && o.y0 + o.h > this.jy + ch * 0.05;
+        const overlapX = o.x < cx + cw * 0.38 && o.x + o.w > cx - cw * 0.38;
+        const overlapY = o.y0 < this.jy + ch * 0.92 && o.y0 + o.h > this.jy + ch * 0.08;
 
         if (!o.dead && overlapX && overlapY) {
           if (o.type === "coin") {
