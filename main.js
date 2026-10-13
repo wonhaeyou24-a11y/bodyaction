@@ -9998,6 +9998,7 @@ function getFilteredWheelItems() {
 
 async function renderCostumeWheel() {
   const container = $("costumeLiveShowcaseCard");
+  const focusInfo = $("costumeRibbonFocusInfo");
   if (!container) return;
 
   // 카테고리 탭 active 클래스 동기화
@@ -10008,6 +10009,7 @@ async function renderCostumeWheel() {
   const items = getFilteredWheelItems();
   if (items.length === 0) {
     container.innerHTML = `<div style="text-align:center;width:100%;color:#aaa;padding:12px;">해당 부위의 아이템이 없습니다.</div>`;
+    if (focusInfo) focusInfo.innerHTML = "";
     return;
   }
 
@@ -10020,70 +10022,114 @@ async function renderCostumeWheel() {
   const price = getItemPrice(cur);
 
   const tierLabels = { legend: "👑 1등 최고급", hero: "🥈 2등 중고급", rare: "🥉 3등 보급형", common: "기본 패션" };
-  const tierBadge = `<span class="card-tier-badge tier-${cur.tier}">${tierLabels[cur.tier] || "일반"}</span>`;
 
-  let actionBtnHtml = "";
-  if (isOwned) {
-    if (isEq) {
-      actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle equipped" type="button">✓ 착용 중 (벗기)</button>`;
+  // 1. 상단 포커스 상세 툴팁 바 업데이트
+  if (focusInfo) {
+    let actionBtnHtml = "";
+    if (isOwned) {
+      if (isEq) {
+        actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle equipped crf-btn" type="button">✓ 착용 중 (벗기)</button>`;
+      } else {
+        actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle owned crf-btn" type="button">✓ 입기</button>`;
+      }
     } else {
-      actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle owned" type="button">✓ 소장 중 (입기)</button>`;
+      actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle buy crf-btn" type="button">🪙 ${price.toLocaleString()} 구매</button>`;
+    }
+
+    focusInfo.innerHTML = `
+      <span class="card-tier-badge tier-${cur.tier}">${tierLabels[cur.tier] || "일반"}</span>
+      <span class="crf-title">${escapeHtml(cur.name)}</span>
+      <span class="crf-desc">${escapeHtml(cur.desc)}</span>
+      <span style="font-size:0.75rem;color:#ffd700;font-weight:800;">${currentWheelIndex + 1} / ${items.length}</span>
+      ${actionBtnHtml}
+    `;
+
+    const btn = $("btnWheelToggle");
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        await executeItemToggleAction(cur, isOwned, price);
+      });
+    }
+  }
+
+  // 2. 가로 나열형 캐러셀 카드 트랙 렌더링 (전체 아이템 쭉 나열)
+  container.innerHTML = items.map((it, idx) => {
+    const active = idx === currentWheelIndex;
+    const itOwned = costumeInventory.has(it.id);
+    const itEquipped = equippedCostume[it.slot] === it.id;
+    const itPrice = getItemPrice(it);
+
+    const iconHtml = costumeImg(it.id)
+      ? `<img src="assets/costumes/${it.id}.png" alt="${escapeHtml(it.name)}" style="width:48px;height:48px;object-fit:contain;" draggable="false">`
+      : `<span style="font-size:2.2rem;">${it.icon}</span>`;
+
+    let statusText = itEquipped ? "착용 중" : (itOwned ? "소장 중" : `🪙 ${itPrice.toLocaleString()}`);
+    let statusClass = itEquipped ? "status-equipped" : (itOwned ? "status-owned" : "status-buy");
+
+    return `
+      <div class="ribbon-item-card ${active ? 'active' : ''} ${itEquipped ? 'equipped-now' : ''}" 
+           data-idx="${idx}" data-item-id="${it.id}">
+        <div class="ric-icon-wrap">${iconHtml}</div>
+        <div class="ric-name">${escapeHtml(it.name)}</div>
+        <div class="ric-status-badge ${statusClass}">${statusText}</div>
+      </div>
+    `;
+  }).join("");
+
+  // 3. 개별 카드 클릭 이벤트 바인딩 (원터치 빠른 이동 및 착용)
+  container.querySelectorAll(".ribbon-item-card").forEach((card) => {
+    card.addEventListener("click", async () => {
+      const idx = Number(card.dataset.idx);
+      if (idx === currentWheelIndex) {
+        await executeItemToggleAction(cur, isOwned, price);
+      } else {
+        currentWheelIndex = idx;
+        const targetItem = items[idx];
+        if (targetItem) {
+          equippedCostume[targetItem.slot] = targetItem.id;
+          saveCostumeData();
+          sfx.pop(W / 2, true);
+        }
+        await renderCostumeWheel();
+      }
+    });
+  });
+
+  // 4. 활성 카드를 화면 중앙으로 부드럽게 스크롤
+  setTimeout(() => {
+    const activeCard = container.querySelector(".ribbon-item-card.active");
+    if (activeCard) {
+      activeCard.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, 10);
+}
+
+// 아이템 착용 / 구매 실행 헬퍼
+async function executeItemToggleAction(cur, isOwned, price) {
+  if (!cur) return;
+  if (!isOwned) {
+    if (playerCoins >= price) {
+      const success = await spendPlayerCoins(price);
+      if (success) {
+        costumeInventory.add(cur.id);
+        await saveCostumeData();
+        await equipCostumeItem(cur);
+        popup(W / 2, H * 0.45, `🎉 [${cur.name}] 구매 성공! 영구 소장되었습니다!`, "#ffd700");
+        sfx.levelUp();
+        buddyEngine.say(`와! [${cur.name}]을(를) 구매하셨군요! 너무 멋져요!`);
+        burst(W / 2, H * 0.45, cur.color || "#ffd700", 36);
+      }
+    } else {
+      const lack = price - playerCoins;
+      popup(W / 2, H * 0.45, `⚠️ 코인이 부족합니다! (필요: ${price.toLocaleString()} 🪙 / 부족: ${lack.toLocaleString()} 🪙)`, "#ff3366");
+      sfx.countdown(false);
+      buddyEngine.say(`코인이 부족해요! 게임을 더 플레이해서 모아봐요!`);
+      await equipCostumeItem(cur);
     }
   } else {
-    actionBtnHtml = `<button id="btnWheelToggle" class="btn-cls-toggle buy" type="button">🪙 ${price.toLocaleString()} 구매 및 소장</button>`;
+    await equipCostumeItem(cur);
   }
-
-  const iconHtml = costumeImg(cur.id)
-    ? `<img src="assets/costumes/${cur.id}.png" alt="${escapeHtml(cur.name)}" style="width:52px;height:52px;object-fit:contain;" draggable="false">`
-    : cur.icon;
-
-  container.innerHTML = `
-    <div class="cls-left">
-      <div class="cls-icon-wrap">${iconHtml}</div>
-      <div class="cls-info">
-        <div class="cls-title-row">
-          ${tierBadge}
-          <h3 class="cls-title">${escapeHtml(cur.name)}</h3>
-          <span class="cls-count-badge">${currentWheelIndex + 1} / ${items.length}</span>
-        </div>
-        <p class="cls-desc">${escapeHtml(cur.desc)}</p>
-      </div>
-    </div>
-    <div class="cls-actions">
-      ${actionBtnHtml}
-      <span class="cls-status-hint">${isOwned ? "영구 소장 아이템" : `필요: 🪙 ${price.toLocaleString()}`}</span>
-    </div>
-  `;
-
-  // 액션 버튼 바인딩
-  const btn = $("btnWheelToggle");
-  if (btn) {
-    btn.addEventListener("click", async () => {
-      if (!isOwned) {
-        if (playerCoins >= price) {
-          const success = await spendPlayerCoins(price);
-          if (success) {
-            costumeInventory.add(cur.id);
-            await saveCostumeData();
-            await equipCostumeItem(cur);
-            popup(W / 2, H * 0.45, `🎉 [${cur.name}] 구매 성공! 영구 소장되었습니다!`, "#ffd700");
-            sfx.levelUp();
-            buddyEngine.say(`와! [${cur.name}]을(를) 구매하셨군요! 너무 멋져요!`);
-            burst(W / 2, H * 0.45, cur.color || "#ffd700", 36);
-          }
-        } else {
-          const lack = price - playerCoins;
-          popup(W / 2, H * 0.45, `⚠️ 코인이 부족합니다! (필요: ${price.toLocaleString()} 🪙 / 부족: ${lack.toLocaleString()} 🪙)`, "#ff3366");
-          sfx.countdown(false);
-          buddyEngine.say(`코인이 부족해요! 게임을 더 플레이해서 모아봐요!`);
-          await equipCostumeItem(cur);
-        }
-      } else {
-        await equipCostumeItem(cur);
-      }
-      renderCostumeWheel();
-    });
-  }
+  await renderCostumeWheel();
 }
 
 // 휠 스텝 넘기기 (이전 / 다음) + 자동 라이브 피팅

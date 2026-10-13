@@ -1086,15 +1086,18 @@
     <span class="hud-item hud-clap" id="hudClapText">👏 <strong>박수</strong> 장착 확정</span>
   </div>
 
-  <!-- 5. [하단 중앙] 실시간 라이브 피팅 쇼케이스 카드 (자동 착용 & 원터치 구매/벗기) -->
-  <div id="costumeLiveShowcaseCard" class="costume-live-showcase">
-    <!-- main.js에서 동적 렌더링 -->
+  <!-- 5. [하단 가로 나열형] 아케이드 커버플로우 캐러셀 트랙 (전체 아이템 쭉 나열 & 스와이프 탐색) -->
+  <div id="costumeRibbonWrapper" class="costume-ribbon-wrapper">
+    <div id="costumeRibbonFocusInfo" class="costume-ribbon-focus-info"></div>
+    <div id="costumeLiveShowcaseCard" class="costume-ribbon-track-container">
+      <!-- main.js에서 카테고리 전체 아이템들이 가로 카드로 쭉 나열됨 -->
+    </div>
   </div>
 
   <!-- ⚡ [최상위 레이어] 우측 진열장 위에서도 손 포인터가 절대 가려지지 않는 모션 핸드 오버레이 -->
   <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_1922"></script>
+<script type="module" src="main.js?v=20261013_1927"></script>
 </body>
 </html>
