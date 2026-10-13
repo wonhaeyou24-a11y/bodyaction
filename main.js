@@ -8044,8 +8044,8 @@ const COSTUME_ITEMS = {
     icon: "💀", desc: "푸른 영혼의 불꽃이 이글거리는 전설의 다크 해골 전사 가면.", color: "#00d2ff"
   },
   mask_fox_neon: {
-    id: "mask_fox_neon", name: "네온 붉은여우 가면", slot: "face", tier: "hero", price: 260000,
-    icon: "🦊", desc: "붉은 불꽃 안광이 서린 전통 네온 여우 가면.", color: "#ff4d5e"
+    id: "mask_fox_neon", name: "네온 여우 가면", slot: "face", tier: "hero", price: 0,
+    icon: "🦊", desc: "붉은 불꽃 안광이 서린 전통 네온 여우 가면. 얼굴에 밀착되는 인기 만점 시그니처 가면.", color: "#ff4d5e"
   },
   mask_doge: {
     id: "mask_doge", name: "시바견 도지 볼살 마스크", slot: "face", tier: "rare", price: 150000,
@@ -8384,10 +8384,10 @@ const RANK_REWARDS = {
 };
 
 // 3. 커스튬 인벤토리 & 장착 상태 (암호화 체크포인트 저장소 관리)
-let costumeInventory = new Set(["head_crown", "body_nano", "back_angel", "hand_repulsor", "aura_super_saiyan"]);
+let costumeInventory = new Set(["head_crown", "body_nano", "back_angel", "hand_repulsor", "aura_super_saiyan", "mask_fox_neon"]);
 let equippedCostume = {
   head: "head_crown",
-  face: null,       // 🥸 콧수염 / 안경
+  face: "mask_fox_neon", // 🦊 네온 여우 가면 기본 장착
   body: "body_nano",
   legs: null,       // 🩳 바지 / 팬티
   feet: null,       // 🩴 삼선 슬리퍼 / 신발
@@ -8468,12 +8468,13 @@ async function loadCostumeData() {
     costumeInventory = new Set(savedInv);
   }
   // 기본 아이템 항상 보장
-  ["head_crown", "body_nano", "back_angel", "hand_repulsor", "aura_super_saiyan"].forEach((id) => costumeInventory.add(id));
+  ["head_crown", "body_nano", "back_angel", "hand_repulsor", "aura_super_saiyan", "mask_fox_neon"].forEach((id) => costumeInventory.add(id));
 
-  // ⚡ 마이그레이션: 기존 head_foxmask 소지 시 닌자 삿갓으로 자동 변환 (가면 중복 충돌 해소)
+  // ⚡ 마이그레이션: 기존 head_foxmask 소지 시 닌자 삿갓으로 교체하면서 네온 여우 가면(face)도 함께 복원 보존!
   if (costumeInventory.has("head_foxmask")) {
     costumeInventory.delete("head_foxmask");
     costumeInventory.add("head_ninja_hat");
+    costumeInventory.add("mask_fox_neon");
   }
 
   const savedEq = await SecureStore.loadCheckpoint(eqKey, null);
@@ -8482,6 +8483,10 @@ async function loadCostumeData() {
     if (equippedCostume.head === "head_foxmask") {
       equippedCostume.head = "head_ninja_hat";
     }
+  }
+  // 얼굴 가면이 비어있으면 네온 여우 가면 자동 장착
+  if (!equippedCostume.face) {
+    equippedCostume.face = "mask_fox_neon";
   }
 
   // 로드 즉시 자격 검사 및 부적격 옷 회수
