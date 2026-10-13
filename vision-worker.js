@@ -45,7 +45,7 @@ self.onmessage = async (e) => {
       lastTs[m.kind] = ts;
       const t0 = performance.now();
       const r = task.detectForVideo(m.bitmap, ts);
-      self.postMessage({ type: "result", kind: m.kind, ts: m.ts, landmarks: r.landmarks, inferMs: performance.now() - t0 });
+      self.postMessage({ type: "result", kind: m.kind, ts: m.ts, landmarks: r.landmarks, handednesses: r.handednesses, inferMs: performance.now() - t0 });
     } catch (err) {
       self.postMessage({ type: "result", kind: m.kind, ts: m.ts, landmarks: null, error: String(err?.message || err) });
     } finally {

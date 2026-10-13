@@ -916,13 +916,16 @@ function feedArmVel(lm, t0) {
   ARM_JOINTS.forEach((jb, i) => feed(armVel[i], jb));
   LEG_JOINTS.forEach((jb, i) => feed(legVel[i], jb));
 }
-let lastHands = [], rawPrev = [], camInfo = "", detectMs = 0;
+let lastHands = [null, null], rawPrev = [null, null], camInfo = "", detectMs = 0;
+let prevSlotPos = [null, null];
 let isDetectingHands = false, isDetectingBody = false, lastDetectTimestamp = 0;
 let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 let bodyVelocities = []; // (예전 방식 호환용)
 // 📍 위치 추적기: 인식 결과가 들쭉날쭉한 간격으로 와도 손/관절이 튀지 않고 부드럽게 따라가게 해요 (tracker.js)
-const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta({ alpha: 0.5, beta: 0.18 }));
+// ⚡ 손 전용 튜닝: jumpPx를 900px로 상향하여 고속 스윙 시 리셋 순간이동 원천 차단, maxPredictMs 45ms로 미래 오버슈트 튐 차단!
+const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed: 0.05, jumpPx: 900 };
+const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta(HAND_AB));
 const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
 let bodyTracks = [], bodyVis = [], bodyHave = false;
 const ptrVps = [];       // 손별 초당 이동 속도(px/s) - 프레임 수와 상관없는 속도 (펀치 판정용)
@@ -934,7 +937,8 @@ function updatePointers() {
   if ((!playing || !mode) && !isCostumeRoomOpen) {
     pointers.length = 0;
     trails.forEach((t) => (t.length = 0));
-    lastHands = [];
+    lastHands = [null, null];
+    prevSlotPos = [null, null];
     body = null;
     euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
     lastHandsInferFresh = false;
@@ -1017,8 +1021,8 @@ function updatePointers() {
       // ⚡ 포즈 모드 및 피팅룸에서도 손목(15, 16)을 pointers로 추출하여 손/주먹 상호작용 지원
       if (body && body[15] && body[16]) {
         pts = [
-          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy, vN: armVel[0].vN(now), dirN: armVel[0].dir(now) },
-          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy, vN: armVel[1].vN(now), dirN: armVel[1].dir(now) }
+          { x: body[16].x, y: body[16].y, vx: bodyTracks[16]?.vx, vy: bodyTracks[16]?.vy, vN: armVel[0].vN(now), dirN: armVel[0].dir(now), slot: 0 },
+          { x: body[15].x, y: body[15].y, vx: bodyTracks[15]?.vx, vy: bodyTracks[15]?.vy, vN: armVel[1].vN(now), dirN: armVel[1].dir(now), slot: 1 }
         ];
       }
     }
@@ -1026,56 +1030,66 @@ function updatePointers() {
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
-    // 🛡️ 화면 밖으로 손이 나갔을 때 모션 해제 (워커 지연 및 순간 누락 방지를 위해 700ms 버퍼 적용)
     // 🛡️ 화면 밖으로 손이 나갔을 때 모션 해제 (NotebookLM 350ms Grace Window 적용)
     if (now - lastSeen > 350) {
-      lastHands = [];
+      lastHands = [null, null];
       pts = [];
       handTracks.forEach((t) => t.reset());
-      rawPrev = [];
+      rawPrev = [null, null];
+      prevSlotPos = [null, null];
     }
-    camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (초저지연 60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
-    camOk = lastHands.length > 0;
+    const activeHandCount = lastHands.filter((h) => !!h).length;
+    camInfo = (activeHandCount ? `✋ 손 ${activeHandCount}개 추적 중 (초저지연 60FPS 부드러운 트래킹)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
+    camOk = activeHandCount > 0;
 
-    // 매 화면 프레임: 추적기에서 "지금 시각"의 손 위치를 고정밀 연속 계산 (인식 결과 사이에도 튀지 않고 극도로 부드럽게 이어짐)
+    // 매 화면 프레임: 추적기에서 "지금 시각"의 손 위치를 고정밀 연속 계산 (슬롯별 1:1 고정)
     pts = [];
     for (let i = 0; i < MAX_HANDS; i++) {
-      if (lastHands[i] && handTracks[i].ready) {
-        pts.push(handTracks[i].at(now));
-      } else if (lastHands[i]) {
-        pts.push(lastHands[i]);
+      if (lastHands[i]) {
+        const p = handTracks[i].ready ? handTracks[i].at(now) : lastHands[i];
+        pts.push({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, slot: i });
       }
     }
     lastHandsInferFresh = false;
   }
 
-  // 최대 2손(1인 최적화) 포인터 생성
-  pts.slice(0, MAX_HANDS).forEach((p, i) => {
-    const pr = prev[i] ?? p;
+  // 🛡️ 슬롯별 독립 포인터 생성: 슬롯 간 교차/순간이동 튐 100% 원천 차단
+  pts.forEach((p) => {
+    const s = p.slot ?? 0;
+    const pr = prevSlotPos[s] ?? { x: p.x, y: p.y };
     const curSpeed = Math.hypot(p.x - pr.x, p.y - pr.y);
     const inst = p.vx !== undefined ? Math.hypot(p.vx, p.vy) * 1000 : curSpeed / frameDt;
-    ptrVps[i] = ptrVps[i] === undefined ? inst : ptrVps[i] * 0.4 + inst * 0.6;
+    ptrVps[s] = ptrVps[s] === undefined ? inst : ptrVps[s] * 0.35 + inst * 0.65;
 
     pointers.push({
       x: p.x, y: p.y, px: pr.x, py: pr.y,
       speed: curSpeed,
-      vps: ptrVps[i],
+      vps: ptrVps[s],
       vN: p.vN,                       // 어깨너비/초 단위 3차원 속도 (몸 인식일 때만; 샌드백 펀치 판정)
       dirN: p.dirN,                   // 그 움직임의 방향 (팔 거두기 구분용)
-      fist: useMouse ? !mouse.down : !!lastFist[i],
+      fist: useMouse ? !mouse.down : !!lastFist[s],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
-      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[i] || -1e9) < 240 && ptrVps[i] > Math.min(W, H) * 0.55),
-      punchId: useMouse ? mouse.p : lastPunch[i]
+      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[s] || -1e9) < 240 && ptrVps[s] > Math.min(W, H) * 0.55),
+      punchId: useMouse ? mouse.p : lastPunch[s],
+      slot: s
     });
+    prevSlotPos[s] = { x: p.x, y: p.y };
   });
 
-  for (let i = 0; i < MAX_HANDS; i++) {
-    const t = trails[i], p = pointers[i];
-    if (p) {
-      t.push({ x: p.x, y: p.y });
-      if (t.length > 14) t.shift();
+  // 슬롯별 독립 트레일 관리: 손이 사라지면 해당 슬롯만 초기화하여 화면 가로지르는 궤적 튐 차단
+  const activeSlots = new Set(pts.map((p) => p.slot ?? 0));
+  for (let s = 0; s < MAX_HANDS; s++) {
+    const t = trails[s];
+    if (activeSlots.has(s)) {
+      const p = pointers.find((ptr) => ptr.slot === s);
+      if (p) {
+        t.push({ x: p.x, y: p.y });
+        if (t.length > 14) t.shift();
+      }
     } else {
-      t.length = 0; ptrVps[i] = undefined;
+      t.length = 0;
+      ptrVps[s] = undefined;
+      prevSlotPos[s] = null;
     }
   }
 }
@@ -1150,57 +1164,93 @@ function detectHandsNow() {
         });
       });
 
-      // 🌟 [NotebookLM 공간 일관성 헝가리안 매칭] 프레임 간 손 인덱스 뒤바뀜 완벽 방지!
-      // 1손 또는 2손 환경에서 손이 교차하거나 하나를 치워도 슬롯이 순간이동하지 않음
+      // 🌟 [NotebookLM 불변 슬롯 매칭 & 1:1 트래커 일치] 프레임 간 손 인덱스 뒤바뀜 및 순간이동 원천 차단!
       const mapped = new Array(MAX_HANDS).fill(null);
-      const used = new Set();
-      if (rawPrev.some((p) => p !== null)) {
-        for (let i = 0; i < MAX_HANDS; i++) {
-          if (!rawPrev[i]) continue;
-          let bestJ = -1, bestDist = 1e9;
-          for (let j = 0; j < raw.length; j++) {
-            if (used.has(j)) continue;
-            const d = Math.hypot(raw[j].x - rawPrev[i].x, raw[j].y - rawPrev[i].y);
-            if (d < bestDist) { bestDist = d; bestJ = j; }
-          }
-          if (bestJ !== -1 && bestDist < Math.max(W, H) * 0.45) {
-            mapped[i] = raw[bestJ];
-            used.add(bestJ);
-          }
+
+      // 이전 활성 슬롯 식별 (350ms 유예 윈도우 내)
+      const prevActiveIndices = [];
+      for (let i = 0; i < MAX_HANDS; i++) {
+        if (rawPrev[i] && (t0 - (handTracks[i].t || 0) < 350)) {
+          prevActiveIndices.push(i);
         }
       }
-      // 매칭되지 않은 신규 손은 빈 슬롯에 배치
-      for (let j = 0; j < raw.length; j++) {
-        if (!used.has(j)) {
-          const emptyIdx = mapped.findIndex((m) => m === null);
-          if (emptyIdx !== -1) {
-            mapped[emptyIdx] = raw[j];
-            used.add(j);
+
+      if (raw.length === 1) {
+        if (prevActiveIndices.length === 1) {
+          // 1손 플레이: 거리 제한 없이 이전에 추적하던 슬롯에 1:1 불변 매핑! (빠른 휘두름 시 슬롯 튕김 100% 방지)
+          mapped[prevActiveIndices[0]] = raw[0];
+        } else if (prevActiveIndices.length === 2) {
+          // 2손 중 1손만 감지된 경우: 더 가까운 슬롯에 매핑
+          const d0 = Math.hypot(raw[0].x - rawPrev[prevActiveIndices[0]].x, raw[0].y - rawPrev[prevActiveIndices[0]].y);
+          const d1 = Math.hypot(raw[0].x - rawPrev[prevActiveIndices[1]].x, raw[0].y - rawPrev[prevActiveIndices[1]].y);
+          const bestIdx = d0 <= d1 ? prevActiveIndices[0] : prevActiveIndices[1];
+          mapped[bestIdx] = raw[0];
+        } else {
+          // 신규 진입: 0번 슬롯에 배치
+          mapped[0] = raw[0];
+        }
+      } else if (raw.length >= 2) {
+        // 2손 감지된 경우
+        if (prevActiveIndices.length === 2) {
+          // 2손 -> 2손 매칭: (0->0, 1->1) vs (0->1, 1->0) 최단 유클리드 거리 합 선택 (교차 방지)
+          const iA = prevActiveIndices[0], iB = prevActiveIndices[1];
+          const costDirect = Math.hypot(raw[0].x - rawPrev[iA].x, raw[0].y - rawPrev[iA].y) +
+                             Math.hypot(raw[1].x - rawPrev[iB].x, raw[1].y - rawPrev[iB].y);
+          const costSwap = Math.hypot(raw[1].x - rawPrev[iA].x, raw[1].y - rawPrev[iA].y) +
+                           Math.hypot(raw[0].x - rawPrev[iB].x, raw[0].y - rawPrev[iB].y);
+          if (costDirect <= costSwap) {
+            mapped[iA] = raw[0];
+            mapped[iB] = raw[1];
+          } else {
+            mapped[iA] = raw[1];
+            mapped[iB] = raw[0];
+          }
+        } else if (prevActiveIndices.length === 1) {
+          // 1손 -> 2손 추가 감지 시
+          const prevIdx = prevActiveIndices[0];
+          const otherIdx = prevIdx === 0 ? 1 : 0;
+          const d0 = Math.hypot(raw[0].x - rawPrev[prevIdx].x, raw[0].y - rawPrev[prevIdx].y);
+          const d1 = Math.hypot(raw[1].x - rawPrev[prevIdx].x, raw[1].y - rawPrev[prevIdx].y);
+          if (d0 <= d1) {
+            mapped[prevIdx] = raw[0];
+            mapped[otherIdx] = raw[1];
+          } else {
+            mapped[prevIdx] = raw[1];
+            mapped[otherIdx] = raw[0];
+          }
+        } else {
+          // 2손 모두 신규 진입: 화면 x 좌표 순(왼쪽->0, 오른쪽->1)으로 초기화
+          if (raw[0].x <= raw[1].x) {
+            mapped[0] = raw[0];
+            mapped[1] = raw[1];
+          } else {
+            mapped[0] = raw[1];
+            mapped[1] = raw[0];
           }
         }
       }
 
-      // 각 슬롯별 추적기에 갱신
-      const newLastHands = [];
+      // 각 슬롯별 추적기에 갱신 (lastHands는 [slot0, slot1] 고정 배열로 유지!)
       for (let i = 0; i < MAX_HANDS; i++) {
         if (mapped[i]) {
           handTracks[i].update(mapped[i].x, mapped[i].y, t0);
-          newLastHands[i] = { x: mapped[i].x, y: mapped[i].y };
+          lastHands[i] = { x: mapped[i].x, y: mapped[i].y };
         } else {
-          // 손이 안 보인 슬롯은 바로 리셋하지 않고 300ms 유예 윈도우 유지
-          if (t0 - (handTracks[i].t || 0) > 300) {
+          // 손이 안 보인 슬롯은 320ms 유예 윈도우 후 리셋
+          if (t0 - (handTracks[i].t || 0) > 320) {
             handTracks[i].reset();
+            lastHands[i] = null;
           }
         }
       }
-      lastHands = newLastHands.filter((h) => !!h);
-      rawPrev = mapped;
+      rawPrev = mapped.map((m, i) => m || (lastHands[i] ? { ...lastHands[i] } : null));
     } else {
       // 🛡️ NotebookLM 320ms Grace Window & Freeze Guard
       // 일시적 감지 누락(가림/조명/고속 스윙) 시 관성으로 날리지 않고 마지막 유효 좌표 유지!
       const dtMs = t0 - lastSeen;
       if (dtMs >= 320) {
-        lastHands = []; lastFist = []; rawPrev = []; sizeHist = [];
+        lastHands = [null, null]; lastFist = []; rawPrev = [null, null]; sizeHist = [];
+        prevSlotPos = [null, null];
         handTracks.forEach((t) => t.reset());
         handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
       }
@@ -6646,7 +6696,7 @@ function toMenu() {
   scheduleCameraStop();
   playing = false; mode = null; objs = [];
   isReadyTime = false; readyTimeLeft = 0; readyStartTime = 0;
-  pointers.length = 0; trails.forEach((t) => (t.length = 0)); lastHands = []; body = null;
+  pointers.length = 0; trails.forEach((t) => (t.length = 0)); lastHands = [null, null]; prevSlotPos = [null, null]; rawPrev = [null, null]; body = null;
   isFeverTime = false; currentWave = 1;
   $("feverBorder")?.classList.add("hidden");
   $("waveBanner")?.classList.add("hidden");
