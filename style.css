@@ -2258,74 +2258,8 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
    👗 [혁신형] 풀스크린 아케이드 휠 & 네온 제스처 패들 피팅룸 UI
    ============================================================================ */
 
-/* 1. [좌/우] 대형 네온 모션 패들 버블 (이전 ◀ / 다음 ▶) */
-.costume-wheel-paddle {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 104px;
-  height: 180px;
-  z-index: 20;
-  background: rgba(18, 10, 36, 0.88);
-  backdrop-filter: blur(24px);
-  border: 2px solid rgba(0, 210, 255, 0.45);
-  border-radius: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow: 0 0 30px rgba(0, 210, 255, 0.25), inset 0 0 20px rgba(0, 210, 255, 0.1);
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  user-select: none;
-  overflow: hidden;
-}
-.costume-wheel-paddle.paddle-prev { left: 28px; }
-.costume-wheel-paddle.paddle-next { right: 28px; }
-
-.costume-wheel-paddle:hover,
-.costume-wheel-paddle.hand-hover,
-.costume-wheel-paddle:active {
-  transform: translateY(-50%) scale(1.08);
-  border-color: #00ffff;
-  box-shadow: 0 0 45px rgba(0, 255, 255, 0.6), inset 0 0 25px rgba(0, 255, 255, 0.25);
-  background: rgba(28, 14, 56, 0.95);
-}
-.costume-wheel-paddle .paddle-arrow {
-  font-size: 2.8rem;
-  font-weight: 900;
-  color: #00ffff;
-  text-shadow: 0 0 16px #00ffff;
-  line-height: 1;
-}
-.costume-wheel-paddle .paddle-label {
-  font-size: 0.82rem;
-  font-weight: 900;
-  color: #ffffff;
-  letter-spacing: -0.02em;
-  text-align: center;
-}
-/* 모션 손 호버 진행 링 게이지 */
-.paddle-dwell-ring {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.paddle-dwell-ring::after {
-  content: "";
-  display: block;
-  width: var(--dwell-progress, 0%);
-  height: 100%;
-  background: linear-gradient(90deg, #00d2ff, #22c55e);
-  transition: width 0.05s linear;
-}
+/* 1. [좌/우] 패들 제거: 에어 스와이프 전용으로 완전 전환되어 화면 시야 100% 개방 */
+.costume-wheel-paddle { display: none !important; }
 
 /* 2. [상단 중앙] 원터치 카테고리 바 */
 .costume-wheel-category-bar {

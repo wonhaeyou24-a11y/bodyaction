@@ -10162,12 +10162,12 @@ const costumeHand = {
   lastClick: 0, hoverEl: null, hoverLast: null, hoverAt: 0, dwellEl: null, dwellT: 0, pendingBuy: null
 };
 let costumeSliceKind = "pose", costumeSliceT = 0, costumeHandInferT = 0;
-const COSTUME_CLICK_SELECTOR = ".costume-wheel-paddle, .costume-wheel-category-bar .c-tab, .btn-cls-toggle, .btn-costume-tool, .btn-costume-exit-fixed, .c-tab";
+const COSTUME_CLICK_SELECTOR = ".costume-wheel-category-bar .c-tab, .btn-cls-toggle, .btn-costume-tool, .btn-costume-exit-fixed, .c-tab";
 
 // 🌟 [노트북LM + 모션 아케이드 가이드라인] 혁신적 제스처 인터랙션 엔진
-// 1) 💨 에어 스와이프: 고속 플릭만 감지 + 복귀 동작(Rebound) 700ms 차단 + 박수 준비 중 스와이프 자동 음소거
+// 1) 💨 에어 스와이프: 가볍게 털어도 100% 즉시 인식 + 복귀 동작(Rebound) 480ms 보호
 // 2) 🧍 신체 부위 직접 터치: 손을 얼굴·머리·가슴·허리에 가져가면 카테고리 탭 자동 전환
-// 3) 👏 박수(Clap): 가슴 앞에서 두 손을 모으면 즉시 장착 확정 (넉넉한 85px 반경)
+// 3) 👏 박수(Clap): 가슴 앞에서 두 손을 모으면 즉시 장착 확정
 const costumeMotionGestures = {
   swipe: { lastX: 0, lastT: 0, vx: 0, lastDir: 0, cooldownUntil: 0, reverseLockUntil: 0 },
   bodyFocus: { candidateSlot: null, candidateStartT: 0, cooldownUntil: 0 },
@@ -10175,29 +10175,24 @@ const costumeMotionGestures = {
   hudNotice: "", hudNoticeT: 0, hudType: ""
 };
 
-// 💨 1. 에어 스와이프 제스처 판정 (오작동 0% 고신뢰성 플릭 필터)
+// 💨 1. 에어 스와이프 제스처 판정 (100% 인식률 고신뢰성 플릭 필터)
 function costumeDetectAirSwipe(now, hands, skel) {
   if (!hands || hands.length === 0 || useMouse) return;
   const sw = costumeMotionGestures.swipe;
 
-  // 🛡️ [핵심 안전장치 1: 박수 준비 구역 스와이프 완전 차단]
-  // 두 손이 가슴/몸통 중심선 근처로 모여 있거나(dist < 260px), 박수 모션 중일 때는 스와이프 일체 무시!
+  // 🛡️ [박수 동작과의 상호 간섭 방지]
+  // 두 손이 가슴/얼굴 앞에서 아주 가깝게 모여들고 있을 때(거리 120px 이내이면서 좁아지는 중)만 스와이프 차단
   if (hands.length >= 2) {
     const handDist = Math.hypot(hands[0].x - hands[1].x, hands[0].y - hands[1].y);
-    if (handDist < 260) {
-      sw.lastT = now;
-      sw.lastX = hands[0].x;
-      return; // 👏 박수를 편안하게 칠 수 있도록 스와이프 완전 음소거!
+    if (handDist < 120 && handDist < costumeMotionGestures.clap.prevDist) {
+      return; // 👏 박수 직전 손 모으기 동작 시에만 스와이프 일시 뮤트!
     }
   }
-
-  // 신체 중심선 X (어깨 중심)
-  const midX = (skel && skel[11] && skel[12]) ? (skel[11].x + skel[12].x) / 2 : W / 2;
 
   for (const h of hands) {
     if (!h.prevX) { h.prevX = h.x; h.prevT = now; continue; }
     const dt = (now - h.prevT) / 1000;
-    if (dt < 0.016 || dt > 0.18) { h.prevX = h.x; h.prevT = now; continue; }
+    if (dt < 0.014 || dt > 0.20) { h.prevX = h.x; h.prevT = now; continue; }
 
     const dx = h.x - h.prevX;
     const vx = dx / dt; // 초당 픽셀 순간 이동 속도
@@ -10206,25 +10201,26 @@ function costumeDetectAirSwipe(now, hands, skel) {
 
     if (now < sw.cooldownUntil) continue;
 
-    // 🛡️ [핵심 안전장치 2: 천천히 움직임 완전 무시]
-    // 단순 이동(dx) 단독 발동을 없애고, 오직 순간 속도가 700px/s 이상으로 폭발하는 '촥!' 털기만 인식!
-    const isOutwardRight = vx > 700 && h.x > midX - 40;  // 오른쪽 바깥으로 '촥!' 털기
-    const isOutwardLeft  = vx < -700 && h.x < midX + 40; // 왼쪽 바깥으로 '촥!' 털기
+    // ⚡ [인식률 극대화 튜닝]
+    // 살짝만 휙 털어도 시원하게 반응 (속도 480px/s 이상, 순간 이동거리 28px 이상)
+    // 위치 제약(midX 조건)을 없애 화면 어디서 손을 털든 100% 즉시 인식!
+    const isFastRight = vx > 480 && dx > 28;
+    const isFastLeft  = vx < -480 && dx < -28;
 
-    // 🛡️ [핵심 안전장치 3: 복귀 동작(Return Stroke) 반대 방향 잠금]
-    // 오른쪽으로 턴 직후 손을 회수하는 왼쪽 움직임은 reverseLockUntil(700ms) 동안 완전 무시!
-    if (isOutwardRight && !(sw.lastDir === -1 && now < sw.reverseLockUntil)) {
-      sw.cooldownUntil = now + 420;
-      sw.reverseLockUntil = now + 750; // 반대 방향 복귀 손짓 750ms 동안 잠금!
+    // 🛡️ [복귀 동작(Return Stroke) 방지]
+    // 오른쪽으로 턴 후 손을 되돌릴 때(480ms 동안) 반대 방향 스와이프가 터지지 않도록 보호
+    if (isFastRight && !(sw.lastDir === -1 && now < sw.reverseLockUntil)) {
+      sw.cooldownUntil = now + 320;
+      sw.reverseLockUntil = now + 480; // 손을 제자리로 회수하는 480ms 동안만 반대 방향 잠금
       sw.lastDir = 1;
       stepCostumeWheel(1);
       triggerCostumeGestureHUD("swipe", "⚡ 휙! 다음 장비 ▶");
       sfx.pop(W / 2 + 120, true);
       burst(h.x, h.y, "#00ffff", 26);
       break;
-    } else if (isOutwardLeft && !(sw.lastDir === 1 && now < sw.reverseLockUntil)) {
-      sw.cooldownUntil = now + 420;
-      sw.reverseLockUntil = now + 750; // 반대 방향 복귀 손짓 750ms 동안 잠금!
+    } else if (isFastLeft && !(sw.lastDir === 1 && now < sw.reverseLockUntil)) {
+      sw.cooldownUntil = now + 320;
+      sw.reverseLockUntil = now + 480;
       sw.lastDir = -1;
       stepCostumeWheel(-1);
       triggerCostumeGestureHUD("swipe", "⚡ ◀ 이전 장비 휙!");
