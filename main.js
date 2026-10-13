@@ -7921,7 +7921,7 @@ const TAB_HINT = {
 };
 function setTab(t) {
   t = t || "all";
-  document.querySelectorAll(".tab, .top-nav-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
+  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
   document.querySelectorAll(".modes").forEach((m) => {
     if (t === "all") {
       m.classList.remove("hidden");
@@ -7932,13 +7932,8 @@ function setTab(t) {
   $("tabHint").textContent = TAB_HINT[t] || TAB_HINT.all;
   try { localStorage.setItem("tab", t); } catch {}
 }
-document.querySelectorAll(".tab, .top-nav-tab").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
 setTab((() => { try { return localStorage.getItem("tab") || "all"; } catch { return "all"; } })());
-
-// 🌟 상단 핫 액션 바로가기 바인딩 (2P 대결, 카메라 가이드, TV 전체화면)
-$("btnTopParty")?.addEventListener("click", () => $("btnParty")?.click());
-$("btnTopCamGuide")?.addEventListener("click", () => $("btnSetupGuide")?.click());
-$("btnTopFs")?.addEventListener("click", () => $("btnFsHub")?.click());
 
 // ============================================================================
 // 🎮 플레이어 설정 모달 (Player Settings Modal) UI 컨트롤러 & 이벤트 바인딩
