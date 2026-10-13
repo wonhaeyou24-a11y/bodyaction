@@ -2373,6 +2373,56 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   font-weight: 900;
 }
 
+/* 4-1. [상단 제스처 HUD] 슬림 네온 인터랙션 상태 가이드 바 */
+.costume-gesture-hud-bar {
+  position: absolute;
+  top: 132px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(10, 6, 22, 0.82);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 240, 255, 0.28);
+  border-radius: 999px;
+  padding: 5px 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 14px rgba(0, 210, 255, 0.18);
+  pointer-events: none;
+  transition: all 0.25s ease;
+}
+.costume-gesture-hud-bar .hud-item {
+  font-size: 0.78rem;
+  color: #c4d1d9;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  transition: all 0.2s;
+}
+.costume-gesture-hud-bar .hud-item strong {
+  color: #00f0ff;
+  font-weight: 900;
+}
+.costume-gesture-hud-bar .hud-sep {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.7rem;
+}
+.costume-gesture-hud-bar.pulse-swipe {
+  border-color: #00ffff;
+  box-shadow: 0 0 24px rgba(0, 255, 255, 0.8);
+  transform: translateX(-50%) scale(1.04);
+}
+.costume-gesture-hud-bar.pulse-body {
+  border-color: #a855f7;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.8);
+  transform: translateX(-50%) scale(1.04);
+}
+.costume-gesture-hud-bar.pulse-clap {
+  border-color: #ffd700;
+  box-shadow: 0 0 28px rgba(255, 215, 0, 0.9);
+  transform: translateX(-50%) scale(1.06);
+}
+
 /* 3. [하단 중앙] 실시간 라이브 피팅 쇼케이스 카드 */
 .costume-live-showcase {
   position: absolute;

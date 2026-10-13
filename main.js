@@ -10164,6 +10164,166 @@ const costumeHand = {
 let costumeSliceKind = "pose", costumeSliceT = 0, costumeHandInferT = 0;
 const COSTUME_CLICK_SELECTOR = ".costume-wheel-paddle, .costume-wheel-category-bar .c-tab, .btn-cls-toggle, .btn-costume-tool, .btn-costume-exit-fixed, .c-tab";
 
+// 🌟 [노트북LM + 모션 아케이드 가이드라인] 혁신적 제스처 인터랙션 엔진
+// 1) 💨 에어 스와이프: 손을 좌/우로 휙(Flick) 밀어 대기시간(Dwell) 없이 0.1초 쾌속 넘기기
+// 2) 🧍 신체 부위 직접 터치: 손을 얼굴·머리·가슴·허리에 가져가면 카테고리 탭 자동 전환
+// 3) 👏 박수(Clap): 두 손을 짝! 마주치면 착용/벗기/구매 확정
+const costumeMotionGestures = {
+  swipe: { lastX: 0, lastT: 0, vx: 0, cooldownUntil: 0 },
+  bodyFocus: { candidateSlot: null, candidateStartT: 0, cooldownUntil: 0 },
+  clap: { prevDist: 999, cooldownUntil: 0 },
+  hudNotice: "", hudNoticeT: 0, hudType: ""
+};
+
+// 💨 1. 에어 스와이프 제스처 판정 (좌우 휙 밀기)
+function costumeDetectAirSwipe(now, hand) {
+  if (!hand || useMouse) return;
+  const sw = costumeMotionGestures.swipe;
+  const dt = (now - sw.lastT) / 1000;
+  
+  if (dt > 0.015 && dt < 0.25) {
+    const dx = hand.x - sw.lastX;
+    sw.vx = dx / dt; // 초당 픽셀 이동 속도
+
+    if (now > sw.cooldownUntil) {
+      if (sw.vx > 420 || dx > 62) {
+        // ▶ 오른쪽으로 휙! ➡️ 다음 장비
+        sw.cooldownUntil = now + 320;
+        stepCostumeWheel(1);
+        triggerCostumeGestureHUD("swipe", "⚡ 휙! 다음 장비 ▶");
+        sfx.pop(W / 2 + 120, true);
+        burst(hand.x, hand.y, "#00ffff", 24);
+      } else if (sw.vx < -420 || dx < -62) {
+        // ◀ 왼쪽으로 휙! ➡️ 이전 장비
+        sw.cooldownUntil = now + 320;
+        stepCostumeWheel(-1);
+        triggerCostumeGestureHUD("swipe", "⚡ ◀ 이전 장비 휙!");
+        sfx.pop(W / 2 - 120, true);
+        burst(hand.x, hand.y, "#00ffff", 24);
+      }
+    }
+  }
+  sw.lastX = hand.x;
+  sw.lastT = now;
+}
+
+// 🧍 2. 신체 부위 직접 터치 / 가리키기 (카테고리 자동 전환)
+function costumeDetectBodyCategory(now, skel, hands) {
+  if (!skel || !skel[0] || !skel[11] || !skel[12] || hands.length === 0 || useMouse) return;
+  const bf = costumeMotionGestures.bodyFocus;
+  if (now < bf.cooldownUntil) return;
+
+  const sw = Math.hypot(skel[12].x - skel[11].x, skel[12].y - skel[11].y) || 80;
+  const nose = skel[0];
+  const midShoulder = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 };
+  const hasHip = skel[23] && skel[24];
+  const midHip = hasHip ? { x: (skel[23].x + skel[24].x) / 2, y: (skel[23].y + skel[24].y) / 2 } : { x: midShoulder.x, y: midShoulder.y + sw * 1.3 };
+
+  let detectedSlot = null;
+  let slotLabel = "";
+
+  for (const h of hands) {
+    const distToNose = Math.hypot(h.x - nose.x, h.y - nose.y);
+    const distToShoulder = Math.hypot(h.x - midShoulder.x, h.y - midShoulder.y);
+    const distToHip = Math.hypot(h.x - midHip.x, h.y - midHip.y);
+
+    // 1) 머리 꼭대기 / 이마
+    if (h.y < nose.y - 25 && Math.abs(h.x - nose.x) < sw * 0.7) {
+      detectedSlot = "head"; slotLabel = "👑 모자·헤드"; break;
+    }
+    // 2) 얼굴 중심 / 코 근처
+    if (distToNose < sw * 0.46) {
+      detectedSlot = "face"; slotLabel = "🎭 가면·페이스"; break;
+    }
+    // 3) 가슴 / 상체
+    if (distToShoulder < sw * 0.58 && h.y > midShoulder.y - 15 && h.y < midHip.y - 20) {
+      detectedSlot = "body"; slotLabel = "👕 상의·아머"; break;
+    }
+    // 4) 허리 / 골반
+    if (distToHip < sw * 0.65 && h.y >= midHip.y - 25 && h.y < midHip.y + sw * 0.7) {
+      detectedSlot = "legs"; slotLabel = "🩳 하의·팬츠"; break;
+    }
+    // 5) 무릎 아래 / 신발
+    if (h.y > midHip.y + sw * 0.75) {
+      detectedSlot = "feet"; slotLabel = "🩴 신발·슬리퍼"; break;
+    }
+    // 6) 양손을 어깨 너머로 활짝 벌림 (날개짓)
+    if (Math.abs(h.x - midShoulder.x) > sw * 1.05 && h.y > midShoulder.y - 40 && h.y < midHip.y) {
+      detectedSlot = "back"; slotLabel = "🪽 날개·가방"; break;
+    }
+  }
+
+  if (detectedSlot) {
+    if (bf.candidateSlot === detectedSlot) {
+      // 220ms 동안 안정적으로 신체 부위에 손이 머물면 확정 전환!
+      if (now - bf.candidateStartT > 220) {
+        if (currentCostumeTab !== detectedSlot) {
+          const tab = document.querySelector(`.costume-wheel-category-bar .c-tab[data-slot="${detectedSlot}"]`);
+          if (tab) {
+            tab.click();
+            bf.cooldownUntil = now + 650; // 전환 후 쿨다운
+            triggerCostumeGestureHUD("body", `🎯 [${slotLabel}] 신체 감지 전환!`);
+            sfx.tick();
+            burst(hands[0].x, hands[0].y, "#a855f7", 20);
+          }
+        }
+        bf.candidateSlot = null;
+      }
+    } else {
+      bf.candidateSlot = detectedSlot;
+      bf.candidateStartT = now;
+    }
+  } else {
+    bf.candidateSlot = null;
+  }
+}
+
+// 👏 3. 박수(Clap) 감지 (두 손 짝! 마주치면 장착 확정/토글)
+function costumeDetectClap(now, hands) {
+  if (hands.length < 2 || useMouse) return;
+  const cl = costumeMotionGestures.clap;
+  if (now < cl.cooldownUntil) return;
+
+  const d = Math.hypot(hands[0].x - hands[1].x, hands[0].y - hands[1].y);
+  // 이전 프레임에서 거리가 80 이상이었다가 순간 55 이하로 좁혀지면 박수!
+  if (cl.prevDist > 75 && d < 52) {
+    cl.cooldownUntil = now + 950;
+    const btn = $("btnWheelToggle");
+    if (btn) {
+      btn.click();
+      triggerCostumeGestureHUD("clap", "👏 박수 짝! 장착 상태 변경!");
+      sfx.bell();
+      const midX = (hands[0].x + hands[1].x) / 2;
+      const midY = (hands[0].y + hands[1].y) / 2;
+      burst(midX, midY, "#ffd700", 36);
+    }
+  }
+  cl.prevDist = d;
+}
+
+// 📢 제스처 HUD 시각 피드백 발동
+function triggerCostumeGestureHUD(type, text) {
+  const bar = $("costumeGestureHudBar");
+  if (!bar) return;
+  costumeMotionGestures.hudNotice = text;
+  costumeMotionGestures.hudNoticeT = performance.now();
+  costumeMotionGestures.hudType = type;
+
+  bar.classList.remove("pulse-swipe", "pulse-body", "pulse-clap");
+  void bar.offsetWidth; // reflow
+  bar.classList.add(`pulse-${type}`);
+
+  const itemEl = bar.querySelector(`.hud-${type}`) || bar.querySelector("#hudSwipeText");
+  if (itemEl) {
+    const orig = itemEl.innerHTML;
+    itemEl.innerHTML = `✨ <strong>${text}</strong>`;
+    setTimeout(() => {
+      itemEl.innerHTML = orig;
+      bar.classList.remove(`pulse-${type}`);
+    }, 1400);
+  }
+}
+
 // ✊ 노트북LM 최적화 권장사항 반영: 단일 트래커 파이프라인 (Single Tracker Pipeline)
 // 모델 모드를 핑퐁 스위칭하지 않고 전신 Pose 33개 랜드마크에서 손목/손끝을 100% 실시간(60 FPS) 추출!
 function costumeReadHand(now, skel) {
@@ -10189,7 +10349,6 @@ function costumeReadHand(now, skel) {
     const span = Math.hypot(index.x - wrist.x, index.y - wrist.y);
     const spanPinky = Math.hypot(pinky.x - wrist.x, pinky.y - wrist.y);
     const ratio = Math.max(span, spanPinky) / sw;
-    // 검지나 손끝이 손목 쪽으로 모이면 주먹 (자연스러운 주먹 쥐기 0.28 이하로 관대하게 판정)
     let isFist = ratio < 0.28;
     if (pointers && pointers.some((p) => p.fist && Math.hypot(p.x - wrist.x, p.y - wrist.y) < sw * 0.8)) {
       isFist = true;
@@ -10216,6 +10375,14 @@ function costumeReadHand(now, skel) {
     if (now - costumeHand.seen > 300) { costumeHand.votes = 0; costumeHand.stable = false; }
     return;
   }
+
+  // 🚀 [신규 모션 엔진 실행]
+  // 1. 에어 스와이프 감지 (좌우 휙 밀기)
+  costumeDetectAirSwipe(now, hands[0]);
+  // 2. 신체 부위 직접 터치 / 가리키기 (카테고리 탭 자동 전환)
+  costumeDetectBodyCategory(now, skel, hands);
+  // 3. 박수(Clap) 감지 (두 손 짝 마주침)
+  costumeDetectClap(now, hands);
 
   // 화면 우측 사이드바(진열장)에 더 가까운 손 또는 더 높은 손을 우선 타겟팅
   hands.sort((a, b) => b.x - a.x);
@@ -10365,8 +10532,10 @@ function costumeHandUiTick(ctx, cvs, rect, now) {
   ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 7, 0, Math.PI * 2); ctx.fill();
 
   // 실시간 직관적 상태 안내 뱃지
-  let label = "✋ 진열장 위에 손을 올리세요";
-  if (ptr.fist) {
+  let label = "💨 손 휙(Flick) 넘기기 | 👏 박수 장착";
+  if (costumeMotionGestures.hudNotice && now - costumeMotionGestures.hudNoticeT < 1400) {
+    label = costumeMotionGestures.hudNotice;
+  } else if (ptr.fist) {
     label = "✊ 주먹 쥠! (즉시 선택)";
   } else if (el?.classList.contains("costume-card")) {
     const owned = el.dataset.owned === "1";

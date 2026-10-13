@@ -1088,6 +1088,15 @@
     <button class="c-tab" data-slot="all">모든 장비</button>
   </nav>
 
+  <!-- 4-1. [상단 제스처 HUD] 신체 부위 터치 & 스와이프 & 박수 실시간 인터랙션 가이드 배너 -->
+  <div id="costumeGestureHudBar" class="costume-gesture-hud-bar">
+    <span class="hud-item hud-swipe" id="hudSwipeText">💨 <strong>손 휙(Flick)!</strong> ◀이전 / 다음▶</span>
+    <span class="hud-sep">•</span>
+    <span class="hud-item hud-body" id="hudBodyText">🧍 <strong>얼굴·머리·가슴 짚기</strong> 부위 자동 전환</span>
+    <span class="hud-sep">•</span>
+    <span class="hud-item hud-clap" id="hudClapText">👏 <strong>박수</strong> 장착 확정</span>
+  </div>
+
   <!-- 5. [하단 중앙] 실시간 라이브 피팅 쇼케이스 카드 (자동 착용 & 원터치 구매/벗기) -->
   <div id="costumeLiveShowcaseCard" class="costume-live-showcase">
     <!-- main.js에서 동적 렌더링 -->
@@ -1097,6 +1106,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_1900"></script>
+<script type="module" src="main.js?v=20261013_1908"></script>
 </body>
 </html>
