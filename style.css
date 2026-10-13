@@ -282,23 +282,25 @@ body.playing .bg-ambience { display: none; }
   100% { transform: translateY(0) scale(1); box-shadow: 0 0 35px var(--accent); }
 }
 
-/* ⚡ 카드 로딩 중 오버레이 칩 */
+/* ⚡ 카드 로딩 중 오버레이 칩 (절대 두 줄로 꺾이지 않는 완벽한 한 줄 네온 뱃지) */
 .card-loading-badge {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   z-index: 10;
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 24px;
-  background: rgba(18, 6, 40, 0.94);
+  display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px;
+  padding: 10px 22px;
+  background: rgba(18, 6, 40, 0.96);
   border: 2.5px solid var(--accent);
   border-radius: 999px;
   box-shadow: 0 0 30px var(--accent), 0 12px 30px rgba(0, 0, 0, 0.85);
   color: #ffffff;
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: 1.05rem;
-  letter-spacing: 0.04em;
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  letter-spacing: 0.02em;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
   pointer-events: none;
   animation: badgePopAnim 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
@@ -2199,35 +2201,37 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   to { transform: translateY(-8px); }
 }
 
-/* 2. 상단 미니멀 플로팅 헤더 바 */
+/* 2. 상단 미니멀 플로팅 헤더 바 (중요한 코인 & 모두 벗기 & 나가기 큼직하게 배치) */
 .costume-floating-top {
   position: absolute;
   top: 18px;
   left: 20px;
-  max-width: calc(100vw - 440px);
-  z-index: 20;
+  right: 20px;
+  width: calc(100% - 40px);
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(14, 7, 28, 0.85);
+  background: rgba(14, 7, 28, 0.88);
   backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  padding: 8px 18px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(0, 210, 255, 0.1);
-  gap: 12px;
+  padding: 8px 22px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 210, 255, 0.12);
+  gap: 16px;
 }
 
 .cft-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: nowrap;
 }
 
 .cft-logo {
   font-family: var(--font-display, 'Rubik', sans-serif);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
+  font-weight: 900;
   color: #fff;
   white-space: nowrap;
   letter-spacing: -0.01em;
@@ -2238,192 +2242,139 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
   -webkit-text-fill-color: transparent;
 }
 
-.costume-gesture-hint {
-  display: flex;
+/* 🪙 크고 시원한 코인 지갑 뱃지 */
+.costume-wallet-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 5px 12px;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.22), rgba(245, 158, 11, 0.22));
+  border: 1.5px solid #ffd700;
+  padding: 6px 18px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 210, 255, 0.25);
-  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.3);
 }
-.hint-pill { font-size: 0.76rem; color: #ecdcff; }
-.hint-pill b { color: #00d2ff; }
+.costume-wallet-pill .wallet-icon { font-size: 1.3rem; }
+.costume-wallet-pill .wallet-label { font-size: 0.88rem; font-weight: 800; color: #fde047; }
+.costume-wallet-pill .wallet-val { font-size: 1.25rem; font-weight: 900; color: #ffffff; text-shadow: 0 0 10px rgba(255, 215, 0, 0.7); }
 
 .cft-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   white-space: nowrap;
 }
 
+/* 🧹 큼직하고 깔끔한 모두 벗기 버튼 */
 .btn-costume-tool {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 8px 18px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   font-family: var(--font-display, 'Rubik', sans-serif);
   font-weight: 800;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .btn-costume-tool:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
   border-color: #00d2ff;
   transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 210, 255, 0.3);
 }
 
-.btn-fs-pill {
-  border-color: rgba(0, 210, 255, 0.45);
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.15), rgba(168, 85, 247, 0.15));
-  color: #00d2ff;
-}
-.btn-fs-pill:hover {
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.35), rgba(168, 85, 247, 0.25));
-  box-shadow: 0 0 16px rgba(0, 210, 255, 0.4);
-}
-
-/* ⚡ [우측 상단 독립 배치] 절대 가려지지 않는 고정 나가기 버튼 */
+/* ⚡ 크고 눈에 띄는 피팅 룸 나가기 버튼 */
 .btn-costume-exit-fixed {
-  position: absolute;
-  top: 18px;
-  right: 20px;
-  z-index: 100;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 22px;
+  padding: 9px 24px;
   border-radius: 999px;
   border: 2px solid #ff3c5a;
   background: linear-gradient(135deg, #ff2e93 0%, #ff3c5a 100%);
   color: #ffffff;
   font-family: var(--font-display, 'Rubik', sans-serif);
   font-weight: 900;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   cursor: pointer;
   box-shadow: 0 4px 0 #990022, 0 8px 24px rgba(255, 60, 90, 0.55);
   transition: all 0.15s ease;
   user-select: none;
 }
 .btn-costume-exit-fixed:hover {
-  transform: translateY(-2px) scale(1.04);
+  transform: translateY(-2px) scale(1.03);
   box-shadow: 0 6px 0 #990022, 0 12px 28px rgba(255, 60, 90, 0.75);
 }
 .btn-costume-exit-fixed:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #990022;
 }
-.exit-icon { font-size: 1.1rem; font-weight: 900; }
+.exit-icon { font-size: 1.15rem; font-weight: 900; }
 .exit-text { letter-spacing: -0.01em; }
 
-/* 3. [우측] 심플 슬림 커스튬 진열장 사이드바 */
 /* ============================================================================
-   👗 [혁신형] 풀스크린 아케이드 휠 & 네온 제스처 패들 피팅룸 UI
+   👗 [심플 풀스크린] 원터치 카테고리 탭 & 하단 가로 장비 카드
    ============================================================================ */
 
-/* 1. [좌/우] 패들 제거: 에어 스와이프 전용으로 완전 전환되어 화면 시야 100% 개방 */
-.costume-wheel-paddle { display: none !important; }
-
-/* 2. [상단 중앙] 원터치 카테고리 바 */
+/* 2. [상단 중앙] 부위별 원터치 카테고리 바 (큼직하고 터치하기 쉽게) */
 .costume-wheel-category-bar {
   position: absolute;
-  top: 76px;
+  top: 84px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 18;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: rgba(14, 8, 30, 0.88);
   backdrop-filter: blur(24px);
   border: 1.5px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 8px 18px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.2);
-  max-width: 92vw;
+  max-width: 95vw;
   overflow-x: auto;
 }
 .costume-wheel-category-bar::-webkit-scrollbar { display: none; }
 
 .costume-wheel-category-bar .c-tab {
-  padding: 8px 16px;
+  padding: 9px 20px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #c4d1d9;
-  font-size: 0.84rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  font-size: 0.92rem;
   font-weight: 800;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
 .costume-wheel-category-bar .c-tab:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
   color: #ffffff;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  border-color: #00d2ff;
 }
 .costume-wheel-category-bar .c-tab.active {
   background: linear-gradient(135deg, #ff2e93 0%, #a855f7 100%);
   color: #ffffff;
   border-color: #ff2e93;
-  box-shadow: 0 0 16px rgba(255, 46, 147, 0.6);
+  box-shadow: 0 0 20px rgba(255, 46, 147, 0.65);
   font-weight: 900;
+  transform: scale(1.05);
 }
 
-/* 4-1. [상단 제스처 HUD] 슬림 네온 인터랙션 상태 가이드 바 */
-.costume-gesture-hud-bar {
-  position: absolute;
-  top: 132px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 18;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(10, 6, 22, 0.82);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 240, 255, 0.28);
-  border-radius: 999px;
-  padding: 5px 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 14px rgba(0, 210, 255, 0.18);
-  pointer-events: none;
-  transition: all 0.25s ease;
-}
-.costume-gesture-hud-bar .hud-item {
-  font-size: 0.78rem;
-  color: #c4d1d9;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-  transition: all 0.2s;
-}
-.costume-gesture-hud-bar .hud-item strong {
-  color: #00f0ff;
-  font-weight: 900;
-}
-.costume-gesture-hud-bar .hud-sep {
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 0.7rem;
-}
-.costume-gesture-hud-bar.pulse-swipe {
-  border-color: #00ffff;
-  box-shadow: 0 0 24px rgba(0, 255, 255, 0.8);
-  transform: translateX(-50%) scale(1.04);
-}
-.costume-gesture-hud-bar.pulse-body {
-  border-color: #a855f7;
-  box-shadow: 0 0 24px rgba(168, 85, 247, 0.8);
-  transform: translateX(-50%) scale(1.04);
-}
-.costume-gesture-hud-bar.pulse-clap {
-  border-color: #ffd700;
-  box-shadow: 0 0 28px rgba(255, 215, 0, 0.9);
-  transform: translateX(-50%) scale(1.06);
+/* 불필요/잡다한 안내 배너 및 HUD 완전 숨김 (시야 100% 개방) */
+.costume-gesture-hint,
+.costume-gesture-hud-bar,
+.costume-ribbon-focus-info,
+.costume-sensor-status,
+.costume-wheel-paddle {
+  display: none !important;
 }
 
 /* 3. [하단 가로 나열형] 아케이드 커버플로우 캐러셀 트랙 */
@@ -2719,17 +2670,15 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 }
 
 /* ============================================================================
-   ⚡ Stitch 스타일 하단 실시간 모션 HUD & 현재 착용 코디 콤보 바
+   ⚡ Stitch 스타일 현재 착용 코디 콤보 바 (하단 카드 위로 띄워 겹침 방지)
    ============================================================================ */
 .costume-bottom-hud {
   position: absolute;
-  bottom: 22px;
+  bottom: 162px;
   left: 24px;
-  right: 420px;
-  z-index: 15;
+  z-index: 25;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
   pointer-events: none;
 }

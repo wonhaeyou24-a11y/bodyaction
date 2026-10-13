@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261013_2155">
+<link rel="stylesheet" href="style.css?v=20261013_2205">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -1068,49 +1068,31 @@
           <span class="cec-empty">아직 착용한 장비가 없습니다.</span>
         </div>
       </div>
-
-      <!-- 모션 센서 60 FPS 상태 표시등 -->
-      <div class="costume-sensor-status">
-        <span class="sensor-dot"></span>
-        <span class="sensor-text">MOTION SENSOR ACTIVE • 60 FPS • BODY CALIBRATED</span>
-      </div>
     </div>
   </div>
 
-  <!-- 2. 상단 미니멀 플로팅 헤더 바 -->
+  <!-- 2. 상단 심플 헤더 바 (중요한 코인 & 모두 벗기 & 나가기만 크고 시원하게 배치) -->
   <header class="costume-floating-top">
     <div class="cft-left">
       <span class="cft-logo">👗 <b>가상 피팅 룸</b></span>
       <div class="costume-wallet-pill" title="현재 보유 중인 코인">
         <span class="wallet-icon">🪙</span>
-        <span class="wallet-label">보유:</span>
+        <span class="wallet-label">보유 코인:</span>
         <b id="costumePlayerCoins" class="wallet-val">0</b>
-      </div>
-      <div class="costume-gesture-hint">
-        <span class="hint-pill">✋ 양옆 대형 패들(◀ 이전 / 다음 ▶)에 손을 올리거나 키보드(←, →)를 누르면 실시간 착용!</span>
       </div>
     </div>
     <div class="cft-right">
       <button id="btnUnequipAll" class="btn-costume-tool" type="button" title="모든 장비 벗기">🧹 모두 벗기</button>
-      <button id="btnCostumePhoto" class="btn-costume-tool" type="button" title="내 모습 사진 찍기">📸 사진 촬영</button>
-      <button id="btnFsCostume" class="btn-costume-tool btn-fs-pill" type="button" title="TV/모니터 전체화면 토글 (F11)">
-        <span class="fs-icon">📺</span>
-        <span class="fs-text">전체화면</span>
+      <button id="btnCloseCostume" class="btn-costume-exit-fixed" type="button" title="가상 피팅 룸 나가기 (ESC)">
+        <span class="exit-icon">✕</span>
+        <span class="exit-text">피팅 룸 나가기</span>
       </button>
     </div>
   </header>
 
-  <!-- ⚡ [우측 상단 독립 배치] 절대 가려지지 않는 고정 나가기 버튼 -->
-  <button id="btnCloseCostume" class="btn-costume-exit-fixed" type="button" title="가상 피팅 룸 나가기 (ESC)">
-    <span class="exit-icon">✕</span>
-    <span class="exit-text">피팅 룸 나가기</span>
-  </button>
-
-
-
-  <!-- 4. [상단 중앙] 부위별 원터치 카테고리 바 (가면 기본 선택) -->
+  <!-- 3. [상단 중앙] 부위별 원터치 카테고리 바 (큼직하고 터치하기 쉽게 배치) -->
   <nav class="costume-wheel-category-bar">
-    <button class="c-tab active" data-slot="face">🎭 가면·페이스 (인기)</button>
+    <button class="c-tab active" data-slot="face">🎭 가면·페이스</button>
     <button class="c-tab" data-slot="head">👑 모자·헤드</button>
     <button class="c-tab" data-slot="body">👕 상의·아머</button>
     <button class="c-tab" data-slot="legs">🩳 하의·팬츠</button>
@@ -1120,16 +1102,8 @@
     <button class="c-tab" data-slot="all">모든 장비</button>
   </nav>
 
-  <!-- 4-1. [상단 터치 HUD] 장비 카드 터치 장착 안내 배너 -->
-  <div id="costumeGestureHudBar" class="costume-gesture-hud-bar">
-    <span class="hud-item hud-body" id="hudBodyText">👆 <strong>상단 탭</strong> 부위별 카테고리 선택</span>
-    <span class="hud-sep">•</span>
-    <span class="hud-item hud-swipe" id="hudSwipeText">✨ <strong>하단 장비 카드 터치</strong> 즉시 착용 / 해제</span>
-  </div>
-
-  <!-- 5. [하단 가로 나열형] 아케이드 커버플로우 캐러셀 트랙 (전체 아이템 쭉 나열 & 스와이프 탐색) -->
+  <!-- 4. [하단 가로 나열형] 장비 카드 터치 트랙 (시야를 가리는 중간 설명 바 제거) -->
   <div id="costumeRibbonWrapper" class="costume-ribbon-wrapper">
-    <div id="costumeRibbonFocusInfo" class="costume-ribbon-focus-info"></div>
     <div id="costumeLiveShowcaseCard" class="costume-ribbon-track-container">
       <!-- main.js에서 카테고리 전체 아이템들이 가로 카드로 쭉 나열됨 -->
     </div>
@@ -1139,6 +1113,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay" style="pointer-events: none;"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_2155"></script>
+<script type="module" src="main.js?v=20261013_2205"></script>
 </body>
 </html>
