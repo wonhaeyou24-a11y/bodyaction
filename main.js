@@ -402,7 +402,7 @@ const INTRO = {
   balloon: "날아오르는 풍선을 손으로 터뜨리세요!",
   ninja: "과일을 날카롭게 베어내세요! 폭탄은 조심하세요!",
   space: "지구를 향해 쏟아지는 유성을 막아내세요! 가운데 말고 떨어질 곳으로 손을 뻗으세요!",
-  crun: "내 캐릭터가 달려요! 몸을 옆으로 기울여 길을 바꾸고, 점프로 넘고, 웅크려서 아래로 지나가요!",
+  crun: "온몸으로 달려요! 몸을 옆으로 기울여 길을 바꾸고, 점프로 넘고, 웅크려서 트랩을 피하세요!",
   cduel: "오른손으로 검을 휘두르고, 왼손을 올려 방패로 막아요! 적의 공격이 닿기 직전에 방패를 올리면 패링!",
   bballoon: "손·발·머리 어디로든 풍선을 터뜨리세요! 발로 차면 보너스! 검은 폭탄은 피해요!",
   bspace: "온몸으로 유성을 막아내세요! 점선으로 표시된 떨어질 곳으로 몸을 움직여요!",
@@ -9488,12 +9488,135 @@ function hintText(t, y, sec, since) {
 }
 
 // ---------------------------------------------------------------------------
-// 🏃 캐릭터 러너 (crun)
+// 🏃 몸으로 트랩 탈출 런 (crun - 순수 몸게임 전환)
 // ---------------------------------------------------------------------------
+function drawBodyRunner(ctx, ux, hipY, feetY, u, run, t) {
+  ctx.save();
+  // 1. 발 아래 사이버 펄스 그림자 패드
+  const padW = u * (1.2 - run.y * 0.4);
+  const padH = u * 0.18;
+  const shadowG = ctx.createRadialGradient(ux, H * 0.9 + 4, 2, ux, H * 0.9 + 4, Math.max(10, padW));
+  shadowG.addColorStop(0, "rgba(0, 210, 255, 0.45)");
+  shadowG.addColorStop(0.7, "rgba(0, 210, 255, 0.15)");
+  shadowG.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = shadowG;
+  ctx.beginPath();
+  ctx.ellipse(ux, H * 0.9 + 4, padW, padH, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. 점프 시 부스터 이펙트
+  if (run.y > 0.08) {
+    ctx.save();
+    ctx.fillStyle = "#ffb800";
+    ctx.shadowColor = "#ff5500";
+    ctx.shadowBlur = 14;
+    for (const sx of [-u * 0.3, u * 0.3]) {
+      ctx.beginPath();
+      ctx.moveTo(ux + sx - 8, feetY);
+      ctx.lineTo(ux + sx + 8, feetY);
+      ctx.lineTo(ux + sx, feetY + 28 * run.y + Math.sin(t * 24) * 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 3. 웅크리기(슬라이드) 시 사이버 슬라이딩 쉴드 이펙트
+  if (run.duck) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 255, 200, 0.85)";
+    ctx.lineWidth = 3.5;
+    ctx.shadowColor = "#00ffcc";
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.ellipse(ux, feetY - u * 0.5, u * 1.15, u * 0.45, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 4. 러너 전신 스켈레톤 (네온 사이버 신체 & 실제 커스튬 도킹)
+  const tilt = Math.max(-0.25, Math.min(0.25, (run.laneX - run.lane) * 0.4));
+  ctx.translate(ux, hipY);
+  ctx.rotate(tilt);
+
+  // 달리기 애니메이션 사이클
+  const runFreq = 11;
+  const legCycle = Math.sin(t * runFreq);
+  const armCycle = Math.cos(t * runFreq);
+
+  // 러너 스켈레톤 앵커 계산 (u 기준 상대 좌표)
+  const duckScale = run.duck ? 0.55 : 1.0;
+  const headPos = { x: 0, y: -u * 1.55 * duckScale };
+  const chestPos = { x: 0, y: -u * 0.95 * duckScale };
+  const hipPos = { x: 0, y: 0 };
+  const lHand = { x: -u * 0.55, y: chestPos.y + armCycle * u * 0.4 * duckScale };
+  const rHand = { x: u * 0.55, y: chestPos.y - armCycle * u * 0.4 * duckScale };
+  const lFoot = { x: -u * 0.35, y: u * 1.55 * (run.duck ? 0.6 : 1.0) + legCycle * u * 0.3 };
+  const rFoot = { x: u * 0.35, y: u * 1.55 * (run.duck ? 0.6 : 1.0) - legCycle * u * 0.3 };
+
+  // 4-1. 사이버 네온 관절 라인 렌더링
+  ctx.save();
+  ctx.strokeStyle = run.duck ? "#00ffcc" : "#00d2ff";
+  ctx.shadowColor = ctx.strokeStyle;
+  ctx.shadowBlur = 12;
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // 척추 & 몸통
+  ctx.beginPath();
+  ctx.moveTo(headPos.x, headPos.y);
+  ctx.lineTo(chestPos.x, chestPos.y);
+  ctx.lineTo(hipPos.x, hipPos.y);
+  ctx.stroke();
+
+  // 양팔
+  ctx.beginPath();
+  ctx.moveTo(lHand.x, lHand.y);
+  ctx.lineTo(chestPos.x, chestPos.y);
+  ctx.lineTo(rHand.x, rHand.y);
+  ctx.stroke();
+
+  // 양다리
+  ctx.beginPath();
+  ctx.moveTo(lFoot.x, lFoot.y);
+  ctx.lineTo(hipPos.x, hipPos.y);
+  ctx.lineTo(rFoot.x, rFoot.y);
+  ctx.stroke();
+
+  // 관절 노드 점
+  ctx.fillStyle = "#ffffff";
+  [headPos, chestPos, hipPos, lHand, rHand, lFoot, rFoot].forEach((p) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // 5. 플레이어 커스튬 파츠 렌더링! (모자, 얼굴, 상의, 하의, 신발 등 실시간 연동)
+  const runnerSkel = new Array(33).fill(null);
+  runnerSkel[0] = { x: headPos.x, y: headPos.y };               // 머리
+  runnerSkel[11] = { x: chestPos.x - u * 0.4, y: chestPos.y }; // 왼어깨
+  runnerSkel[12] = { x: chestPos.x + u * 0.4, y: chestPos.y }; // 오른어깨
+  runnerSkel[15] = lHand;                                       // 왼손
+  runnerSkel[16] = rHand;                                       // 오른손
+  runnerSkel[23] = { x: hipPos.x - u * 0.25, y: hipPos.y };   // 골반좌
+  runnerSkel[24] = { x: hipPos.x + u * 0.25, y: hipPos.y };   // 골반우
+  runnerSkel[27] = lFoot;                                       // 왼발
+  runnerSkel[28] = rFoot;                                       // 오른발
+
+  try {
+    drawEquippedCostumesOnBody(ctx, runnerSkel, [lHand, rHand], false);
+  } catch (err) {
+    // 🛡️ Zero-Crash Policy: 커스튬 예외 격리
+  }
+
+  ctx.restore();
+}
+
 games.crun = {
-  bg: "#0b0b22", camAlpha: 0, camPip: true, noCostume: true, body: true, noCursor: true, manual: true,
+  bg: "#0b0b22", camAlpha: 0.32, camPip: true, noCostume: false, body: true, noCursor: true, manual: true,
   init() {
-    prepareCharacter();
     this.run = createRun({ rng }); this.ls = newLaneState(); this.js = newJumpState(); this.t = 0; this.flash = 0; this.kp = {}; this.kbLane = null; this.kbT = -1e9; this.dist10 = 0; this.milestone = 0; this.src = "body";
   },
   result() { return ` · ${Math.round(this.run.dist)}m · 코인 ${this.run.coinCount} · 맞은 횟수 ${this.run.hits}`; },
@@ -9549,11 +9672,12 @@ games.crun = {
     // 코인 + 장애물 (먼 것부터)
     for (const c of run.coins) { if (c.d > CRUN.D_MAX || c.d < -1) continue; const s = S(Math.max(c.d, 0)), x = X(c.lane, Math.max(c.d, 0)), y = Y(Math.max(c.d, 0)) - (0.2 + c.h) * H * 0.14 * s; ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#a86b00"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 14 * s + 3, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.beginPath(); ctx.arc(x - 4 * s, y - 4 * s, 4 * s + 1, 0, 7); ctx.fill(); }
     for (const o of [...run.obs].sort((a, b) => b.d - a.d)) { if (o.d > CRUN.D_MAX) continue; const d = Math.max(o.d, -0.5), s = S(d), x = X(o.lane, d), yb = Y(d), w = laneSp * 0.8 * s; drawCrunObstacle(o.type, x, yb, w, s, o.d < 14 ? 1 : 0.85); }
-    // 캐릭터
+    // ⚡ [순수 몸게임 러너] 플레이어 실제 신체 & 커스튬 기반 네온 러너 렌더링
     const u = H * 0.122, ux = W / 2 + (run.laneX - 1) * laneSp, feetY = H * 0.9 - run.y * H * 0.14, hipY = feetY - 1.72 * u;
-    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(ux, H * 0.9 + 4, u * (0.9 - run.y * 0.3), u * 0.12, 0, 0, 7); ctx.fill();
-    ctx.save(); if (run.inv > 0 && Math.floor(this.t * 14) % 2) ctx.globalAlpha = 0.4;
-    drawGameCharacter(gameCharacterSkeleton(ux, hipY, u), this.t, run.y > 0.4 ? "happy" : "normal"); ctx.restore();
+    ctx.save();
+    if (run.inv > 0 && Math.floor(this.t * 14) % 2) ctx.globalAlpha = 0.4;
+    drawBodyRunner(ctx, ux, hipY, feetY, u, run, this.t);
+    ctx.restore();
     // 점선 위험 표시는 생략, 안내/상태
     heartsLine(run.lives, CRUN.LIVES);
     ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = "900 22px sans-serif"; ctx.fillStyle = "#fff"; ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.6)";
@@ -9747,7 +9871,7 @@ games.cduel = {
     ctx.restore(); ctx.restore();
   },
 };
-GAME_HUD_META.crun = { theme: "beat", badge: "CHARACTER RUN", title: "TRAP ESCAPE RUN", sub: "TILT · JUMP · SLIDE", guideIcon: "🏃", guideMain: "LEAN TO SWITCH LANES, JUMP OR SLIDE!", guideSub: "몸을 기울여 길 바꾸기 · 점프로 넘기 · 웅크려서 아래로 통과!", leftName: "LANE", rightName: "DISTANCE", leftUnit: "LANE", rightUnit: "M", leftDesc: "LEAN SENSOR", rightDesc: "RUN METER", odTitle: "🏃 TURBO RUN (터보 질주)", showHearts: true,
+GAME_HUD_META.crun = { theme: "beat", badge: "BODY ACTION RUN", title: "BODY TRAP RUN", sub: "LEAN · JUMP · CROUCH", guideIcon: "🏃", guideMain: "LEAN BODY TO SWITCH LANES, JUMP OR CROUCH!", guideSub: "몸을 기울여 레인 이동! 점프로 넘고, 웅크려 통과!", leftName: "LANE", rightName: "DISTANCE", leftUnit: "LANE", rightUnit: "M", leftDesc: "BODY TILT SENSOR", rightDesc: "RUN METER", odTitle: "⚡ BODY TURBO RUN (전신 터보 질주)", showHearts: true,
   getMetrics: (g) => [{ label: "DISTANCE", val: `${Math.round(g?.run?.dist ?? 0)}m` }, { label: "COINS", val: g?.run?.coinCount ?? 0 }, { label: "LIVES", val: `x${g?.run?.lives ?? 0}` }] };
 GAME_HUD_META.cduel = { theme: "space", badge: "SWORD & SHIELD", title: "PARRY BATTLE", sub: "SLASH · BLOCK · PARRY", guideIcon: "⚔️", guideMain: "SWING RIGHT, RAISE LEFT TO PARRY!", guideSub: "오른손 휘두르기=검 · 왼손 올리기=방패 · 양손 번쩍=필살기!", leftName: "SWORD ARM", rightName: "SHIELD ARM", leftUnit: "HIT", rightUnit: "PARRY", leftDesc: "SLASH SENSOR", rightDesc: "PARRY TIMING", odTitle: "⚔️ HERO ULTIMATE (필살기)", showHearts: true,
   getMetrics: (g) => [{ label: "KILLS", val: g?.d?.kills ?? 0 }, { label: "PARRY", val: g?.d?.parries ?? 0 }, { label: "STAGE", val: (g?.d?.stage ?? 0) + 1 }] };

@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261013_1304">
+<link rel="stylesheet" href="style.css?v=20261013_1510">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -199,7 +199,8 @@
         <span class="costume-btn-text">커스튬 룸</span>
         <span class="costume-btn-sparkle">✨</span>
       </button>
-      <button id="btnCharacter" class="costume-room-pill" title="나의 캐릭터 고르기 (사람 · 동물 · 로봇 · 마법사)" aria-label="캐릭터 선택">
+      <!-- 🧑‍🎤 캐릭터 선택 버튼: 캐릭터 게임 안정화 전까지 비활성화 -->
+      <button id="btnCharacter" class="costume-room-pill hidden" style="display:none;" title="나의 캐릭터 고르기 (사람 · 동물 · 로봇 · 마법사)" aria-label="캐릭터 선택">
         <span id="characterBtnIcon" class="costume-btn-icon">🧒</span>
         <span class="costume-btn-text">캐릭터</span>
       </button>
@@ -500,19 +501,20 @@
       </article>
       <article class="card" style="--accent:#ff9a3c">
         <div class="card-img">
-          <img src="assets/runner.jpg" alt="내 캐릭터가 함정을 피해 달리는 모습" loading="lazy">
-          <span class="chip chip-teal">🧑‍🎤 캐릭터 · 달리기</span>
+          <img src="assets/runner.jpg" alt="온몸으로 트랩을 피해 달리는 러너" loading="lazy">
+          <span class="chip chip-gold">🏃 몸게임 · 트랩 탈출</span>
           <span class="stars">★★★</span>
-          <span class="host">🏃 내 캐릭터</span>
+          <span class="host">⚡ 전신 액션 러너</span>
         </div>
         <div class="card-body">
-          <h3>캐릭터 트랩 탈출 런</h3>
-          <p>내 캐릭터가 달려요! 몸을 기울여 길 바꾸고, 점프하고, 웅크려서 함정을 피해요.</p>
+          <h3>몸으로 트랩 탈출 런</h3>
+          <p>온몸으로 달리고 피해요! 몸을 좌우로 기울여 길을 바꾸고, 점프하고, 웅크려 함정을 탈출해요!</p>
           <div class="best-bar"><span>🏆 BEST</span><b data-best="crun">0점</b></div>
-          <button class="mode play-btn teal" data-mode="crun">▶ PLAY NOW</button>
+          <button class="mode play-btn gold" data-mode="crun">▶ PLAY NOW</button>
         </div>
       </article>
-      <article class="card" style="--accent:#8c7cff">
+      <!-- ⚔️ 검 & 방패 패링 배틀: 캐릭터 게임 비활성화 -->
+      <article class="card hidden" style="--accent:#8c7cff; display:none;">
         <div class="card-img">
           <img src="assets/kungfu.jpg" alt="검과 방패로 싸우는 내 캐릭터" loading="lazy">
           <span class="chip chip-violet">🧑‍🎤 캐릭터 · 전투</span>
@@ -1094,6 +1096,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_1500"></script>
+<script type="module" src="main.js?v=20261013_1510"></script>
 </body>
 </html>
