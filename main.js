@@ -1005,6 +1005,14 @@ function updatePointers() {
         }
       }
     }
+    // 🛡️ 화면 밖으로 나갔을 때 즉각 모션 해제 (사람이 화면을 벗어나면 즉시 잡혀있던 모션을 풀어 굳어버리는 현상 원천 차단)
+    if (now - bodySeen > 350) {
+      bodyHave = false;
+      body = null;
+      bodyVelocities = [];
+      bodyTracks.forEach((t) => t.reset());
+      resetArmVel();
+    }
     // 매 화면 프레임: 추적기로 "지금 시각"의 관절 위치를 만들어요 (인식 결과 사이에도 부드럽게 이어짐)
     if (bodyHave) {
       body = bodyTracks.map((tr, i) => ({ ...tr.at(now), v: bodyVis[i] ?? 1 }));
@@ -1020,6 +1028,11 @@ function updatePointers() {
     camInfo = (body ? "🧍 전신 인식됨" : "전신이 보이게 한 걸음 뒤로 물러서 주세요") + `  · ${detectMs.toFixed(0)}ms`;
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
+    if (now - lastHandT0 > 350) {
+      lastHands = [];
+      pts = [];
+      handTracks.forEach((t) => t.reset());
+    }
     camInfo = (lastHands.length ? `✋ 손 ${lastHands.length}개 추적 중 (60FPS 연속 외삽)` : "손을 카메라에 보여 주세요 (밝은 곳, 손바닥/검지)") + `  · ${detectMs.toFixed(0)}ms`;
     camOk = lastHands.length > 0;
 
@@ -3377,12 +3390,12 @@ games.dodge = {
       this.inv = Math.max(0, this.inv - dt);
       this.flash = Math.max(0, this.flash - dt * 2);
 
-      // 3. 🎯 동적 스폰 간격
+      // 3. 🎯 동적 스폰 간격 (공정하고 스릴 넘치는 회피 난이도 밸런싱)
       this.spawnT -= dt;
       if (this.spawnT <= 0) {
         if (this.event === "goldRush") {
-          // 골드러시: 0.14초마다 초고속 코인 & 다이아몬드 폭포 스폰
-          this.spawnT = 0.14;
+          // 골드러시: 0.16초마다 초고속 코인 & 다이아몬드 폭포 스폰
+          this.spawnT = 0.16;
           const isDia = Math.random() < 0.25;
           const r = isDia ? 26 : 28;
           this.items.push({
@@ -3392,16 +3405,37 @@ games.dodge = {
             vy: (260 + e * 4) * (H / 800),
             rot: 0
           });
-        } else {
-          this.spawnT = Math.max(0.18, 0.52 - e * 0.008) * (0.7 + Math.random() * 0.6); // ⚡ 바위 스폰 빈도 증가
+        } else if (this.event === "tornado") {
+          // 🌪️ 회오리 돌개바람: 바위가 요동치므로 피할 수 있는 공간을 위해 스폰 간격을 여유 있게(0.42초) 조절
+          this.spawnT = 0.42 + Math.random() * 0.16;
           const rand = Math.random();
           let type = "rock";
-          let r = 38 + Math.random() * 18;
-          if (rand < 0.30) {
+          let r = 30 + Math.random() * 12; // 바위 크기를 적정선으로 조정하여 회피 공간 확보
+          if (rand < 0.38) {
+            type = "coin"; r = 26;
+          } else if (rand < 0.48 && !this.shield) {
+            type = "shield"; r = 30; // 🛡️ 방어막 아이템 지원
+          }
+          const spawnX = r + Math.random() * (W - 2 * r);
+          this.items.push({
+            type,
+            x: spawnX, baseX: spawnX,
+            y: -r, r,
+            vy: Math.min(520, (380 + e * 5) * (H / 800)), // 회오리 중 과도한 초고속 낙하 방지
+            rot: 0
+          });
+        } else {
+          // 일반/피버 모드: 플레이어가 몸을 피할 수 있는 최소 0.36초 안전 간격 유지
+          const minInterval = isFeverTime ? 0.36 : 0.48;
+          this.spawnT = Math.max(minInterval, 0.58 - e * 0.006) * (0.8 + Math.random() * 0.5);
+          const rand = Math.random();
+          let type = "rock";
+          let r = 32 + Math.random() * 16;
+          if (rand < 0.32) {
             type = "coin"; r = 28;
-          } else if (rand < 0.35 && !this.shield) {
+          } else if (rand < 0.38 && !this.shield) {
             type = "shield"; r = 32; // 🛡️ 방어막 아이템
-          } else if (rand < 0.40 && this.magnetT <= 0) {
+          } else if (rand < 0.44 && this.magnetT <= 0) {
             type = "magnet"; r = 32; // 🧲 자석 아이템
           }
           const spawnX = r + Math.random() * (W - 2 * r);
@@ -3409,7 +3443,7 @@ games.dodge = {
             type,
             x: spawnX, baseX: spawnX,
             y: -r, r,
-            vy: (440 + e * 8.5) * (H / 800) * (type === "coin" ? 0.88 : 1), // ⚡ 1.8배 쾌속 낙하로 스릴 만점 회피 액션!
+            vy: Math.min(620, (380 + e * 6.5) * (H / 800)) * (type === "coin" ? 0.88 : 1),
             rot: 0
           });
         }
@@ -3795,7 +3829,7 @@ games.runner = {
 
   init() {
     this.t = 0;
-    this.phase = useMouse ? "run" : "calib";
+    this.phase = "run"; // ⚡ 캘리브레이션 대기 단계 없이 시작 즉시 즉각 반응!
     this.cal = 0;
     this.base = null;
     this.prevJump = false;
@@ -3839,13 +3873,16 @@ games.runner = {
 
   sense(dt) { // 점프/앉기 판정은 jump.js (어깨 높이 + 몸통 길이 기준, 테스트: node test/jump.test.js)
     let jump = rkJump, duck = rkDuck; rkJump = false;
-    const sm = !useMouse ? jumpSample(getBody()) : null;
+    const b = !useMouse ? getBody() : null;
+    const sm = b ? jumpSample(b) : null;
     if (sm) {
       const r = stepJump(this.js, sm, dt, performance.now());
       if (r.jump) jump = true;
       if (r.duck) duck = true;
       this.seen = true;
-    } else this.seen = false;
+    } else {
+      this.seen = false;
+    }
     return { jump, duck };
   },
 
@@ -3853,28 +3890,24 @@ games.runner = {
   warmup(dt) {
     this.t += dt;
     const { jump, duck } = this.sense(dt), hs = this.hs(), g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
-    if (this.phase === "calib") { this.cal = this.seen ? this.cal + dt : 0; if (this.cal >= 1.2) this.phase = "run"; }
-    if (jump && this.jy <= 0) { this.vy = v0; tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950); burst(this.cx(), this.gy() - 8, "#00d2ff", 10); }
+    if (jump && this.jy <= 0) {
+      this.vy = v0;
+      tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
+      burst(this.cx(), this.gy() - 8, "#00d2ff", 10);
+    }
     this.jy += this.vy * dt; this.vy -= g * dt;
     if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
     this.duck = duck && this.jy === 0;
-    for (const line of this.speedLines) { line.x -= line.spd * 0.5 * dt; if (line.x < -line.len) { line.x = W + Math.random() * 80; line.y = H * (0.2 + Math.random() * 0.55); } }
+    for (const line of this.speedLines) {
+      line.x -= line.spd * 0.5 * dt;
+      if (line.x < -line.len) { line.x = W + Math.random() * 80; line.y = H * (0.2 + Math.random() * 0.55); }
+    }
   },
 
   update(dt) {
     try {
       this.t += dt;
       const { jump, duck } = this.sense(dt), e = elapsed(), hs = this.hs();
-
-      if (this.phase === "calib") {
-        this.cal = this.seen ? this.cal + dt : 0;
-        if (this.cal >= 1.2) {
-          this.phase = "run";
-          speak("출발! 신나게 달려봐요!", true);
-          sfx.start();
-        }
-        return;
-      }
 
       // 🎲 서프라이즈 이벤트 스케줄러 (무중력 우주유영 & 추격 드론 레이저)
       this.nextEventT -= dt;
@@ -4346,10 +4379,23 @@ games.runner = {
     // 4. 고품질 아스트로 사이버 러너 마스코트 아바타 렌더링 (화면의 진정한 주인공)
     Art.drawRunnerMascot(cx, gy, this.jy, hs, this.duck, this.dist, this.inv, isFeverTime, isBoosting);
 
-    // 🛡️ 시야를 가리는 졸라맨(스켈레톤 선)을 메인 필드에서 제거하여 깔끔하고 몰입감 넘치는 뷰 제공
-
-    // 6. 상단 라이프 & 주행 거리 & 부스터 상태 표시
-    ctx.save();
+    // ⚡ 레디타임 전용: 내 점프/슬라이딩 모션 실시간 인식 상태 배너
+    if (isReadyTime) {
+      ctx.save();
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "800 19px 'Rubik', sans-serif";
+      const statusText = this.jy > 0 ? "🦘 점프 감지됨! (JUMP)" : (this.duck ? "⚡ 슬라이드 감지됨! (SLIDE)" : (this.seen ? "🧍 몸 인식 완료! 가볍게 뛰어보세요!" : "카메라 앞에 전신이 보이게 서 주세요"));
+      const statusColor = this.jy > 0 ? "#00ffff" : (this.duck ? "#ffd700" : (this.seen ? "#4ade80" : "#ff3366"));
+      ctx.fillStyle = "rgba(16, 9, 34, 0.88)";
+      ctx.strokeStyle = statusColor;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(W / 2 - 200, H * 0.20, 400, 46, 23);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = statusColor;
+      ctx.fillText(statusText, W / 2, H * 0.20 + 23);
+      ctx.restore();
+    }
     // 하트 라이프
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "32px serif";
     ctx.fillText(heartsText(this.lives), W / 2, 98);
@@ -7064,11 +7110,23 @@ function endGame() {
   bus.emit("game:end", { mode, score, maxCombo });
   visionAI.setActive(null);                            // 결과 화면에서는 인식을 쉬어요
   stopRealTrackAudio();
+  // ⚡ Web Audio 신스 BGM 완전 정지 및 스케줄러 리셋 (소리가 뒤에서 계속 울리는 현상 차단)
+  if (bgmBus) {
+    try { bgmBus.gain.setValueAtTime(0, ac().currentTime); } catch { bgmBus.gain.value = 0; }
+  }
+  bgmNext = 0; bgmStep = 0;
+
+  // ⚡ 게임 모드 내부 정리 & 잔여 인게임 객체 즉각 소멸
+  const g = mode ? games[mode] : null;
+  if (g && typeof g.exit === "function") {
+    try { g.exit(); } catch (e) { console.warn("Game exit guard:", e); }
+  }
+  objs = []; halves = []; particles = []; shockwaves = []; popups = [];
+
   $("hud").classList.add("hidden");
   $("feverBorder")?.classList.add("hidden");
   $("waveBanner")?.classList.add("hidden");
   isFeverTime = false;
-  const g = games[mode];
 
   // 1. 2인 대결 모드 (versus) 결과 처리
   if (g && g.versus) {
@@ -10340,92 +10398,10 @@ function costumeDetectAirSwipe(now, hands, skel) {
   }
 }
 
-// 🧍 2. 신체 부위 직접 터치 / 가리키기 (카테고리 자동 전환)
+// 🧍 2. 신체 부위 직접 터치 카테고리 전환 (사용자 요청에 따라 스와이프 우선을 위해 비활성화: 상단 선택 탭 버튼 손 체류/클릭으로만 선택)
 function costumeDetectBodyCategory(now, skel, hands) {
-  if (!skel || !skel[0] || !skel[11] || !skel[12] || hands.length === 0 || useMouse) return;
-  const bf = costumeMotionGestures.bodyFocus;
-  const sw = costumeMotionGestures.swipe;
-
-  // 🛡️ [스와이프 보호 1]: 스와이프 후 1.6초 동안은 신체 카테고리 감지 100% 완전 차단!
-  if (now < bf.cooldownUntil || now < (sw.lastTriggerT + 1600)) {
-    bf.candidateSlot = null;
-    return;
-  }
-
-  // 🛡️ [스와이프 보호 2]: 손이 움직이고 있는 동안(속도 55px/s 초과)에는 카테고리 감지 무조건 차단!
-  // 스와이프를 위해 손을 털거나 허공에서 움직일 때 절대 모자/가면 등으로 튀지 않음
-  const isAnyHandMoving = hands.some((h) => {
-    const vx = h.vx || 0, vy = h.vy || 0;
-    return Math.hypot(vx, vy) > 55 || Math.abs(vx) > 40;
-  });
-  if (isAnyHandMoving) {
-    bf.candidateSlot = null;
-    return;
-  }
-
-  const shoulderW = Math.hypot(skel[12].x - skel[11].x, skel[12].y - skel[11].y) || 80;
-  const nose = skel[0];
-  const midShoulder = { x: (skel[11].x + skel[12].x) / 2, y: (skel[11].y + skel[12].y) / 2 };
-  const hasHip = skel[23] && skel[24];
-  const midHip = hasHip ? { x: (skel[23].x + skel[24].x) / 2, y: (skel[23].y + skel[24].y) / 2 } : { x: midShoulder.x, y: midShoulder.y + shoulderW * 1.3 };
-
-  let detectedSlot = null;
-  let slotLabel = "";
-
-  for (const h of hands) {
-    const distToNose = Math.hypot(h.x - nose.x, h.y - nose.y);
-    const distToShoulder = Math.hypot(h.x - midShoulder.x, h.y - midShoulder.y);
-    const distToHip = Math.hypot(h.x - midHip.x, h.y - midHip.y);
-
-    // 1) 머리 꼭대기 / 이마 (손을 머리 위에 안정적으로 얹어놓았을 때)
-    if (h.y < nose.y - 25 && Math.abs(h.x - nose.x) < shoulderW * 0.6) {
-      detectedSlot = "head"; slotLabel = "👑 모자·헤드"; break;
-    }
-    // 2) 얼굴 중심 / 코 근처 (손을 얼굴 앞에 얌전히 멈추어 댈 때)
-    if (distToNose < shoulderW * 0.42) {
-      detectedSlot = "face"; slotLabel = "🎭 가면·페이스"; break;
-    }
-    // 3) 가슴 / 상체
-    if (distToShoulder < shoulderW * 0.52 && h.y > midShoulder.y - 10 && h.y < midHip.y - 25) {
-      detectedSlot = "body"; slotLabel = "👕 상의·아머"; break;
-    }
-    // 4) 허리 / 골반
-    if (distToHip < shoulderW * 0.60 && h.y >= midHip.y - 20 && h.y < midHip.y + shoulderW * 0.65) {
-      detectedSlot = "legs"; slotLabel = "🩳 하의·팬츠"; break;
-    }
-    // 5) 무릎 아래 / 신발
-    if (h.y > midHip.y + shoulderW * 0.75) {
-      detectedSlot = "feet"; slotLabel = "🩴 신발·슬리퍼"; break;
-    }
-    // 6) 양손을 어깨 너머로 활짝 벌림 (날개짓)
-    if (Math.abs(h.x - midShoulder.x) > shoulderW * 1.15 && h.y > midShoulder.y - 40 && h.y < midHip.y) {
-      detectedSlot = "back"; slotLabel = "🪽 날개·가방"; break;
-    }
-  }
-
-  if (detectedSlot) {
-    if (bf.candidateSlot === detectedSlot) {
-      // 🛡️ [체류 시간 대폭 강화]: 스쳐 지나가는 모든 움직임을 무시하고, 의도적으로 750ms(0.75초) 가만히 머물러야만 전환!
-      if (now - bf.candidateStartT > 750) {
-        if (currentCostumeTab !== detectedSlot) {
-          const tab = document.querySelector(`.costume-wheel-category-bar .c-tab[data-slot="${detectedSlot}"]`);
-          if (tab) {
-            tab.click();
-            bf.cooldownUntil = now + 900; // 전환 후 쿨다운
-            triggerCostumeGestureHUD("body", `🎯 [${slotLabel}] 신체 감지 전환!`);
-            sfx.tick();
-            burst(hands[0].x, hands[0].y, "#a855f7", 20);
-          }
-        }
-        bf.candidateSlot = null;
-      }
-    } else {
-      bf.candidateSlot = detectedSlot;
-      bf.candidateStartT = now;
-    }
-  } else {
-    bf.candidateSlot = null;
-  }
+  // 상단 카테고리 탭 바 버튼에 손을 올려놓는 방식으로 단일화
+  return;
 }
 
 // 👏 3. 박수(Clap) 감지 (두 손을 가슴 앞에서 모으면 즉시 장착 확정!)
@@ -10526,12 +10502,10 @@ function costumeReadHand(now, skel) {
     return;
   }
 
-  // 🚀 [신규 모션 엔진 실행]
-  // 1. 에어 스와이프 감지 (고속 플릭만 인식 + 복귀 잠금 + 박수 준비존 음소거)
+  // 🚀 [커스튬룸 모션 제스처 엔진 실행]
+  // 1. 에어 스와이프 감지 (좌우 손짓으로 하단 장비 쾌속 탐색)
   costumeDetectAirSwipe(now, hands, skel);
-  // 2. 신체 부위 직접 터치 / 가리키기 (카테고리 탭 자동 전환)
-  costumeDetectBodyCategory(now, skel, hands);
-  // 3. 박수(Clap) 감지 (두 손 짝 마주침)
+  // 2. 박수(Clap) 감지 (두 손 짝 마주치면 착용/구매 확정)
   costumeDetectClap(now, hands);
 
   // 화면 우측 사이드바(진열장)에 더 가까운 손 또는 더 높은 손을 우선 타겟팅
@@ -11179,6 +11153,23 @@ games.crun = {
     this.goldRushSpawnT = 0;
   },
   result() { return ` · ${Math.round(this.run.dist)}m · 코인 ${this.run.coinCount} · 맞은 횟수 ${this.run.hits}`; },
+  warmup(dt) {
+    this.t += dt;
+    const now = performance.now(), run = this.run;
+    let lane = run.lane, jump = false, duck = false;
+    const b = !useMouse ? getBody() : null, sk = b ? skeletonFromBody(b) : null;
+    if (sk) {
+      const sw = Math.hypot(sk.rs[0] - sk.ls[0], sk.rs[1] - sk.ls[1]) || 80;
+      lane = stepLane(this.ls, ((sk.ls[0] + sk.rs[0]) / 2) / sw, dt, (((bodyTracks[11]?.vx ?? 0) + (bodyTracks[12]?.vx ?? 0)) / 2) * 1000 / sw) + 1;
+      const sm = jumpSample(b);
+      if (sm) {
+        const r = stepJump(this.js, sm, dt, now);
+        jump = r.jump; duck = r.duck;
+      }
+    }
+    // ⚡ 레디타임 5초 동안에도 내 몸 움직임에 맞춰 캐릭터가 좌우 이동·점프·슬라이딩 즉각 반응!
+    stepRun(run, { lane, jump, duck }, dt, 0.35);
+  },
   update(dt) {
     try {
       this.t += dt; this.flash = Math.max(0, this.flash - dt * 2.2);
