@@ -8149,6 +8149,18 @@ const COSTUME_ITEMS = {
     id: "aura_fireworks", name: "축제 네온 불꽃놀이 오라", slot: "aura", tier: "hero", price: 390000,
     icon: "🎆", desc: "움직일 때마다 사방으로 네온 불꽃이 팡팡 터지는 화려한 오라.", color: "#ffd700"
   },
+  aura_super_saiyan: {
+    id: "aura_super_saiyan", name: "황금 초사이어인 각성 오라", slot: "aura", tier: "legend", price: 490000,
+    icon: "⚡", desc: "전신을 감싸고 솟구치는 황금빛 플라즈마 화염과 파지직 튀는 푸른 번개의 압도적 포스!", color: "#ffe600"
+  },
+  aura_blue_god: {
+    id: "aura_blue_god", name: "신염 갓 블루 플라즈마 오라", slot: "aura", tier: "legend", price: 520000,
+    icon: "🔷", desc: "차원을 찢는 딥 사이언 블루 신의 화염과 순백의 번개 스파크 오라!", color: "#00d2ff"
+  },
+  aura_dark_dragon: {
+    id: "aura_dark_dragon", name: "칠흑 흑염룡 마계 각성 오라", slot: "aura", tier: "hero", price: 450000,
+    icon: "🔮", desc: "보랏빛 흑염과 검은 마기가 몸 주변을 격렬하게 휘감는 다크 포스 오라!", color: "#c026d3"
+  },
 
   // --- [1. 야구 게임 (baseball)] ---
   bat_gold: {
@@ -8241,10 +8253,10 @@ const COSTUME_ITEMS = {
     icon: "🗡️", desc: "1등 최고급 독점! 허공을 베면 벚꽃과 검은 번개가 흩날리는 1등 닌자 명검.",
     color: "#8c7cff", game: "ninja"
   },
-  head_foxmask: {
-    id: "head_foxmask", name: "네온 여우 가면", slot: "head", tier: "hero",
-    icon: "🦊", desc: "2등 중고급 독점! 붉은 요호의 불꽃 안광이 서린 전통 네온 가면.",
-    color: "#ff5500", game: "ninja"
+  head_ninja_hat: {
+    id: "head_ninja_hat", name: "그림자 닌자 삿갓", slot: "head", tier: "hero",
+    icon: "👒", desc: "2등 중고급 독점! 바람처럼 날렵한 닌자의 대나무 삿갓과 붉은 네온 술 장식.",
+    color: "#2c2c34", game: "ninja"
   },
   body_shinobi: {
     id: "body_shinobi", name: "시노비 닌자 도포", slot: "body", tier: "rare",
@@ -8362,7 +8374,7 @@ const RANK_REWARDS = {
   runner:   ["back_jetpack", "helm_visor", "shoes_neon"],
   beat:     ["hand_sabers", "head_phones", "back_cape"],
   box:      ["hand_firebox", "body_belt", "head_guard"],
-  ninja:    ["hand_katana", "head_foxmask", "body_shinobi"],
+  ninja:    ["hand_katana", "head_ninja_hat", "body_shinobi"],
   space:    ["hand_shield", "head_astro", "back_wings"],
   brick:    ["hand_laserpaddle", "helm_cyber", "aura_neonspark"],
   dodge:    ["back_propeller", "helm_miner", "body_adventurer"],
@@ -8372,7 +8384,7 @@ const RANK_REWARDS = {
 };
 
 // 3. 커스튬 인벤토리 & 장착 상태 (암호화 체크포인트 저장소 관리)
-let costumeInventory = new Set(["head_crown", "body_nano", "back_angel", "hand_repulsor"]);
+let costumeInventory = new Set(["head_crown", "body_nano", "back_angel", "hand_repulsor", "aura_super_saiyan"]);
 let equippedCostume = {
   head: "head_crown",
   face: null,       // 🥸 콧수염 / 안경
@@ -8381,7 +8393,7 @@ let equippedCostume = {
   feet: null,       // 🩴 삼선 슬리퍼 / 신발
   back: "back_angel",
   hand: "hand_repulsor",
-  aura: null
+  aura: "aura_super_saiyan"
 };
 
 // 👑 플레이어의 특정 게임 현재 순위 조회 (1, 2, 3등 또는 0: 미기록/순위밖)
@@ -8456,11 +8468,20 @@ async function loadCostumeData() {
     costumeInventory = new Set(savedInv);
   }
   // 기본 아이템 항상 보장
-  ["head_crown", "body_nano", "back_angel", "hand_repulsor"].forEach((id) => costumeInventory.add(id));
+  ["head_crown", "body_nano", "back_angel", "hand_repulsor", "aura_super_saiyan"].forEach((id) => costumeInventory.add(id));
+
+  // ⚡ 마이그레이션: 기존 head_foxmask 소지 시 닌자 삿갓으로 자동 변환 (가면 중복 충돌 해소)
+  if (costumeInventory.has("head_foxmask")) {
+    costumeInventory.delete("head_foxmask");
+    costumeInventory.add("head_ninja_hat");
+  }
 
   const savedEq = await SecureStore.loadCheckpoint(eqKey, null);
   if (savedEq && typeof savedEq === "object") {
     equippedCostume = { ...equippedCostume, ...savedEq };
+    if (equippedCostume.head === "head_foxmask") {
+      equippedCostume.head = "head_ninja_hat";
+    }
   }
 
   // 로드 즉시 자격 검사 및 부적격 옷 회수
@@ -8697,9 +8718,9 @@ function drawCostumeImage(ctx, item, im) {
   let x, y, w, h;
   switch (item.slot) {
     case "head":
-      if (id === "head_foxmask") {
-        // 네온 여우 가면: 얼굴 전면 중심 밀착
-        w = 82; h = w / ar; x = -w / 2; y = -h * 0.46;
+      if (id === "head_ninja_hat") {
+        // 그림자 닌자 삿갓: 머리 위에 넓게 얹힘
+        w = 114; h = w / ar; x = -w / 2; y = 14 - h;
       } else if (id === "head_phones") {
         // 사이버 비트 헤드폰: 머리 둘레와 양 귀
         w = 98; h = w / ar; x = -w / 2; y = -h * 0.42;
@@ -9081,8 +9102,51 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
       });
       break;
 
-    case "head_foxmask":
-    case "mask_fox_neon": // 네온 여우 가면
+    case "head_ninja_hat": // 그림자 닌자 삿갓 (대나무 삿갓 + 붉은 띠 + 흩날리는 닌자 리본)
+      ctx.fillStyle = "#1e1e24";
+      ctx.strokeStyle = "#8c7cff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, -32);
+      ctx.quadraticCurveTo(30, -6, 56, 12);
+      ctx.lineTo(-56, 12);
+      ctx.quadraticCurveTo(-30, -6, 0, -32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 대나무 살 격자 무늬
+      ctx.strokeStyle = "rgba(140, 124, 255, 0.4)";
+      ctx.lineWidth = 1.5;
+      [-36, -18, 0, 18, 36].forEach((bx) => {
+        ctx.beginPath();
+        ctx.moveTo(0, -30);
+        ctx.lineTo(bx, 10);
+        ctx.stroke();
+      });
+      // 붉은색 네온 헤드밴드 띠
+      ctx.strokeStyle = "#ff3355";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(-42, 6);
+      ctx.quadraticCurveTo(0, 8, 42, 6);
+      ctx.stroke();
+      // 양옆으로 흩날리는 붉은 닌자 리본/술 장식
+      ctx.strokeStyle = "#ff3355";
+      ctx.lineWidth = 2.5;
+      const tHat = performance.now() * 0.005;
+      const wave1 = Math.sin(tHat) * 7;
+      const wave2 = Math.cos(tHat * 0.9) * 7;
+      ctx.beginPath();
+      ctx.moveTo(-36, 8);
+      ctx.bezierCurveTo(-46 + wave1, 24, -40 - wave1, 42, -50 + wave1, 58);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(36, 8);
+      ctx.bezierCurveTo(46 + wave2, 24, 40 - wave2, 42, 50 + wave2, 58);
+      ctx.stroke();
+      break;
+
+    case "mask_fox_neon": // 네온 여우 가면 (가면 슬롯 단독)
       ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
       ctx.strokeStyle = "#ff4d5e";
       ctx.lineWidth = 3;
@@ -9381,16 +9445,41 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
       break;
 
     case "aura_dragon": // 비룡 용오름 각성 오라
+    case "aura_super_saiyan": // 황금 초사이어인 오라
+    case "aura_blue_god": // 신염 갓 블루 오라
+    case "aura_dark_dragon": // 칠흑 흑염룡 오라
+    case "aura_fireworks": // 축제 불꽃놀이 오라
+    case "aura_neonspark":
+    case "aura_starlight": {
       const t = performance.now() * 0.004;
-      ctx.strokeStyle = "rgba(0, 210, 255, 0.7)";
+      const isSSJ = item.id === "aura_super_saiyan";
+      const isBlue = item.id === "aura_blue_god";
+      const isDark = item.id === "aura_dark_dragon";
+      const mainCol = isSSJ ? "#ffe600" : isBlue ? "#00f0ff" : isDark ? "#c026d3" : (item.color || "#00d2ff");
+
+      // 1. 회전 타원 에너지 링
+      ctx.strokeStyle = mainCol;
       ctx.lineWidth = 3;
       for (let i = 0; i < 3; i++) {
         ctx.beginPath();
-        const r = 45 + i * 14;
-        ctx.ellipse(0, 0, r, r * 0.45, t + i * 1.8, 0, Math.PI * 2);
+        const r = 42 + i * 14;
+        ctx.ellipse(0, 0, r, r * 0.45, t * 1.2 + i * 1.8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      // 2. 파지직 번개 스파크 프리뷰
+      ctx.strokeStyle = isSSJ ? "#38bdf8" : isBlue ? "#ffffff" : isDark ? "#ff0055" : "#ffffff";
+      ctx.lineWidth = 2;
+      for (let s = 0; s < 3; s++) {
+        const ang = (t * 3 + s * 2.1) % (Math.PI * 2);
+        const d1 = 28, d2 = 56;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * d1, Math.sin(ang) * d1);
+        ctx.lineTo(Math.cos(ang + 0.3) * (d1 + 14), Math.sin(ang + 0.3) * (d1 + 14));
+        ctx.lineTo(Math.cos(ang) * d2, Math.sin(ang) * d2);
         ctx.stroke();
       }
       break;
+    }
 
     default: // 전용 그림이 없으면 슬롯별 벡터로 (이모티콘 사용 안 함)
       drawGenericCostume(ctx, item, col);
@@ -9400,6 +9489,263 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
 
 // 사람(내 몸/상대 몸)마다 따로 흔들림 상태를 가져요
 const costumeMotions = [new CostumeMotion(), new CostumeMotion()];
+
+// ⚡ 전신 초사이어인 오라 엔진 (신체 33개 관절 실루엣 추적 & 위로 치솟는 에너지 화염, 파지직 튀는 전격 볼트, 상승 플라즈마 링)
+function drawFullBodyAura(ctx, auraItem, skel, chestAnchor, pointers, isBuddy = false) {
+  if (!ctx || !auraItem) return;
+
+  try {
+    const aid = auraItem.id;
+    const t = performance.now() * 0.0035;
+
+    // 1. 관절 포인트 수집 (머리, 어깨, 팔꿈치, 손목, 골반, 무릎, 발목)
+    let joints = [];
+    let topY = 0, bottomY = 0, centerX = 0, halfW = 55;
+
+    if (skel && skel[0] && skel[11] && skel[12]) {
+      const jIdxs = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+      jIdxs.forEach((idx) => {
+        if (skel[idx]) joints.push({ x: skel[idx].x, y: skel[idx].y });
+      });
+      const xs = joints.map(p => p.x), ys = joints.map(p => p.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      topY = Math.min(...ys) - 35;
+      bottomY = Math.max(...ys) + 20;
+      centerX = (minX + maxX) / 2;
+      halfW = Math.max(55, (maxX - minX) * 0.58);
+    } else if (pointers && pointers.length > 0) {
+      centerX = pointers.reduce((s, p) => s + p.x, 0) / pointers.length;
+      const avgY = pointers.reduce((s, p) => s + p.y, 0) / pointers.length;
+      topY = avgY - 180; bottomY = avgY + 220; halfW = 85;
+      joints = [
+        { x: centerX, y: avgY - 140 },
+        { x: centerX - 45, y: avgY - 60 }, { x: centerX + 45, y: avgY - 60 },
+        { x: centerX, y: avgY },
+        ...pointers
+      ];
+    } else if (chestAnchor) {
+      centerX = chestAnchor.x;
+      const cy = chestAnchor.y, sc = chestAnchor.scale || 1.0;
+      topY = cy - 140 * sc; bottomY = cy + 180 * sc; halfW = 75 * sc;
+      joints = [
+        { x: centerX, y: topY + 20 },
+        { x: centerX - 40 * sc, y: cy - 20 }, { x: centerX + 40 * sc, y: cy - 20 },
+        { x: centerX, y: cy },
+        { x: centerX - 30 * sc, y: cy + 80 * sc }, { x: centerX + 30 * sc, y: cy + 80 * sc }
+      ];
+    }
+
+    if (joints.length === 0) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter"; // 가산 블렌딩: 에너지가 중첩될수록 눈부시게 폭발적 발광
+
+    // 2. 오라 테마별 색상 설정
+    let flameOuter = "rgba(255, 215, 0, 0.45)";
+    let flameInner = "rgba(255, 245, 120, 0.75)";
+    let lightningColor = "#00f0ff";
+    let shockRingColor = "rgba(255, 220, 50, 0.65)";
+    let hasLightning = true;
+    let hasDragonSwirl = false;
+    let hasFireworks = false;
+
+    if (aid === "aura_super_saiyan") {
+      // ⚡ 황금 초사이어인 각성: 활활 타오르는 골드/옐로우 화염 + 파지직 튀는 시안/화이트 번개!
+      flameOuter = "rgba(255, 190, 0, 0.52)";
+      flameInner = "rgba(255, 250, 160, 0.88)";
+      lightningColor = "#38bdf8";
+      shockRingColor = "rgba(255, 230, 80, 0.7)";
+    } else if (aid === "aura_blue_god") {
+      // 🔷 신염 갓 블루: 딥 사이언 & 네온 아쿠아 화염 + 순백의 플라즈마 번개!
+      flameOuter = "rgba(0, 160, 255, 0.52)";
+      flameInner = "rgba(0, 255, 240, 0.88)";
+      lightningColor = "#ffffff";
+      shockRingColor = "rgba(0, 230, 255, 0.7)";
+    } else if (aid === "aura_dark_dragon") {
+      // 🔮 칠흑 흑염룡 마계 각성: 다크 퍼플 & 마젠타 흑염 + 핏빛 붉은 번개!
+      flameOuter = "rgba(168, 85, 247, 0.52)";
+      flameInner = "rgba(244, 63, 94, 0.82)";
+      lightningColor = "#ff0055";
+      shockRingColor = "rgba(192, 38, 211, 0.7)";
+    } else if (aid === "aura_dragon") {
+      // 🐉 비룡 용오름 각성: 에메랄드/청록 기운 + 승천하는 비룡 소용돌이 리본
+      flameOuter = "rgba(0, 210, 255, 0.45)";
+      flameInner = "rgba(16, 185, 129, 0.75)";
+      lightningColor = "#00f5d4";
+      shockRingColor = "rgba(0, 240, 220, 0.65)";
+      hasDragonSwirl = true;
+    } else if (aid === "aura_neonspark") {
+      // ⚡ 사이버 볼트: 일렉트릭 옐로우 & 라임
+      flameOuter = "rgba(163, 230, 53, 0.45)";
+      flameInner = "rgba(250, 204, 21, 0.8)";
+      lightningColor = "#facc15";
+      shockRingColor = "rgba(250, 204, 21, 0.7)";
+    } else if (aid === "aura_starlight") {
+      // ✨ 성운 은하수 갤럭시
+      flameOuter = "rgba(192, 132, 252, 0.45)";
+      flameInner = "rgba(244, 114, 182, 0.75)";
+      lightningColor = "#f472b6";
+      shockRingColor = "rgba(232, 121, 249, 0.6)";
+      hasLightning = false;
+    } else if (aid === "aura_fireworks") {
+      // 🎆 축제 폭죽 오라
+      flameOuter = "rgba(255, 215, 0, 0.4)";
+      flameInner = "rgba(255, 100, 150, 0.6)";
+      hasLightning = false;
+      hasFireworks = true;
+    } else if (aid === "shoes_neon") {
+      // 👟 하이퍼 펄스 슈즈
+      flameOuter = "rgba(255, 184, 0, 0.4)";
+      flameInner = "rgba(255, 230, 100, 0.7)";
+      lightningColor = "#ffb800";
+    }
+
+    // 3. 레이어 1: 전신 배경 실루엣 광배 (Outer Plasma Radiance)
+    const bodyH = Math.max(120, bottomY - topY);
+    const radGrad = ctx.createRadialGradient(centerX, (topY + bottomY) / 2, halfW * 0.2, centerX, (topY + bottomY) / 2, halfW * 1.55);
+    radGrad.addColorStop(0, flameInner);
+    radGrad.addColorStop(0.55, flameOuter);
+    radGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = radGrad;
+    ctx.beginPath();
+    ctx.ellipse(centerX, (topY + bottomY) / 2, halfW * 1.45, bodyH * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. 레이어 2: 위로 치솟는 에너지 화염 텐드릴 (Rising Energy Tendrils & Spikes)
+    const spikeCount = 22;
+    for (let i = 0; i < spikeCount; i++) {
+      const u = i / spikeCount;
+      const angle = u * Math.PI * 2;
+      const wave = Math.sin(t * 3.5 + i * 1.3) * 12;
+      const waveCos = Math.cos(t * 2.8 + i * 0.9) * 8;
+      
+      // 타원 외곽 기준점
+      const bx = centerX + Math.cos(angle) * (halfW * 0.95 + waveCos);
+      const by = ((topY + bottomY) / 2) + Math.sin(angle) * (bodyH * 0.48);
+      
+      // 위로 솟구치는 불꽃 첨탑 끝점
+      const spikeLen = 32 + Math.sin(t * 5 + i * 2.1) * 22 + (by > (topY + bottomY)/2 ? 15 : 35);
+      const tipX = bx + wave * 1.2;
+      const tipY = by - spikeLen;
+
+      // 외곽 불꽃 (Primary Flame)
+      ctx.fillStyle = flameOuter;
+      ctx.beginPath();
+      ctx.moveTo(bx - 14, by);
+      ctx.quadraticCurveTo(bx - 4 + wave * 0.5, by - spikeLen * 0.5, tipX, tipY);
+      ctx.quadraticCurveTo(bx + 4 + wave * 0.5, by - spikeLen * 0.5, bx + 14, by);
+      ctx.closePath();
+      ctx.fill();
+
+      // 내부 코어 불꽃 (Inner Core Flame)
+      ctx.fillStyle = flameInner;
+      ctx.beginPath();
+      ctx.moveTo(bx - 7, by);
+      ctx.quadraticCurveTo(bx + wave * 0.4, by - spikeLen * 0.4, tipX, tipY + spikeLen * 0.25);
+      ctx.quadraticCurveTo(bx + wave * 0.4, by - spikeLen * 0.4, bx + 7, by);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 5. 레이어 3: 수직 상승하는 에너지 충격파 링 (Ascending Plasma Shockwaves)
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = shockRingColor;
+    for (let r = 0; r < 3; r++) {
+      const ringProg = ((t * 1.2 + r * 0.33) % 1);
+      const ry = bottomY - ringProg * (bodyH + 60);
+      const rw = halfW * (0.6 + ringProg * 0.85);
+      const rh = 12 + ringProg * 8;
+      const ringAlpha = Math.sin(ringProg * Math.PI);
+      ctx.globalAlpha = Math.max(0, Math.min(1, ringAlpha));
+      ctx.beginPath();
+      ctx.ellipse(centerX, ry, rw, rh, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1.0;
+
+    // 6. 레이어 4: 파지직 튀는 초사이어인 번개 스파크 (Crackling Lightning Arcs)
+    if (hasLightning) {
+      ctx.strokeStyle = lightningColor;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = lightningColor;
+      ctx.shadowBlur = 12;
+
+      const boltCount = 6;
+      for (let b = 0; b < boltCount; b++) {
+        // 0.08초마다 무작위 번개 궤적 변경
+        const stepTime = Math.floor(t * 12 + b * 7);
+        const randSeed = Math.sin(stepTime * 133.7) * 10000;
+        const rnd = (off = 0) => {
+          const val = Math.sin(randSeed + off * 43.1);
+          return val - Math.floor(val);
+        };
+
+        if (rnd(1) > 0.82) continue; // 간헐적으로 파지직거리며 긴장감 증폭
+
+        // 관절들 중 하나를 시작점으로 선택
+        const startJoint = joints[Math.floor(rnd(2) * joints.length)];
+        let lx = startJoint.x + (rnd(3) - 0.5) * 30;
+        let ly = startJoint.y + (rnd(4) - 0.5) * 30;
+
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+
+        const segments = 4 + Math.floor(rnd(5) * 4);
+        const dirAngle = -Math.PI / 2 + (rnd(6) - 0.5) * 1.8; // 대체로 위/외곽 방향
+
+        for (let s = 0; s < segments; s++) {
+          const segDist = 14 + rnd(s * 7) * 20;
+          const jitter = (rnd(s * 11 + 3) - 0.5) * 26;
+          lx += Math.cos(dirAngle) * segDist + jitter;
+          ly += Math.sin(dirAngle) * segDist + (rnd(s * 9) - 0.5) * 16;
+          ctx.lineTo(lx, ly);
+        }
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    // 7. 레이어 5: 비룡 특수 용오름 나선 리본 (Dragon Spiral Vortices)
+    if (hasDragonSwirl) {
+      ctx.strokeStyle = "rgba(0, 245, 212, 0.85)";
+      ctx.lineWidth = 4;
+      for (let s = 0; s < 2; s++) {
+        const offset = s * Math.PI;
+        ctx.beginPath();
+        for (let step = 0; step <= 24; step++) {
+          const pr = step / 24;
+          const py = bottomY - pr * (bodyH + 40);
+          const pa = t * 4 + pr * Math.PI * 4 + offset;
+          const px = centerX + Math.cos(pa) * (halfW * (1.1 - pr * 0.4));
+          if (step === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // 8. 레이어 6: 축제 불꽃놀이 파티클 (Fireworks Sparkles)
+    if (hasFireworks) {
+      const colors = ["#ff0055", "#00d2ff", "#ffe600", "#10b981", "#a855f7"];
+      for (let p = 0; p < 18; p++) {
+        const pTime = (t * 2 + p * 0.35) % 1;
+        const pAngle = p * 1.4;
+        const pDist = pTime * halfW * 1.4;
+        const px = centerX + Math.cos(pAngle) * pDist;
+        const py = (topY + bottomY) / 2 + Math.sin(pAngle) * pDist - pTime * 30;
+        ctx.fillStyle = colors[p % colors.length];
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5 * (1 - pTime), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  } catch (err) {
+    console.warn("Full-body aura render error:", err);
+    try { ctx.restore(); } catch (_) {}
+  }
+}
 
 // 7. 실시간 인게임 & 피팅 캔버스 신체 장착 렌더러
 function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
@@ -9477,14 +9823,11 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
     // 👗 장착한 모든 커스튬 파츠는 레디타임 시작부터 100% 온전히 착용한 채로 노출
     const isSlotReady = (slot) => isCostumeRoomOpen || !HIDE_IN_GAME.has(slot);   // 게임 중에는 상의·장갑(손 아이템)을 숨겨요 (화면이 복잡해지고 판정에 방해돼서). 피팅룸에서는 보여요
 
-    // 1. 오라 (가장 뒷면 레이어)
+    // 1. 오라 (가장 뒷면 레이어 — 신체 33개 관절 기반 전신 초사이어인 포스 엔진!)
     if (equippedCostume.aura && isSlotReady("aura")) {
       const item = COSTUME_ITEMS[equippedCostume.aura];
       if (item) {
-        const aa = chestAnchor.auraK
-          ? { x: chestAnchor.auraX, y: chestAnchor.auraY, scale: chestAnchor.auraK }
-          : chestAnchor;
-        drawCostumePiece(ctx, item, aa, isBuddy);
+        drawFullBodyAura(ctx, item, skel, chestAnchor, pointers, isBuddy);
       }
     }
 
@@ -9522,7 +9865,7 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
     if (equippedCostume.face && faceAnchor && isSlotReady("face")) {
       const item = COSTUME_ITEMS[equippedCostume.face];
       if (item) {
-        if (item.id.startsWith("mask_") || item.id === "head_foxmask") {
+        if (item.id.startsWith("mask_")) {
           // 🎭 가면: 얼굴 전체(눈·코·뺨)에 딱 맞도록 중심 높이 및 스케일 최적화
           const maskAnchor = {
             x: faceAnchor.x,
