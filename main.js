@@ -7035,41 +7035,74 @@ const RANK_THRESHOLDS = {
 };
 const RANK_DEFAULT = [35, 70, 120, 180, 260];   // 기준이 없는 게임용 기본값 (예전 기준)
 
+// 🏅 순위표 항목 데이터 안전 정규화 (숫자 또는 { score, name } 객체 모두 호환)
+function parseTop10Entry(item, fallbackName = "플레이어") {
+  if (item && typeof item === "object") {
+    const s = Number(item.score ?? item.s);
+    const n = String(item.name ?? fallbackName).trim();
+    return { score: Number.isFinite(s) && s > 0 ? s : 0, name: n || fallbackName };
+  }
+  const s = Number(item);
+  return { score: Number.isFinite(s) && s > 0 ? s : 0, name: fallbackName };
+}
+
 // 🏅 게임별 점수 순위표 (1등~10등). 이번 점수를 넣고 정렬해서 저장하고, 몇 등인지 알려 줌
-// prevBest: 이번 판 전의 최고 기록. 순위표가 아직 없을 때만 1등 후보로 옮겨 와요 (이미 이번 점수로 덮어쓴 값을 다시 읽으면 같은 점수가 두 번 들어가요)
+// prevBest: 이번 판 전의 최고 기록. 순위표가 아직 없을 때만 1등 후보로 옮겨 와요
 async function recordTop10(modeId, sc, pid, prevBest = 0) {
   const key = recKey("top10-" + modeId, pid);
-  let list = await SecureStore.loadCheckpoint(key, null);
-  if (!Array.isArray(list)) {
+  const curName = profiles?.get?.(pid)?.nickname || profiles?.current?.nickname || "플레이어";
+  let rawList = await SecureStore.loadCheckpoint(key, null);
+  if (!Array.isArray(rawList)) {
     const oldBest = +prevBest || 0;                      // 예전 최고 기록은 순위표로 옮김
-    list = oldBest > 0 ? [oldBest] : [];
+    rawList = oldBest > 0 ? [{ score: oldBest, name: curName }] : [];
   }
-  list = list.map(Number).filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => b - a).slice(0, 10);
+  let list = rawList.map((x) => parseTop10Entry(x, curName))
+    .filter((e) => e.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
   let myIdx = -1;
   if (sc > 0) {
-    let i = list.findIndex((v) => v < sc);            // 같은 점수면 먼저 세운 기록이 위
+    let i = list.findIndex((e) => e.score < sc);            // 같은 점수면 먼저 세운 기록이 위
     if (i < 0) i = list.length;
-    list.splice(i, 0, sc);
+    list.splice(i, 0, { score: sc, name: curName });
     myIdx = i;
     if (list.length > 10) { list.length = 10; if (myIdx >= 10) myIdx = -1; }
     await SecureStore.saveCheckpoint(key, list);
   }
   return { list, myIdx };
 }
+
 function renderTop10(modeId, list, myIdx, names = null) {
   const wrap = $("resultTop10"), ol = $("top10List");
   if (!wrap || !ol) return;
   const name = document.querySelector(`.mode[data-mode="${modeId}"]`)?.closest(".card")?.querySelector("h3")?.textContent?.trim() || "";
   $("top10Game").textContent = name;
   const medals = ["🥇", "🥈", "🥉"];
+  const defaultName = profiles?.current?.nickname || "플레이어";
+
   // 내 점수가 들어간 자리에서 "쾅!" 하고 박히고, 그 아래 순위들은 한 칸씩 밀려 내려오는 연출 (이름은 escapeHtml로 안전하게)
   ol.innerHTML = Array.from({ length: 10 }, (_, i) => {
-    const v = list[i], me = i === myIdx;
+    const raw = list[i];
+    const v = raw != null && typeof raw === "object" ? raw.score : raw;
+    const me = i === myIdx;
     const cls = [me ? (i === 0 ? "me first" : "me") : "", myIdx >= 0 && i > myIdx ? "push" : "", v == null ? "empty" : ""].filter(Boolean).join(" ");
     const delay = myIdx >= 0 && i > myIdx ? ` style="animation-delay:${0.1 + (i - myIdx) * 0.05}s"` : "";
-    const who = names && v != null ? `<span class="t10-name">${escapeHtml(names[i] ?? "")}</span>` : "";
+
+    // 📛 이름 결정: names 우선 -> 객체의 name 속성 -> 현재 플레이어 닉네임
+    let entryName = "";
+    if (names && names[i]) {
+      entryName = names[i];
+    } else if (raw != null && typeof raw === "object" && raw.name) {
+      entryName = raw.name;
+    } else if (v != null) {
+      entryName = defaultName;
+    }
+
+    const who = v != null ? `<span class="t10-name">${escapeHtml(entryName)}</span>` : "";
     return `<li class="${cls}"${delay}><span class="t10-rank">${me && i === 0 ? "👑" : (medals[i] ?? i + 1)}</span>${who}<span class="t10-score">${v == null ? "-" : Number(v).toLocaleString() + "점"}</span>${me ? '<em class="t10-new">NEW</em>' : ""}</li>`;
   }).join("");
+
   // 1등이면 순위표 전체가 금빛으로 빛나고 색종이가 쏟아짐
   const conf = $("t10Confetti");
   wrap.classList.toggle("champion", myIdx === 0);
@@ -7083,11 +7116,19 @@ async function loadFamilyTop(modeId) {
   const all = [];
   for (const p of profiles?.list ?? []) {
     const l = await SecureStore.loadCheckpoint(recKey("top10-" + modeId, p.id), []);
-    if (Array.isArray(l)) for (const v of l) { const n = Number(v); if (Number.isFinite(n) && n > 0) all.push({ score: n, name: p.nickname, pid: p.id }); }
+    if (Array.isArray(l)) {
+      for (const v of l) {
+        const entry = parseTop10Entry(v, p.nickname);
+        if (entry.score > 0) {
+          all.push({ score: entry.score, name: entry.name || p.nickname, pid: p.id });
+        }
+      }
+    }
   }
   all.sort((x, y) => y.score - x.score);                 // 같은 점수면 프로필 순서 유지
   return all.slice(0, 10);
 }
+
 async function showTop10Tab(which) {
   const t = lastTop;
   if (!t) return;
@@ -7101,7 +7142,11 @@ async function showTop10Tab(which) {
     const idx = t.score > 0 ? entries.findIndex((e) => e.pid === t.pid && e.score === t.score) : -1;
     renderTop10(t.modeId, entries.map((e) => e.score), idx, entries.map((e) => e.name));
   } else {
-    renderTop10(t.modeId, t.mine.list, t.mine.myIdx);
+    // 내 기록: 점수 배열과 이름 배열을 추출하여 전달
+    const curName = profiles?.get?.(t.pid)?.nickname || profiles?.current?.nickname || "나";
+    const scores = t.mine.list.map((e) => (typeof e === "object" ? e.score : Number(e)));
+    const names = t.mine.list.map((e) => (typeof e === "object" && e.name ? e.name : curName));
+    renderTop10(t.modeId, scores, t.mine.myIdx, names);
   }
 }
 
@@ -8046,7 +8091,13 @@ function renderProfileUI() {
       const img = document.createElement("img"); img.src = p.avatar; img.alt = ""; img.width = 28; img.height = 28;
       const nm = document.createElement("span"); nm.textContent = p.nickname;
       b.append(img, nm);
-      b.addEventListener("click", () => { switchProfile(p.id); if (!withDelete) $("profileMenu")?.classList.add("hidden"); });
+      b.addEventListener("click", () => {
+        switchProfile(p.id);
+        if (!withDelete) {
+          $("profileMenu")?.classList.add("hidden");
+          $("topQuickMenu")?.classList.add("hidden");
+        }
+      });
       host.append(b);
     }
   };
@@ -8054,16 +8105,65 @@ function renderProfileUI() {
   const del = $("btnProfileDelete"); if (del) del.disabled = profiles.list.length <= 1;
   const add = $("btnProfileAdd"); if (add) add.disabled = profiles.list.length >= 6;
 }
+
 function setupProfileSwitcher() {
   $("btnProfileAdd")?.addEventListener("click", addProfile);
   $("btnProfileDelete")?.addEventListener("click", () => deleteProfile(profiles.activeId));
-  $("btnProfileSwitch")?.addEventListener("click", (e) => { e.stopPropagation(); renderProfileUI(); $("profileMenu")?.classList.toggle("hidden"); });
-  $("btnProfileMenuAdd")?.addEventListener("click", () => { $("profileMenu")?.classList.add("hidden"); addProfile(); });
-  document.addEventListener("click", (e) => { if (!e.target.closest?.("#profileMenu, #btnProfileSwitch")) $("profileMenu")?.classList.add("hidden"); });
+
+  // ⚙️ 상단 통합 메뉴 토글 & 닫기
+  const toggleTopMenu = (e) => {
+    e?.stopPropagation?.();
+    renderProfileUI();
+    $("topQuickMenu")?.classList.toggle("hidden");
+  };
+  $("btnTopMenu")?.addEventListener("click", toggleTopMenu);
+  $("btnProfileSwitch")?.addEventListener("click", toggleTopMenu);
+  $("btnTopMenuClose")?.addEventListener("click", () => $("topQuickMenu")?.classList.add("hidden"));
+
+  $("btnProfileMenuAdd")?.addEventListener("click", () => {
+    $("profileMenu")?.classList.add("hidden");
+    $("topQuickMenu")?.classList.add("hidden");
+    addProfile();
+  });
+
+  // 메뉴창 내부 액션 버튼(카메라/전체화면) 클릭 시 메뉴창 닫기 연동
+  $("btnSetupGuide")?.addEventListener("click", () => $("topQuickMenu")?.classList.add("hidden"));
+  $("btnFsHub")?.addEventListener("click", () => $("topQuickMenu")?.classList.add("hidden"));
+
+  // 바깥 클릭 시 메뉴 닫기
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest?.("#profileMenu, #btnProfileSwitch, #topQuickMenu, #btnTopMenu")) {
+      $("profileMenu")?.classList.add("hidden");
+      $("topQuickMenu")?.classList.add("hidden");
+    }
+  });
+
   $("t10Mine")?.addEventListener("click", () => showTop10Tab("mine"));
   $("t10Family")?.addEventListener("click", () => showTop10Tab("family"));
   renderProfileUI();
 }
+
+// 🚫 화면 더블클릭/더블탭/롱터치 시 브라우저 복사 메뉴 및 텍스트 선택 팝업 방지 (Zero-Touch-Callout)
+window.addEventListener("dblclick", (e) => {
+  const tag = e.target?.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA") {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+window.addEventListener("selectstart", (e) => {
+  const tag = e.target?.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA" && !e.target?.closest?.(".invite-box")) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+window.addEventListener("contextmenu", (e) => {
+  const tag = e.target?.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA") {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // 초기화 시점 실행
 loadPlayerSettings();

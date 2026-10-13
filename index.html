@@ -183,7 +183,7 @@
       <div class="brand-mark"><span>⚡</span></div>
       <div class="brand-text">
         <strong>KINETIC KABOOM</strong>
-        <span class="brand-sub"><em>FAMILY MOTION ARCADE</em></span>
+        <span class="brand-sub"><em>ARCADE</em></span>
       </div>
     </div>
 
@@ -194,45 +194,85 @@
     </div>
 
     <div class="top-right">
+      <!-- 👗 커스튬 룸: 한 줄 요약 콤팩트 버튼 -->
       <button id="btnCostumeRoom" class="costume-room-pill" title="모션 캐릭터 커스튬 & 나노 슈트업 드레스룸" aria-label="커스튬 룸">
         <span class="costume-btn-icon">👗</span>
-        <span class="costume-btn-text">커스튬 룸</span>
+        <span class="costume-btn-text">커스튬</span>
         <span class="costume-btn-sparkle">✨</span>
       </button>
-      <!-- 🧑‍🎤 캐릭터 선택 버튼: 캐릭터 게임 안정화 전까지 비활성화 -->
-      <button id="btnCharacter" class="costume-room-pill hidden" style="display:none;" title="나의 캐릭터 고르기 (사람 · 동물 · 로봇 · 마법사)" aria-label="캐릭터 선택">
+
+      <!-- 🧑‍🎤 캐릭터 선택 버튼: 비활성화 보관 -->
+      <button id="btnCharacter" class="costume-room-pill hidden" style="display:none;" title="나의 캐릭터 고르기" aria-label="캐릭터 선택">
         <span id="characterBtnIcon" class="costume-btn-icon">🧒</span>
         <span class="costume-btn-text">캐릭터</span>
       </button>
-      <button id="btnFsHub" class="fs-pill" title="대화면/TV 전체화면 토글" aria-label="전체화면 토글">
-        <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-        <svg class="fs-icon fs-icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6m0 0v6m0-6-7 7m17-11h-6m0 0V4m0 6 7-7"/></svg>
-        <span class="fs-text">전체화면</span>
-      </button>
-      <div class="coin-pill">⭐ <span id="totalBest">0</span></div>
-      <div class="coin-pill coin-gold-pill" title="보유 코인 (게임을 플레이해서 모은 코인)">🪙 <span id="headerPlayerCoins">0</span></div>
-      <div class="ticket-pill">🎟️ <span>120</span></div>
+
+      <!-- 🪙 통합 재화 바: 별점수 + 코인 한 줄 콤팩트 칩 -->
+      <div class="wallet-bar" title="내 최고 기록 및 보유 코인">
+        <div class="wallet-chip">⭐ <span id="totalBest">0</span></div>
+        <i class="wallet-div"></i>
+        <div class="wallet-chip wallet-gold">🪙 <span id="headerPlayerCoins">0</span></div>
+      </div>
+
+      <!-- 👤 플레이어 프로필 칩: 아바타 + 이름 1줄 작성 -->
       <div class="profile interactive-profile" id="btnPlayerProfile" role="button" tabindex="0" title="플레이어 설정 열기">
         <div class="avatar-wrap">
           <img id="headerAvatarImg" src="assets/avatar.jpg" alt="플레이어 캐릭터">
           <span id="headerPlayerLvl" class="lvl-badge">14</span>
         </div>
-        <div><b id="headerPlayerName">P1 Leo</b><small id="headerPlayerTitle">PARTY LEADER</small></div>
+        <b id="headerPlayerName" class="header-name-text">P1 Leo</b>
+        <small id="headerPlayerTitle" class="hidden" style="display:none;">PARTY LEADER</small>
       </div>
-      <button id="btnSetupGuide" class="top-nav-action-btn" type="button" title="카메라 세팅 안내 (위치·밝기·인식 확인)" aria-label="카메라 세팅 안내">
-        <span class="tna-icon">📷</span>
-        <span class="tna-text">카메라</span>
+
+      <!-- ⚙️ 통합 메뉴 버튼: 카메라/가족프로필/전체화면을 한곳에 모아 공간 극대화 -->
+      <button id="btnTopMenu" class="top-menu-btn" type="button" title="게임 설정 및 도구 메뉴" aria-label="메뉴 열기">
+        <span class="tmb-icon">⚙️</span>
+        <span class="tmb-text">메뉴</span>
       </button>
-      <!-- 👨‍👩‍👧 가족 프로필 빠른 전환 -->
-      <button id="btnProfileSwitch" class="top-nav-action-btn" type="button" title="플레이어 바꾸기 (가족 프로필)" aria-label="플레이어 바꾸기">
-        <span class="tna-icon">🔄</span>
-        <span class="tna-text">프로필</span>
-      </button>
-      <div id="profileMenu" class="profile-menu hidden" role="menu">
-        <div class="profile-menu-title">누가 플레이할까요?</div>
-        <div id="profileMenuList" class="profile-menu-list"></div>
-        <button id="btnProfileMenuAdd" class="profile-menu-add" type="button">＋ 새 프로필</button>
+
+      <!-- 📋 상단 통합 메뉴선택창 (비슷한 기능들을 묶어 가로 스와이프 없이 한 화면 조작) -->
+      <div id="topQuickMenu" class="top-quick-menu hidden" role="menu">
+        <div class="tqm-header">
+          <span class="tqm-title">🎮 게임 메뉴 & 설정</span>
+          <button id="btnTopMenuClose" class="tqm-close-btn" type="button" aria-label="닫기">✕</button>
+        </div>
+
+        <!-- 👨‍👩‍👧 가족 프로필 전환 -->
+        <div class="tqm-section">
+          <div class="tqm-sec-title">
+            <span>👨‍👩‍👧 플레이어 전환</span>
+            <button id="btnProfileSwitch" class="tqm-badge-btn" type="button">프로필 목록</button>
+          </div>
+          <div id="profileMenuList" class="profile-menu-list"></div>
+          <button id="btnProfileMenuAdd" class="profile-menu-add" type="button">＋ 새 프로필 추가</button>
+        </div>
+
+        <div class="tqm-divider"></div>
+
+        <!-- 🛠️ 도구 & 부가 기능 -->
+        <div class="tqm-tools-grid">
+          <!-- 📷 카메라 가이드 -->
+          <button id="btnSetupGuide" class="tqm-tool-card" type="button" title="카메라 위치·밝기 안내">
+            <span class="ttc-icon">📷</span>
+            <div class="ttc-body">
+              <strong class="ttc-title">카메라 안내</strong>
+              <small class="ttc-desc">위치·밝기·인식 확인</small>
+            </div>
+          </button>
+
+          <!-- 📺 TV 전체화면 토글 -->
+          <button id="btnFsHub" class="tqm-tool-card fs-pill" type="button" title="대화면 전체화면 토글">
+            <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            <svg class="fs-icon fs-icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6m0 0v6m0-6-7 7m17-11h-6m0 0V4m0 6 7-7"/></svg>
+            <div class="ttc-body">
+              <strong class="fs-text ttc-title">TV 전체화면</strong>
+              <small class="ttc-desc">대화면 꽉 채우기</small>
+            </div>
+          </button>
+        </div>
       </div>
+      <!-- 호환용 숨김 엘리먼트 -->
+      <div id="profileMenu" class="hidden" style="display:none;" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -1098,6 +1138,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_2035"></script>
+<script type="module" src="main.js?v=20261013_2050"></script>
 </body>
 </html>
