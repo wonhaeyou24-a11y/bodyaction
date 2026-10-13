@@ -7255,25 +7255,15 @@ async function loadFamilyTop(modeId) {
   return all.slice(0, 10);
 }
 
-async function showTop10Tab(which) {
+async function showTop10Tab() {
   const t = lastTop;
   if (!t) return;
-  const multi = (profiles?.list.length ?? 0) > 1;
-  $("t10Tabs")?.classList.toggle("hidden", !multi);          // 프로필이 한 명뿐이면 탭을 숨김
-  $("t10Mine")?.classList.toggle("active", which !== "family" || !multi);
-  $("t10Family")?.classList.toggle("active", which === "family" && multi);
-  if (which === "family" && multi) {
-    const entries = await loadFamilyTop(t.modeId);
-    if (lastTop !== t) return;                               // 기다리는 사이 다른 판이 끝났으면 무시
-    const idx = t.score > 0 ? entries.findIndex((e) => e.pid === t.pid && e.score === t.score) : -1;
-    renderTop10(t.modeId, entries.map((e) => e.score), idx, entries.map((e) => e.name));
-  } else {
-    // 내 기록: 점수 배열과 이름 배열을 추출하여 전달
-    const curName = profiles?.get?.(t.pid)?.nickname || profiles?.current?.nickname || "나";
-    const scores = t.mine.list.map((e) => (typeof e === "object" ? e.score : Number(e)));
-    const names = t.mine.list.map((e) => (typeof e === "object" && e.name ? e.name : curName));
-    renderTop10(t.modeId, scores, t.mine.myIdx, names);
-  }
+  // 🏆 [사용자 요청]: 내 기록 대신 항상 통합 전체 기록(명예의 전당)만 단일하게 표시!
+  $("t10Tabs")?.classList.add("hidden");
+  const entries = await loadFamilyTop(t.modeId);
+  if (lastTop !== t) return;
+  const myIdx = t.score > 0 ? entries.findIndex((e) => e.pid === t.pid && e.score === t.score) : -1;
+  renderTop10(t.modeId, entries.map((e) => e.score), myIdx, entries.map((e) => e.name));
 }
 
 function endGame() {
@@ -7337,11 +7327,11 @@ function endGame() {
     const top = await recordTop10(modeId, score, pid, curBest);
     if (mode !== modeId) return;                     // 순위표 저장 중에 메뉴로 나갔으면 결과 화면은 띄우지 않음
     lastTop = { modeId, mine: top, pid, score };
-    showTop10Tab("mine");
+    await showTop10Tab();
 
-    // 🎁 1~3등 달성 시 해당 게임의 고유 커스튬 파츠 지급!
-    if (top.myIdx >= 0 && top.myIdx <= 2) {
-      checkAndAwardRankCostume(modeId, top.myIdx);
+    // 🎁 1등 달성 시에만 해당 게임의 1등 챔피언 커스튬 파츠 지급! (오직 1등만)
+    if (top.myIdx === 0) {
+      checkAndAwardRankCostume(modeId, 0);
     } else {
       $("resultCostumeReward")?.classList.add("hidden");
     }
@@ -8696,20 +8686,20 @@ const COSTUME_ITEMS = {
   }
 };
 
-// 2. 12개 게임 전체 1~3등 보상 매핑 테이블
+// 2. 12개 게임 전체 1등 독점 보상 매핑 테이블 (모자/가면/오라 카테고리만 & 1등만 적용)
 const RANK_REWARDS = {
-  baseball: ["bat_gold", "cap_cyber", "jersey_neon"],
-  kungfu:   ["aura_dragon", "robe_master", "gloves_tiger"],
-  runner:   ["back_jetpack", "helm_visor", "shoes_neon"],
-  beat:     ["hand_sabers", "head_phones", "back_cape"],
-  box:      ["hand_firebox", "body_belt", "head_guard"],
-  ninja:    ["hand_katana", "head_ninja_hat", "body_shinobi"],
-  space:    ["hand_shield", "head_astro", "back_wings"],
-  brick:    ["hand_laserpaddle", "helm_cyber", "aura_neonspark"],
-  dodge:    ["back_propeller", "helm_miner", "body_adventurer"],
-  pose:     ["aura_starlight", "head_tiara", "back_fairy"],
-  keeper:   ["hand_goldenkeeper", "jersey_keeper", "head_cap"],
-  balloon:  ["back_balloonbundle", "head_partyhat", "hand_wand"]
+  baseball: ["cap_cyber"],       // 🧢 모자·헤드 (1등 전설 사이버 홈런 캡)
+  kungfu:   ["aura_dragon"],     // 🐉 오라 (1등 전설 비룡 용오름 각성 오라)
+  runner:   ["helm_visor"],      // 🥽 모자·헤드 (1등 전설 홀로그램 러너 바이저 헬멧)
+  beat:     ["head_phones"],     // 🎧 모자·헤드 (1등 전설 사이버 비트 헤드폰)
+  box:      ["head_guard"],      // ⛑️ 모자·헤드 (1등 전설 골든 챔피언 헤드기어)
+  ninja:    ["head_ninja_hat"],  // 👒 모자·헤드 (1등 전설 그림자 닌자 삿갓)
+  space:    ["head_astro"],      // 👨‍🚀 모자·헤드 (1등 전설 우주 탐사대 헬멧)
+  brick:    ["aura_neonspark"],  // ⚡ 오라 (1등 전설 에너지 플라즈마 스파크 오라)
+  dodge:    ["helm_miner"],      // 🪖 모자·헤드 (1등 전설 황금 탐험가 헬멧)
+  pose:     ["aura_starlight"],  // 🌟 오라 (1등 전설 슈퍼스타 스포트라이트 오라)
+  keeper:   ["head_cap"],        // 🧢 모자·헤드 (1등 전설 에메랄드 세이버 캡)
+  balloon:  ["head_partyhat"]    // 🥳 모자·헤드 (1등 전설 네온 카니발 파티햇)
 };
 
 // 3. 커스튬 인벤토리 & 장착 상태 (암호화 체크포인트 저장소 관리)
@@ -8725,7 +8715,7 @@ let equippedCostume = {
   aura: "aura_super_saiyan"
 };
 
-// 👑 플레이어의 특정 게임 현재 순위 조회 (1, 2, 3등 또는 0: 미기록/순위밖)
+// 👑 플레이어의 특정 게임 현재 순위 조회 (1: 1등 챔피언, 0: 미기록 또는 1등 외)
 async function getPlayerRankForGame(gameId) {
   if (!gameId) return 0;
   const pid = profiles?.activeId;
@@ -8741,58 +8731,47 @@ async function getPlayerRankForGame(gameId) {
   return idx >= 0 ? idx + 1 : 0;
 }
 
-// 👑 1, 2, 3등 커스튬 장비: 프로필로 게임에 진입하면 그 프로필의 등수에 맞는 고유 장비를 자동 장착해서 시작
+// 👑 1등 전용 커스튬 장비: 프로필로 게임에 진입하면 그 프로필이 해당 게임 1등일 때만 모자/가면/오라 장비 자동 장착
 async function autoEquipRankCostumeForGame(modeId) {
   if (!modeId) return null;
   const rewardList = RANK_REWARDS[modeId];
-  if (!rewardList) return null;
+  if (!rewardList || rewardList.length === 0) return null;
 
   try {
     const rank = await getPlayerRankForGame(modeId);
-    if (rank >= 1 && rank <= 3) {
-      const rankIdx = rank - 1; // 0: 1등, 1: 2등, 2: 3등
-      const itemId = rewardList[rankIdx];
+    // 👑 오직 1등(챔피언)만 적용! (2등, 3등은 제외)
+    if (rank === 1) {
+      const itemId = rewardList[0];
       const item = COSTUME_ITEMS[itemId];
-      if (item && item.slot) {
+      // 🔒 반드시 모자(head) 또는 가면(face), 오라(aura) 카테고리만 허용
+      if (item && (item.slot === "head" || item.slot === "face" || item.slot === "aura")) {
         costumeInventory.add(itemId);       // 인벤토리 즉시 해금/보유 처리
         equippedCostume[item.slot] = itemId; // 해당 부위에 자동 장착!
         saveCostumeData();
 
-        const medalEmoji = ["🥇", "🥈", "🥉"][rankIdx] || "👑";
-        const rankLabels = ["1등 전설", "2등 영웅", "3등 희귀"][rankIdx];
-
+        const slotName = item.slot === "head" ? "모자" : item.slot === "face" ? "가면" : "오라";
         setTimeout(() => {
-          popup(W / 2, H * 0.40, `${medalEmoji} [${rankLabels} 장비] ${item.name} 자동 착용!`, item.color || "#ffd700");
+          popup(W / 2, H * 0.40, `👑 [1등 챔피언 독점 ${slotName}] ${item.name} 자동 착용!`, item.color || "#ffd700");
           sfx.equip?.();
         }, 180);
         return item;
       }
     }
   } catch (err) {
-    console.warn("등수 장비 자동 착용 처리 예외 (안전 복구):", err);
+    console.warn("1등 장비 자동 착용 처리 예외 (안전 복구):", err);
   }
   return null;
 }
 
-// 🔒 아이템 착용 자격 검사 (순위 기반 독점 / 강등 판정)
+// 🔒 아이템 착용 자격 검사 (오직 1등만 착용 자격 부여)
 async function checkItemRankEligibility(item) {
   if (!item) return { eligible: false, rankReq: 0, currentRank: 0 };
   if (item.tier === "common") return { eligible: true, rankReq: 0, currentRank: 1 };
 
   const rank = await getPlayerRankForGame(item.game);
-  let rankReq = 3;
-  let eligible = false;
-  if (item.tier === "legend") {
-    rankReq = 1;
-    eligible = (rank === 1);
-  } else if (item.tier === "hero") {
-    rankReq = 2;
-    eligible = (rank === 1 || rank === 2);
-  } else if (item.tier === "rare") {
-    rankReq = 3;
-    eligible = (rank >= 1 && rank <= 3);
-  }
-  return { eligible, rankReq, currentRank: rank };
+  // 👑 순위 독점 파츠는 오직 1등만 착용 가능!
+  const eligible = (rank === 1);
+  return { eligible, rankReq: 1, currentRank: rank };
 }
 
 // ⚠️ 순위 변동 시 자격 상실 파츠 자동 탈착 & 박탈 알림 (Auto-Strip Engine)
@@ -8921,36 +8900,43 @@ function updateCoinsDisplay(coins = playerCoins) {
   if ($("costumePlayerCoins")) $("costumePlayerCoins").textContent = text;
 }
 
-// 🎁 1~3등 달성 시 해당 게임의 고유 커스튬 파츠 지급 로직
+// 🎁 1등 달성 시 모자 / 가면 / 오라 챔피언 독점 파츠 지급 로직 (1등만 적용)
 function checkAndAwardRankCostume(modeId, rankIdx) {
-  const rewardList = RANK_REWARDS[modeId];
-  if (!rewardList || rankIdx < 0 || rankIdx > 2) {
+  // 👑 오직 1등(rankIdx === 0)만 시상!
+  if (rankIdx !== 0) {
     $("resultCostumeReward")?.classList.add("hidden");
     return;
   }
-  const itemId = rewardList[rankIdx];
+  const rewardList = RANK_REWARDS[modeId];
+  if (!rewardList || !rewardList[0]) {
+    $("resultCostumeReward")?.classList.add("hidden");
+    return;
+  }
+  const itemId = rewardList[0];
   const item = COSTUME_ITEMS[itemId];
-  if (!item) return;
+  if (!item || (item.slot !== "head" && item.slot !== "face" && item.slot !== "aura")) {
+    $("resultCostumeReward")?.classList.add("hidden");
+    return;
+  }
 
   const isNewlyUnlocked = !costumeInventory.has(itemId);
   costumeInventory.add(itemId);
   saveCostumeData();
 
-  const medalLabels = ["🥇 1등 전설 파츠 획득!", "🥈 2등 영웅 파츠 획득!", "🥉 3등 희귀 파츠 획득!"];
-  const slotLabels = { head: "머리 파츠", body: "상의 파츠", back: "날개/망토 파츠", hand: "무기 파츠", aura: "오라 파츠" };
+  const slotLabels = { head: "모자·헤드 파츠", face: "가면·페이스 파츠", aura: "오라 파츠" };
 
   const rewardCard = $("resultCostumeReward");
   if (rewardCard) {
-    $("rcRankBadge").textContent = medalLabels[rankIdx];
+    $("rcRankBadge").textContent = "👑 1등 챔피언 독점 파츠 획득!";
     $("rcItemIcon").textContent = item.icon;
     $("rcItemName").textContent = item.name;
     $("rcItemDesc").textContent = item.desc;
-    $("rcItemSlot").textContent = slotLabels[item.slot] || "특수 장비";
+    $("rcItemSlot").textContent = slotLabels[item.slot] || "챔피언 장비";
     rewardCard.classList.remove("hidden");
 
     if (isNewlyUnlocked) {
-      sfx.fanfare();
-      speak(`${rankIdx + 1}등 보상으로 ${item.name}을 획득하셨습니다! 축하합니다!`, true);
+      sfx.fanfare?.();
+      speak(`1등 보상으로 ${item.name}을 획득하셨습니다! 축하합니다!`, true);
     }
   }
 }
@@ -10989,7 +10975,50 @@ frame = function(now) {
   }
 };
 
-showBest();
+// 🧹 [사용자 요청]: 모든 게임의 점수 기록 완전 리셋 (전체 점수 및 랭킹 0점 초기화)
+async function resetAllGameScores() {
+  const modesList = [
+    "balloon", "ninja", "space", "bballoon", "bspace", "crun", "cduel",
+    "brick", "kungfu", "dodge", "pose", "runner", "beat",
+    "keeper", "box", "baseball"
+  ];
+  try {
+    // 1. 등록된 모든 프로필 및 기본 프로필의 최고점수와 순위표 완전 초기화
+    const pList = profiles?.list?.length ? profiles.list : [{ id: "default" }, { id: "p1" }, { id: "p2" }];
+    for (const p of pList) {
+      for (const m of modesList) {
+        await SecureStore.saveCheckpoint(recKey("best-" + m, p.id), 0);
+        await SecureStore.saveCheckpoint(recKey("top10-" + m, p.id), []);
+      }
+    }
+    // 2. localStorage 내 모든 best- 및 top10- 관련 키 완전 삭제
+    const removeKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.includes("best-") || k.includes("top10-"))) {
+        removeKeys.push(k);
+      }
+    }
+    removeKeys.forEach((k) => localStorage.removeItem(k));
+  } catch (err) {
+    console.warn("점수 리셋 오류:", err);
+  }
+  // 3. UI 즉시 0점 반영
+  await showBest();
+}
+window.resetAllGameScores = resetAllGameScores;
+
+// ⚡ 1회성 전체 점수 리셋 실행 (사용자 요청 반영: 새로고침 즉시 0점 클린 리셋)
+(async () => {
+  const resetFlagKey = "actionGame_scores_reset_v20261013";
+  if (!localStorage.getItem(resetFlagKey)) {
+    await resetAllGameScores();
+    localStorage.setItem(resetFlagKey, "true");
+  } else {
+    await showBest();
+  }
+})();
+
 requestAnimationFrame((t) => { last = t; frame(t); });
 
 

@@ -17,7 +17,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="stylesheet" href="style.css?v=20261013_2215">
+<link rel="stylesheet" href="style.css?v=20261013_2222">
 </head>
 <body>
 <!-- 앰비언스 배경 조명 (메뉴 화면에서만 보임, 게임 중에는 꺼서 성능 확보) -->
@@ -627,14 +627,11 @@
   </div>
   </div><!-- /result-main -->
 
-  <!-- 🏅 이 게임의 점수 순위표 (1등~10등) -->
+  <!-- 🏅 이 게임의 전체 점수 순위표 (명예의 전당 1등~10등) -->
   <div id="resultTop10" class="top10-wrap hidden">
     <div id="t10Confetti" class="t10-confetti" aria-hidden="true"></div>
-    <div class="top10-title">🏅 <span id="top10Game">게임</span> TOP 10</div>
-    <div id="t10Tabs" class="t10-tabs hidden">
-      <button id="t10Mine" class="active" type="button">내 기록</button>
-      <button id="t10Family" type="button">👨‍👩‍👧 가족 전체</button>
-    </div>
+    <div class="top10-title">🏆 <span id="top10Game">게임</span> 명예의 전당 (전체 순위)</div>
+    <div id="t10Tabs" class="t10-tabs hidden" style="display:none !important;"></div>
     <ol id="top10List" class="top10-list"></ol>
   </div>
   </div><!-- /result-body -->
@@ -1113,6 +1110,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay" style="pointer-events: none;"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_2215"></script>
+<script type="module" src="main.js?v=20261013_2222"></script>
 </body>
 </html>
