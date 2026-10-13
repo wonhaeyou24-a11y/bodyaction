@@ -393,9 +393,45 @@ const sfx = {
   },
 };
 
-// 음성 안내 (브라우저 내장 한국어 음성 - 크롬/엣지 GC 버그 원천 차단)
+// 🎙️ 사람처럼 자연스러운 고품질 한국어 음성 안내 시스템 (Natural/Neural 보이스 우선 탐색)
 let lastVoice = 0;
 let activeUtterance = null;
+let cachedBestKoreanVoice = null;
+
+function pickBestKoreanVoice() {
+  if (!window.speechSynthesis) return null;
+  const voices = speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const koVoices = voices.filter((v) => v.lang && (v.lang.toLowerCase().startsWith("ko") || v.lang.toLowerCase().includes("korean")));
+  if (koVoices.length === 0) return null;
+
+  // 1순위: Edge/Windows 최신 고품질 Natural(신경망) 사람 목소리 (SunHi, InJoon, Natural)
+  const natural = koVoices.find((v) => /natural|online|선희|인준|신경망/i.test(v.name));
+  if (natural) return natural;
+
+  // 2순위: Chrome/Android 구글 고품질 한국어 음성
+  const google = koVoices.find((v) => /google/i.test(v.name));
+  if (google) return google;
+
+  // 3순위: Apple/iOS 고품질 한국어 (Yuna, Sora)
+  const apple = koVoices.find((v) => /yuna|sora|유나|소라/i.test(v.name));
+  if (apple) return apple;
+
+  // 4순위: 윈도우 혜미(Heami) 등 기본 한국어 음성
+  const heami = koVoices.find((v) => /heami|혜미/i.test(v.name));
+  if (heami) return heami;
+
+  return koVoices[0];
+}
+
+if (typeof window !== "undefined" && window.speechSynthesis) {
+  cachedBestKoreanVoice = pickBestKoreanVoice();
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedBestKoreanVoice = pickBestKoreanVoice();
+  };
+}
+
 function speak(text, force = false) {
   if (!voiceOn || !window.speechSynthesis) return;
   const n = performance.now();
@@ -406,8 +442,22 @@ function speak(text, force = false) {
       speechSynthesis.cancel();
     }
     const u = new SpeechSynthesisUtterance(text);
-    activeUtterance = u; // 🛡️ 전역 참조를 보관하여 가비지 컬렉션(GC) 도중단 끊김 원천 차단
-    u.lang = "ko-KR"; u.rate = 1.1; u.pitch = 1.15;
+    activeUtterance = u; // 🛡️ 전역 참조 보관으로 가비지 컬렉션(GC) 발화 중단 원천 방지
+    
+    // 🌟 가장 사람답고 자연스러운 보이스 지정
+    if (!cachedBestKoreanVoice) cachedBestKoreanVoice = pickBestKoreanVoice();
+    if (cachedBestKoreanVoice) {
+      u.voice = cachedBestKoreanVoice;
+      u.lang = cachedBestKoreanVoice.lang || "ko-KR";
+    } else {
+      u.lang = "ko-KR";
+    }
+
+    // 🌟 사람 아나운서처럼 차분하고 또박또박한 음조(Pitch 1.0)와 안정적인 속도(Rate 1.02)
+    u.rate = 1.02;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+
     u.onend = () => { activeUtterance = null; };
     u.onerror = () => { activeUtterance = null; };
     speechSynthesis.speak(u);
@@ -2158,49 +2208,57 @@ const Art = {
       // 2. 바닥 질주 마찰 스파크 / 먼지 구름 파티클
       if (!air) {
         if (duck) {
-          // 슬라이딩 마찰 불꽃 스파크
+          // 슬라이딩 마찰 불꽃 스파크 (노랑 + 네온 핑크)
           ctx.fillStyle = "#ffcc00";
-          for (let i = 0; i < 3; i++) {
-            ctx.fillRect(cx - hs * 0.3 - Math.random() * 20, gy - 4 - Math.random() * 8, 3, 3);
+          for (let i = 0; i < 4; i++) {
+            ctx.fillRect(cx - hs * 0.35 - Math.random() * 25, gy - 4 - Math.random() * 10, 3.5, 3.5);
           }
         } else if (Math.sin(ph * 2) > 0.3) {
-          // 질주 펄스 먼지
-          ctx.fillStyle = "rgba(0, 210, 255, 0.3)";
+          // 질주 펄스 먼지 & 네온 링
+          ctx.fillStyle = "rgba(0, 210, 255, 0.4)";
           ctx.beginPath();
-          ctx.arc(cx - hs * 0.35, gy - 5, 5 + Math.random() * 4, 0, Math.PI * 2);
+          ctx.arc(cx - hs * 0.4, gy - 6, 6 + Math.random() * 5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
-      // 3. 등 뒤 사이버 제트팩 & 플라즈마 부스터 불꽃
-      const packX = cx - (duck ? hs * 0.25 : hs * 0.18);
-      const packY = fy - (duck ? hs * 0.28 : hs * 0.55);
-      const packW = hs * 0.14, packH = hs * 0.28;
+      // 3. 등 뒤 트윈 사이버 제트팩 & 플라즈마 부스터 화염
+      const packX = cx - (duck ? hs * 0.28 : hs * 0.20);
+      const packY = fy - (duck ? hs * 0.30 : hs * 0.58);
+      const packW = hs * 0.16, packH = hs * 0.30;
 
       ctx.save();
-      // 제트팩 본체 (메탈릭 다크 쉘)
-      ctx.fillStyle = "#1e1035";
+      // 트윈 부스터 실린더 (메탈릭 다크 쉘)
+      ctx.fillStyle = "#160b2b";
       ctx.strokeStyle = isFever ? "#ff2e93" : "#00d2ff";
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.roundRect(packX - packW / 2, packY - packH / 2, packW, packH, 5);
+      ctx.roundRect(packX - packW / 2, packY - packH / 2, packW, packH, 7);
       ctx.fill(); ctx.stroke();
+
+      // 메탈릭 노즐 캡 2개
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(packX - packW * 0.45, packY + packH * 0.45, packW * 0.38, 5);
+      ctx.fillRect(packX + packW * 0.07, packY + packH * 0.45, packW * 0.38, 5);
 
       // 부스터 화염 (점프 중이거나 피버/부스트 상태일 때 맹렬히 분사)
       if (air || isFever || isBoosting) {
-        const flameLen = air ? hs * (0.35 + Math.random() * 0.2) : hs * (0.2 + Math.random() * 0.1);
-        const fg = ctx.createLinearGradient(packX, packY + packH / 2, packX - flameLen * 0.5, packY + packH / 2 + flameLen);
+        const flameLen = air ? hs * (0.45 + Math.random() * 0.25) : hs * (0.24 + Math.random() * 0.12);
+        const fg = ctx.createLinearGradient(packX, packY + packH / 2, packX - flameLen * 0.4, packY + packH / 2 + flameLen);
         fg.addColorStop(0, "#ffffff");
-        fg.addColorStop(0.3, isFever ? "#ff0077" : "#00f0ff");
+        fg.addColorStop(0.25, isFever ? "#ff0077" : "#00f0ff");
+        fg.addColorStop(0.7, isFever ? "#ffea00" : "#0077ff");
         fg.addColorStop(1, "rgba(255, 184, 0, 0)");
 
         ctx.fillStyle = fg;
-        ctx.beginPath();
-        ctx.moveTo(packX - packW * 0.4, packY + packH * 0.4);
-        ctx.lineTo(packX + packW * 0.4, packY + packH * 0.4);
-        ctx.lineTo(packX - hs * 0.05, packY + packH * 0.4 + flameLen);
-        ctx.closePath();
-        ctx.fill();
+        [-packW * 0.26, packW * 0.26].forEach((nx) => {
+          ctx.beginPath();
+          ctx.moveTo(packX + nx - packW * 0.18, packY + packH * 0.5);
+          ctx.lineTo(packX + nx + packW * 0.18, packY + packH * 0.5);
+          ctx.lineTo(packX + nx - hs * 0.04, packY + packH * 0.5 + flameLen);
+          ctx.closePath();
+          ctx.fill();
+        });
       }
       ctx.restore();
 
@@ -3570,9 +3628,9 @@ addEventListener("keyup", (e) => { if (e.key === "ArrowDown" || e.key === "s") r
 addEventListener("pointerdown", () => { if (mode === "runner") rkJump = true; });
 games.runner = {
   bg: "#100624", camAlpha: 0.40, body: true, noCursor: true, manual: true,
-  hs() { return Math.min(W, H) * 0.16; },
-  gy() { return H * 0.76; },
-  cx() { return W * 0.22; },
+  hs() { return Math.min(W, H) * 0.24; }, // 🚀 1.5배 대형화된 고품질 아스트로 러너 캐릭터
+  gy() { return H * 0.78; },
+  cx() { return W * 0.24; },
 
   init() {
     this.t = 0;
@@ -4124,11 +4182,10 @@ games.runner = {
       }
     }
 
-    // 4. 고품질 아스트로 사이버 러너 마스코트 아바타 렌더링
+    // 4. 고품질 아스트로 사이버 러너 마스코트 아바타 렌더링 (화면의 진정한 주인공)
     Art.drawRunnerMascot(cx, gy, this.jy, hs, this.duck, this.dist, this.inv, isFeverTime, isBoosting);
 
-    // 5. 전신 포즈 인식 뼈대 렌더링
-    if (!useMouse) drawSkeleton(getBody(), "rgba(0, 210, 255, 0.75)", 0.5);
+    // 🛡️ 시야를 가리는 졸라맨(스켈레톤 선)을 메인 필드에서 제거하여 깔끔하고 몰입감 넘치는 뷰 제공
 
     // 6. 상단 라이프 & 주행 거리 & 부스터 상태 표시
     ctx.save();
@@ -4742,52 +4799,88 @@ games.beat = {
     const skel = getBody();
     let headX = W / 2, headY = H * 0.35;
 
-    if (!useMouse && skel) {
-      if (skel[0] && (skel[0].v ?? 1) > 0.3) {
-        headX = skel[0].x; headY = skel[0].y;
-      } else if (skel[11] && skel[12]) {
-        headX = (skel[11].x + skel[12].x) / 2;
-        headY = (skel[11].y + skel[12].y) / 2 - 60;
+    // 🌟 전신 포즈 인식 (skel) 및 손끝 포인터 (pointers) 이중 지원으로 항상 광선검 쥐어주기!
+    if (!useMouse) {
+      const skel = getBody();
+      const hasSkelHand = [false, false];
+
+      if (skel) {
+        if (skel[0] && (skel[0].v ?? 1) > 0.3) {
+          headX = skel[0].x; headY = skel[0].y;
+        } else if (skel[11] && skel[12]) {
+          headX = (skel[11].x + skel[12].x) / 2;
+          headY = (skel[11].y + skel[12].y) / 2 - 60;
+        }
+
+        const armIndices = [
+          { shoulder: 11, elbow: 13, wrist: 15 },
+          { shoulder: 12, elbow: 14, wrist: 16 }
+        ];
+
+        armIndices.forEach((arm, i) => {
+          const wPt = skel[arm.wrist];
+          const ePt = skel[arm.elbow];
+
+          if (wPt && (wPt.v ?? 1) > 0.22) {
+            hasSkelHand[i] = true;
+            const prev = this.prevWrist[i] || { x: wPt.x, y: wPt.y };
+            const vx = wPt.x - prev.x;
+            const vy = wPt.y - prev.y;
+            const spd = Math.hypot(vx, vy);
+
+            this.wristVel[i] = { x: vx, y: vy, spd };
+            this.prevWrist[i] = { x: wPt.x, y: wPt.y };
+            this.swingPower[i] = Math.max(0, this.swingPower[i] - dt * 3.5) + spd * 0.18;
+
+            let dirX = vx, dirY = vy;
+            if (ePt && (ePt.v ?? 1) > 0.2) {
+              dirX = wPt.x - ePt.x;
+              dirY = wPt.y - ePt.y;
+            }
+            const len = Math.hypot(dirX, dirY) || 1;
+            const nx = (dirX / len) || (i === 0 ? -0.5 : 0.5);
+            const ny = (dirY / len) || -0.86;
+            const bladeLen = 150 + Math.min(this.swingPower[i] * 5, 45);
+
+            this.sabers[i] = {
+              base: { x: wPt.x, y: wPt.y },
+              tip: { x: wPt.x + nx * bladeLen, y: wPt.y + ny * bladeLen }
+            };
+
+            // 비트세이버 유효 스윙 가속도(spd > 7.0) 감지
+            if (spd > 7.0 && now - this.lastSwingT[i] > 110) {
+              swing[i] = true;
+              this.lastSwingT[i] = now;
+              if (isReadyTime) {
+                sfx.saber(wPt.x, i === 0);
+                burst(wPt.x, wPt.y, i === 0 ? "#00d2ff" : "#ff3377", 8);
+              }
+            }
+          }
+        });
       }
 
-      const armIndices = [
-        { shoulder: 11, elbow: 13, wrist: 15 },
-        { shoulder: 12, elbow: 14, wrist: 16 }
-      ];
-
-      armIndices.forEach((arm, i) => {
-        const wPt = skel[arm.wrist];
-        const ePt = skel[arm.elbow];
-
-        if (wPt && (wPt.v ?? 1) > 0.3) {
-          const prev = this.prevWrist[i];
-          const vx = wPt.x - prev.x;
-          const vy = wPt.y - prev.y;
-          const spd = Math.hypot(vx, vy);
-
+      // 🛡️ 포즈 신뢰도가 낮을 때도 손끝 포인터(pointers)로 즉시 세이버 유지
+      [0, 1].forEach((i) => {
+        if (!hasSkelHand[i] && pointers && pointers[i]) {
+          const pt = pointers[i];
+          const prev = this.prevWrist[i] || { x: pt.x, y: pt.y };
+          const vx = pt.x - prev.x, vy = pt.y - prev.y, spd = Math.hypot(vx, vy);
           this.wristVel[i] = { x: vx, y: vy, spd };
-          this.prevWrist[i] = { x: wPt.x, y: wPt.y };
-          this.swingPower[i] = Math.max(0, this.swingPower[i] - dt * 3.5) + spd * 0.18;
-
-          let dirX = vx, dirY = vy;
-          if (ePt && (ePt.v ?? 1) > 0.3) {
-            dirX = wPt.x - ePt.x;
-            dirY = wPt.y - ePt.y;
-          }
-          const len = Math.hypot(dirX, dirY) || 1;
-          const nx = (dirX / len) || (i === 0 ? -0.5 : 0.5);
-          const ny = (dirY / len) || -0.86;
-          const bladeLen = 145 + Math.min(this.swingPower[i] * 5, 45);
-
+          this.prevWrist[i] = { x: pt.x, y: pt.y };
+          const nx = i === 0 ? -0.4 : 0.4;
+          const ny = -0.91;
           this.sabers[i] = {
-            base: { x: wPt.x, y: wPt.y },
-            tip: { x: wPt.x + nx * bladeLen, y: wPt.y + ny * bladeLen }
+            base: { x: pt.x, y: pt.y },
+            tip: { x: pt.x + nx * 150, y: pt.y + ny * 150 }
           };
-
-          // 비트세이버 유효 스윙 가속도(spd > 7.0) 감지
-          if (spd > 7.0 && now - this.lastSwingT[i] > 100) {
+          if (spd > 7.0 && now - this.lastSwingT[i] > 110) {
             swing[i] = true;
             this.lastSwingT[i] = now;
+            if (isReadyTime) {
+              sfx.saber(pt.x, i === 0);
+              burst(pt.x, pt.y, i === 0 ? "#00d2ff" : "#ff3377", 8);
+            }
           }
         }
       });
@@ -4795,7 +4888,7 @@ games.beat = {
 
     if (useMouse) {
       headX = mouse.x; headY = mouse.y;
-      const prevM = this.prevWrist[0];
+      const prevM = this.prevWrist[0] || { x: mouse.x, y: mouse.y };
       const mx = mouse.x, my = mouse.y;
       const mSpd = Math.hypot(mx - prevM.x, my - prevM.y);
       this.prevWrist[0] = { x: mx, y: my };
@@ -4810,6 +4903,10 @@ games.beat = {
       if (isMouseSwing && now - this.lastSwingT[0] > 100) {
         swing[0] = true; swing[1] = true;
         this.lastSwingT[0] = now;
+        if (isReadyTime) {
+          sfx.saber(mx, true);
+          burst(mx, my, "#00d2ff", 8);
+        }
       }
     }
 
@@ -6270,7 +6367,8 @@ games.baseball = {
   }
 };
 
-function elapsed() { return GAME_SECONDS - timeLeft; }
+let currentGameTotalSeconds = GAME_SECONDS;
+function elapsed() { return currentGameTotalSeconds - timeLeft; }
 
 // ---------- 진행 ----------
 let warned10 = false, lastScoreEmit = 0;
@@ -6293,14 +6391,14 @@ function drawReadyCountdown(t, isBodyGame) {
 
   ctx.save();
 
-  // 1. 중앙 부드러운 네온 비네팅
-  const bgGrad = ctx.createRadialGradient(cx, cy, 20, cx, cy, 300);
-  bgGrad.addColorStop(0, "rgba(20, 8, 45, 0.65)");
-  bgGrad.addColorStop(0.7, "rgba(10, 6, 25, 0.45)");
+  // 1. 중앙 부드러운 네온 비네팅 (플레이어 거울 화면과 광선검/캐릭터가 훤히 보이도록 쾌적한 투명도 유지)
+  const bgGrad = ctx.createRadialGradient(cx, cy, 20, cx, cy, 280);
+  bgGrad.addColorStop(0, "rgba(20, 8, 45, 0.20)");
+  bgGrad.addColorStop(0.7, "rgba(10, 6, 25, 0.08)");
   bgGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = bgGrad;
   ctx.beginPath();
-  ctx.arc(cx, cy, 300, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 280, 0, Math.PI * 2);
   ctx.fill();
 
   // 2. 5초 원형 프로그레스 네온 게이지
@@ -6531,15 +6629,17 @@ function frame(now) {
         }
       }
     } else {
-      // 3단계 웨이브 전이 검사 (Wave 1: 60~40초, Wave 2: 40~20초, Fever: 20~0초)
+      // 3단계 웨이브 전이 검사 (Wave 1 -> Wave 2 -> Fever Time, 각 모드별 전체 시간에 맞춰 비례 분배)
       if (!g.noTimer) {
-        if (timeLeft <= 20 && currentWave < 3) {
+        const feverThresh = Math.round(currentGameTotalSeconds * 0.33); // 60초 모드는 20초, 90초 모드는 30초
+        const wave2Thresh = Math.round(currentGameTotalSeconds * 0.66); // 60초 모드는 40초, 90초 모드는 60초
+        if (timeLeft <= feverThresh && currentWave < 3) {
           currentWave = 3;
           isFeverTime = true;
           sfx.levelUp();
           triggerWaveBanner("🔥 FEVER TIME!", "점수 2배! 마구 터뜨려요!", true);
           speak("피버 타임! 점수 두 배!", true);
-        } else if (timeLeft <= 40 && timeLeft > 20 && currentWave < 2) {
+        } else if (timeLeft <= wave2Thresh && timeLeft > feverThresh && currentWave < 2) {
           currentWave = 2;
           sfx.levelUp();
           triggerWaveBanner("WAVE 2", "SPEED UP! 빨라집니다!", false);
@@ -6609,7 +6709,9 @@ function startGame(m, opts = {}) {
   visionAI.setActive(useMouse ? null : (games[m].body ? "pose" : "hand"));          // ⚡ 이번 게임에 필요한 인식만 작업자에서 돌림
   if (m === "beat" && opts.trackId) games.beat.chosenTrackId = opts.trackId;      // 온라인: 방장이 고른 곡
   ac(); // 오디오 컨텍스트 즉시 활성화 (브라우저 유저 제스처 정책 준수)
-  mode = m; score = 0; timeLeft = GAME_SECONDS; spawnTimer = 0.3;
+  // 🎵 네오노트슬래시(beat)는 대중 명곡을 충분히 감상하고 베어낼 수 있도록 90초(1분 30초, +30초 연장) 적용!
+  currentGameTotalSeconds = (m === "beat") ? 90 : GAME_SECONDS;
+  mode = m; score = 0; timeLeft = currentGameTotalSeconds; spawnTimer = 0.3;
   objs = []; halves = []; particles = []; popups = []; playing = true; body = null; shield = SHIELD_MAX; flash = 0;
   combo = 0; comboTimer = 0; maxCombo = 0;
   currentWave = 1; isFeverTime = false;
