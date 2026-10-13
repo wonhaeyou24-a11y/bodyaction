@@ -9704,27 +9704,24 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
       const isDark = item.id === "aura_dark_dragon";
       const mainCol = isSSJ ? "#ffe600" : isBlue ? "#00f0ff" : isDark ? "#c026d3" : (item.color || "#00d2ff");
 
-      // 1. 회전 타원 에너지 링
+      // 1. 회전 타원 에너지 링 (부드럽고 웅장한 에너지 펄스)
       ctx.strokeStyle = mainCol;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
       for (let i = 0; i < 3; i++) {
         ctx.beginPath();
         const r = 42 + i * 14;
-        ctx.ellipse(0, 0, r, r * 0.45, t * 1.2 + i * 1.8, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, r, r * 0.48, t * 1.2 + i * 1.8, 0, Math.PI * 2);
         ctx.stroke();
       }
-      // 2. 파지직 번개 스파크 프리뷰
-      ctx.strokeStyle = isSSJ ? "#38bdf8" : isBlue ? "#ffffff" : isDark ? "#ff0055" : "#ffffff";
-      ctx.lineWidth = 2;
-      for (let s = 0; s < 3; s++) {
-        const ang = (t * 3 + s * 2.1) % (Math.PI * 2);
-        const d1 = 28, d2 = 56;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(ang) * d1, Math.sin(ang) * d1);
-        ctx.lineTo(Math.cos(ang + 0.3) * (d1 + 14), Math.sin(ang + 0.3) * (d1 + 14));
-        ctx.lineTo(Math.cos(ang) * d2, Math.sin(ang) * d2);
-        ctx.stroke();
-      }
+      // 2. 부드러운 코어 후광 글로우 (삐죽삐죽한 번개 제거)
+      const glowGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
+      glowGrad.addColorStop(0, mainCol);
+      glowGrad.addColorStop(0.6, isSSJ ? "rgba(255, 230, 80, 0.4)" : "rgba(0, 240, 255, 0.35)");
+      glowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 70, 0, Math.PI * 2);
+      ctx.fill();
       break;
     }
 
@@ -9858,99 +9855,47 @@ function drawFullBodyAura(ctx, auraItem, skel, chestAnchor, pointers, isBuddy = 
     ctx.ellipse(centerX, (topY + bottomY) / 2, halfW * 1.45, bodyH * 0.62, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 4. 레이어 2: 위로 치솟는 에너지 화염 텐드릴 (Rising Energy Tendrils & Spikes)
-    const spikeCount = 22;
-    for (let i = 0; i < spikeCount; i++) {
-      const u = i / spikeCount;
-      const angle = u * Math.PI * 2;
-      const wave = Math.sin(t * 3.5 + i * 1.3) * 12;
-      const waveCos = Math.cos(t * 2.8 + i * 0.9) * 8;
-      
-      // 타원 외곽 기준점
-      const bx = centerX + Math.cos(angle) * (halfW * 0.95 + waveCos);
-      const by = ((topY + bottomY) / 2) + Math.sin(angle) * (bodyH * 0.48);
-      
-      // 위로 솟구치는 불꽃 첨탑 끝점
-      const spikeLen = 32 + Math.sin(t * 5 + i * 2.1) * 22 + (by > (topY + bottomY)/2 ? 15 : 35);
-      const tipX = bx + wave * 1.2;
-      const tipY = by - spikeLen;
+    // 4. 레이어 2: 부드럽고 웅장한 전신 내부 코어 플레어 (Soft Multi-Layer Core Glow) - 삐죽삐죽한 가시/스파이크 완전 제거
+    const pulseScale = 1.0 + Math.sin(t * 3.2) * 0.05;
+    const innerGrad = ctx.createRadialGradient(centerX, (topY + bottomY) / 2, halfW * 0.1, centerX, (topY + bottomY) / 2, halfW * 1.15 * pulseScale);
+    innerGrad.addColorStop(0, flameInner);
+    innerGrad.addColorStop(0.7, flameOuter);
+    innerGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = innerGrad;
+    ctx.beginPath();
+    ctx.ellipse(centerX, (topY + bottomY) / 2, halfW * 1.1 * pulseScale, bodyH * 0.52 * pulseScale, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-      // 외곽 불꽃 (Primary Flame)
-      ctx.fillStyle = flameOuter;
-      ctx.beginPath();
-      ctx.moveTo(bx - 14, by);
-      ctx.quadraticCurveTo(bx - 4 + wave * 0.5, by - spikeLen * 0.5, tipX, tipY);
-      ctx.quadraticCurveTo(bx + 4 + wave * 0.5, by - spikeLen * 0.5, bx + 14, by);
-      ctx.closePath();
-      ctx.fill();
-
-      // 내부 코어 불꽃 (Inner Core Flame)
-      ctx.fillStyle = flameInner;
-      ctx.beginPath();
-      ctx.moveTo(bx - 7, by);
-      ctx.quadraticCurveTo(bx + wave * 0.4, by - spikeLen * 0.4, tipX, tipY + spikeLen * 0.25);
-      ctx.quadraticCurveTo(bx + wave * 0.4, by - spikeLen * 0.4, bx + 7, by);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // 5. 레이어 3: 수직 상승하는 에너지 충격파 링 (Ascending Plasma Shockwaves)
-    ctx.lineWidth = 3.5;
+    // 5. 레이어 3: 수직 상승하는 매끄러운 에너지 충격파 링 (Ascending Plasma Shockwaves)
+    ctx.lineWidth = 3.2;
     ctx.strokeStyle = shockRingColor;
     for (let r = 0; r < 3; r++) {
-      const ringProg = ((t * 1.2 + r * 0.33) % 1);
+      const ringProg = ((t * 1.0 + r * 0.33) % 1);
       const ry = bottomY - ringProg * (bodyH + 60);
       const rw = halfW * (0.6 + ringProg * 0.85);
       const rh = 12 + ringProg * 8;
       const ringAlpha = Math.sin(ringProg * Math.PI);
-      ctx.globalAlpha = Math.max(0, Math.min(1, ringAlpha));
+      ctx.globalAlpha = Math.max(0, Math.min(1, ringAlpha * 0.85));
       ctx.beginPath();
       ctx.ellipse(centerX, ry, rw, rh, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.globalAlpha = 1.0;
 
-    // 6. 레이어 4: 파지직 튀는 초사이어인 번개 스파크 (Crackling Lightning Arcs)
-    if (hasLightning) {
-      ctx.strokeStyle = lightningColor;
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = lightningColor;
-      ctx.shadowBlur = 12;
-
-      const boltCount = 6;
-      for (let b = 0; b < boltCount; b++) {
-        // 0.08초마다 무작위 번개 궤적 변경
-        const stepTime = Math.floor(t * 12 + b * 7);
-        const randSeed = Math.sin(stepTime * 133.7) * 10000;
-        const rnd = (off = 0) => {
-          const val = Math.sin(randSeed + off * 43.1);
-          return val - Math.floor(val);
-        };
-
-        if (rnd(1) > 0.82) continue; // 간헐적으로 파지직거리며 긴장감 증폭
-
-        // 관절들 중 하나를 시작점으로 선택
-        const startJoint = joints[Math.floor(rnd(2) * joints.length)];
-        let lx = startJoint.x + (rnd(3) - 0.5) * 30;
-        let ly = startJoint.y + (rnd(4) - 0.5) * 30;
-
-        ctx.beginPath();
-        ctx.moveTo(lx, ly);
-
-        const segments = 4 + Math.floor(rnd(5) * 4);
-        const dirAngle = -Math.PI / 2 + (rnd(6) - 0.5) * 1.8; // 대체로 위/외곽 방향
-
-        for (let s = 0; s < segments; s++) {
-          const segDist = 14 + rnd(s * 7) * 20;
-          const jitter = (rnd(s * 11 + 3) - 0.5) * 26;
-          lx += Math.cos(dirAngle) * segDist + jitter;
-          ly += Math.sin(dirAngle) * segDist + (rnd(s * 9) - 0.5) * 16;
-          ctx.lineTo(lx, ly);
-        }
-        ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
+    // 6. 레이어 4: 은은하게 피어오르는 부드러운 빛무리 입자 (Soft Rising Energy Motes) - 삐죽삐죽한 번개 대신 우아한 빛방울
+    ctx.fillStyle = flameInner;
+    for (let p = 0; p < 12; p++) {
+      const pProg = ((t * 0.8 + p * 0.083) % 1);
+      const py = bottomY - pProg * (bodyH + 80);
+      const px = centerX + Math.sin(t * 2 + p * 1.5) * (halfW * 0.75);
+      const pr = (1 - pProg) * 4.5 + 1.5;
+      const pAlpha = Math.sin(pProg * Math.PI);
+      ctx.globalAlpha = Math.max(0, Math.min(1, pAlpha * 0.7));
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fill();
     }
+    ctx.globalAlpha = 1.0;
 
     // 7. 레이어 5: 비룡 특수 용오름 나선 리본 (Dragon Spiral Vortices)
     if (hasDragonSwirl) {
@@ -10320,21 +10265,37 @@ async function renderCostumeWheel() {
     `;
   }).join("");
 
-  // 3. 개별 카드 클릭 이벤트 바인딩 (원터치 빠른 이동 및 착용)
+  // 3. 개별 카드 직접 터치(클릭) 장착 이벤트 바인딩 (원터치 즉각 착용/해제)
   container.querySelectorAll(".ribbon-item-card").forEach((card) => {
-    card.addEventListener("click", async () => {
+    card.addEventListener("click", async (e) => {
+      e.stopPropagation();
       const idx = Number(card.dataset.idx);
-      if (idx === currentWheelIndex) {
-        await executeItemToggleAction(cur, isOwned, price);
-      } else {
-        currentWheelIndex = idx;
-        const targetItem = items[idx];
-        if (targetItem) {
+      const targetItem = items[idx];
+      if (!targetItem) return;
+
+      currentWheelIndex = idx;
+      const itOwned = costumeInventory.has(targetItem.id);
+      const itPrice = getItemPrice(targetItem);
+
+      if (itOwned) {
+        // ⚡ 소장 장비: 터치 즉시 착용 또는 이미 착용 중이면 해제 토글!
+        if (equippedCostume[targetItem.slot] === targetItem.id) {
+          equippedCostume[targetItem.slot] = null;
+          sfx.costumeUnequip();
+          popup(W / 2, H * 0.45, `✨ [${targetItem.name}] 장비 해제`, "#aaa");
+          buddyEngine.say(`${targetItem.name}을(를) 벗었습니다!`);
+        } else {
           equippedCostume[targetItem.slot] = targetItem.id;
-          saveCostumeData();
-          sfx.pop(W / 2, true);
+          sfx.costumeEquip();
+          popup(W / 2, H * 0.45, `✨ [${targetItem.name}] 착용 완료!`, targetItem.color || "#00d2ff");
+          buddyEngine.say(`${targetItem.name} 장착 완료! 아주 멋져요!`);
+          burst(W / 2, H * 0.5, targetItem.color || "#00d2ff", 28);
         }
+        saveCostumeData();
         await renderCostumeWheel();
+      } else {
+        // 미소장 아이템: 구매 액션 실행
+        await executeItemToggleAction(targetItem, false, itPrice);
       }
     });
   });
@@ -10469,101 +10430,19 @@ const costumeMotionGestures = {
   hudNotice: "", hudNoticeT: 0, hudType: ""
 };
 
-// 💨 1. 에어 스와이프 제스처 판정 (100% 인식률 고신뢰성 플릭 필터)
+// 💨 1. 에어 스와이프 제스처 판정 (사용자 요청에 따라 비활성화: 화면 직접 터치로 전환)
 function costumeDetectAirSwipe(now, hands, skel) {
-  if (!hands || hands.length === 0 || useMouse) return;
-  const sw = costumeMotionGestures.swipe;
-
-  // 🛡️ [박수 동작과의 상호 간섭 방지]
-  // 두 손이 가슴/얼굴 앞에서 아주 가깝게 모여들고 있을 때(거리 120px 이내이면서 좁아지는 중)만 스와이프 차단
-  if (hands.length >= 2) {
-    const handDist = Math.hypot(hands[0].x - hands[1].x, hands[0].y - hands[1].y);
-    if (handDist < 120 && handDist < costumeMotionGestures.clap.prevDist) {
-      return; // 👏 박수 직전 손 모으기 동작 시에만 스와이프 일시 뮤트!
-    }
-  }
-
-  // 📍 영구 손 트래커로부터 매 프레임 정확한 속도(vx, vy)와 변위(dx) 동기화
-  for (const h of hands) {
-    const side = h.side || "right";
-    const prev = costumeMotionGestures.handTrack[side];
-    if (prev && prev.t > 0) {
-      const dt = (now - prev.t) / 1000;
-      if (dt >= 0.012 && dt <= 0.22) {
-        h.vx = (h.x - prev.x) / dt;
-        h.vy = (h.y - prev.y) / dt;
-        h.dx = h.x - prev.x;
-      }
-    }
-    costumeMotionGestures.handTrack[side] = { x: h.x, y: h.y, t: now, vx: h.vx || 0, vy: h.vy || 0 };
-
-    if (now < sw.cooldownUntil) continue;
-
-    const vx = h.vx || 0;
-    const dx = h.dx || 0;
-
-    // ⚡ 살짝만 휙 털어도 100% 즉각 반응 (초당 440px/s 이상, 순간 이동 24px 이상)
-    const isFastRight = vx > 440 && dx > 24;
-    const isFastLeft  = vx < -440 && dx < -24;
-
-    // 🛡️ [복귀 동작(Return Stroke) 방지]
-    // 오른쪽으로 턴 후 손을 되돌릴 때(480ms 동안) 반대 방향 스와이프가 터지지 않도록 보호
-    if (isFastRight && !(sw.lastDir === -1 && now < sw.reverseLockUntil)) {
-      sw.cooldownUntil = now + 320;
-      sw.reverseLockUntil = now + 480;
-      sw.lastTriggerT = now;
-      sw.lastDir = 1;
-      // 🛡️ [스와이프 보호] 스와이프 발생 즉시 신체 카테고리 감지를 1.6초 동안 완전 잠금!
-      costumeMotionGestures.bodyFocus.cooldownUntil = now + 1600;
-      costumeMotionGestures.bodyFocus.candidateSlot = null;
-      stepCostumeWheel(1);
-      triggerCostumeGestureHUD("swipe", "⚡ 휙! 다음 장비 ▶");
-      sfx.pop(W / 2 + 120, true);
-      burst(h.x, h.y, "#00ffff", 26);
-      break;
-    } else if (isFastLeft && !(sw.lastDir === 1 && now < sw.reverseLockUntil)) {
-      sw.cooldownUntil = now + 320;
-      sw.reverseLockUntil = now + 480;
-      sw.lastTriggerT = now;
-      sw.lastDir = -1;
-      costumeMotionGestures.bodyFocus.cooldownUntil = now + 1600;
-      costumeMotionGestures.bodyFocus.candidateSlot = null;
-      stepCostumeWheel(-1);
-      triggerCostumeGestureHUD("swipe", "⚡ ◀ 이전 장비 휙!");
-      sfx.pop(W / 2 - 120, true);
-      burst(h.x, h.y, "#00ffff", 26);
-      break;
-    }
-  }
-}
-
-// 🧍 2. 신체 부위 직접 터치 카테고리 전환 (사용자 요청에 따라 스와이프 우선을 위해 비활성화: 상단 선택 탭 버튼 손 체류/클릭으로만 선택)
-function costumeDetectBodyCategory(now, skel, hands) {
-  // 상단 카테고리 탭 바 버튼에 손을 올려놓는 방식으로 단일화
   return;
 }
 
-// 👏 3. 박수(Clap) 감지 (두 손을 가슴 앞에서 모으면 즉시 장착 확정!)
-function costumeDetectClap(now, hands) {
-  if (hands.length < 2 || useMouse) return;
-  const cl = costumeMotionGestures.clap;
-  if (now < cl.cooldownUntil) return;
+// 🧍 2. 신체 부위 직접 터치 카테고리 전환 (비활성화)
+function costumeDetectBodyCategory(now, skel, hands) {
+  return;
+}
 
-  const d = Math.hypot(hands[0].x - hands[1].x, hands[0].y - hands[1].y);
-  // 이전보다 훨씬 여유 있는 반경(85px 이하)으로 판정하여, 손을 딱 마주치지 않고 가볍게 모으기만 해도 짝! 인식!
-  if (cl.prevDist > 95 && d < 85) {
-    cl.cooldownUntil = now + 950;
-    const btn = $("btnWheelToggle");
-    if (btn) {
-      btn.click();
-      triggerCostumeGestureHUD("clap", "👏 짝! 장착 상태 변경 완료!");
-      sfx.bell();
-      const midX = (hands[0].x + hands[1].x) / 2;
-      const midY = (hands[0].y + hands[1].y) / 2;
-      burst(midX, midY, "#ffd700", 42);
-    }
-  }
-  cl.prevDist = d;
+// 👏 3. 박수(Clap) 감지 (비활성화)
+function costumeDetectClap(now, hands) {
+  return;
 }
 
 // 📢 제스처 HUD 시각 피드백 발동
@@ -10730,46 +10609,9 @@ function costumeHandUiTick(ctx, cvs, rect, now) {
     }
   }
 
-  // 4) 듀얼 클릭 판정:
-  // A. 주먹을 쥐면 즉시(0ms) 클릭!
-  // B. 주먹을 쥐지 않아도 손을 카드 위에 0.6초만 올려두면(Dwell 게이지 회전) 자동 클릭!
-  const rising = costumeHand.stable && !costumeHand.prevStable;
-  costumeHand.prevStable = costumeHand.stable;
-  const target = el || (now - costumeHand.hoverAt < 300 ? costumeHand.hoverLast : null);
+  // 4) 가상 제스처 클릭 비활성화: 오직 사용자가 화면의 장비 카드를 직접 손으로 터치/클릭하여 착용하도록 전환
+  const target = null;
   let dwellP = 0;
-
-  if (!useMouse && el) {
-    if (costumeHand.dwellEl !== el) {
-      costumeHand.dwellEl = el;
-      costumeHand.dwellT = now;
-    }
-    // 0.65초 체류(Dwell) 프로그레스
-    dwellP = Math.min(1, (now - costumeHand.dwellT) / 650);
-    if (el.classList.contains("costume-wheel-paddle")) {
-      el.style.setProperty("--dwell-progress", (dwellP * 100).toFixed(0) + "%");
-    }
-    if (dwellP >= 1 && now - costumeHand.lastClick > 700) {
-      costumeHand.lastClick = now;
-      costumeHand.dwellT = now + 900;
-      el.style.setProperty("--dwell-progress", "0%");
-      costumeFistActivate(el, now);
-      burst(ptr.x, ptr.y, "#00ffff", 24);
-    }
-  } else {
-    document.querySelectorAll(".costume-wheel-paddle").forEach((p) => p.style.setProperty("--dwell-progress", "0%"));
-    costumeHand.dwellEl = null;
-  }
-
-  // 주먹 쥐기 클릭: rising이거나 주먹을 쥔 채 새 요소에 닿았을 때 즉각 트리거
-  if (!useMouse && (rising || (costumeHand.stable && el && el !== costumeHand.lastFistEl)) && target && now - costumeHand.lastClick > 650) {
-    costumeHand.lastClick = now;
-    costumeHand.lastFistEl = el;
-    costumeFistActivate(target, now);
-    burst(ptr.x, ptr.y, "#ff2e93", 26);
-  }
-  if (!costumeHand.stable) {
-    costumeHand.lastFistEl = null;
-  }
 
   // 5) 최상위 네온 포인터 링 + Dwell 게이지 + 안내 텍스트 렌더링
   ctx.save();

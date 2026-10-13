@@ -1117,13 +1117,11 @@
     <button class="c-tab" data-slot="all">모든 장비</button>
   </nav>
 
-  <!-- 4-1. [상단 제스처 HUD] 스와이프 & 박수 & 상단 탭 선택 가이드 배너 -->
+  <!-- 4-1. [상단 터치 HUD] 장비 카드 터치 장착 안내 배너 -->
   <div id="costumeGestureHudBar" class="costume-gesture-hud-bar">
-    <span class="hud-item hud-swipe" id="hudSwipeText">💨 <strong>에어 스와이프</strong> ◀이전 / 다음▶ 장비 넘기기</span>
+    <span class="hud-item hud-body" id="hudBodyText">👆 <strong>상단 탭</strong> 부위별 카테고리 선택</span>
     <span class="hud-sep">•</span>
-    <span class="hud-item hud-body" id="hudBodyText">👆 <strong>상단 탭</strong> 부위 카테고리 선택</span>
-    <span class="hud-sep">•</span>
-    <span class="hud-item hud-clap" id="hudClapText">👏 <strong>박수(짝!)</strong> 장착 확정</span>
+    <span class="hud-item hud-swipe" id="hudSwipeText">✨ <strong>하단 장비 카드 터치</strong> 즉시 착용 / 해제</span>
   </div>
 
   <!-- 5. [하단 가로 나열형] 아케이드 커버플로우 캐러셀 트랙 (전체 아이템 쭉 나열 & 스와이프 탐색) -->
@@ -1135,9 +1133,9 @@
   </div>
 
   <!-- ⚡ [최상위 레이어] 우측 진열장 위에서도 손 포인터가 절대 가려지지 않는 모션 핸드 오버레이 -->
-  <canvas id="costumeHandOverlay" class="costume-hand-overlay"></canvas>
+  <canvas id="costumeHandOverlay" class="costume-hand-overlay" style="pointer-events: none;"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261013_2050"></script>
+<script type="module" src="main.js?v=20261013_2115"></script>
 </body>
 </html>
