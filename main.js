@@ -2743,17 +2743,17 @@ const games = {
         x: r + Math.random() * (W - 2 * r),
         y: H + r,
         r,
-        vy: -(1.6 + Math.random() * 2.2) * (H / 800) * speedBonus,
+        vy: -(3.4 + Math.random() * 4.2) * (H / 800) * speedBonus, // ⚡ 2배 고속 상승으로 시원한 팝 연타감 제공
         color: isGold ? "#ffd700" : COLORS[(Math.random() * COLORS.length) | 0],
         gold: isGold
       });
     },
-    interval: () => Math.max(0.24, (0.58 - elapsed() * 0.005)),
+    interval: () => Math.max(0.18, (0.36 - elapsed() * 0.005)), // ⚡ 스폰 주기 대폭 단축 (0.58s -> 0.36s)
     update(dt) {
-      for (const o of objs) o.y += o.vy * dt * 60 * (1 + elapsed() * 0.006);
+      for (const o of objs) o.y += o.vy * dt * 60 * (1 + elapsed() * 0.010);
       objs = objs.filter((o) => o.y > -o.r * 2);
       for (const p of pointers) for (const o of objs) {
-        if (!o.dead && segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 12)) {
+        if (!o.dead && segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 14)) {
           o.dead = true;
           const pts = o.gold ? 5 : 1;
           burst(o.x, o.y, o.color, o.gold ? 24 : 14);
@@ -2775,24 +2775,24 @@ const games = {
     bg: "#16332c",
     FRUITS: ["🍉", "🍊", "🍎", "🍍", "🍓", "🍌"],
     spawn() {
-      // 피버 타임에는 폭탄 0%, 과일 대량 연속 투척! 2단계는 과일 2개 동시 투척 확률 35%
-      const spawnCount = isFeverTime ? 2 : (currentWave === 2 && Math.random() < 0.35 ? 2 : 1);
+      // 피버 타임에는 폭탄 0%, 과일 대량 연속 투척! 2단계는 과일 2개 동시 투척 확률 40%
+      const spawnCount = isFeverTime ? 2 : (currentWave === 2 && Math.random() < 0.40 ? 2 : 1);
       for (let s = 0; s < spawnCount; s++) {
         const bomb = isFeverTime ? false : Math.random() < 0.16;
         const r = 44;
         const x = r + Math.random() * (W - 2 * r);
-        const g = 0.35 * (H / 800);
-        const vy = -Math.sqrt(2 * g * H * (0.55 + Math.random() * 0.3));
+        const g = 0.50 * (H / 800); // ⚡ 날렵한 포물선 중력 가속
+        const vy = -Math.sqrt(2 * g * H * (0.60 + Math.random() * 0.32));
         objs.push({
           x, y: H + r, r,
-          vx: ((W / 2 - x) / W) * 5 + (Math.random() - 0.5) * 2.5,
+          vx: ((W / 2 - x) / W) * 6.5 + (Math.random() - 0.5) * 3.2,
           vy, g, bomb,
           emoji: bomb ? "💣" : this.FRUITS[(Math.random() * this.FRUITS.length) | 0],
-          rot: 0, vr: (Math.random() - 0.5) * 0.16
+          rot: 0, vr: (Math.random() - 0.5) * 0.22
         });
       }
     },
-    interval: () => Math.max(0.28, (0.75 - elapsed() * 0.007)),
+    interval: () => Math.max(0.20, (0.52 - elapsed() * 0.007)),
     update(dt) {
       try {
         for (const o of objs) { o.x += o.vx * dt * 60; o.y += o.vy * dt * 60; o.vy += o.g * dt * 60; o.rot += o.vr; }
@@ -2893,12 +2893,13 @@ games.space = {
   spawn() {
     const big = Math.random() < 0.18;
     const { tx, ty } = spaceTarget();
-    objs.push({ z: 0.03, speed: (0.24 + elapsed() * 0.004) * (big ? 0.8 : 1), big, hp: big ? 2 : 1, tx, ty,
-      base: big ? 1.35 : 0.9, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.06,
+    // ⚡ 유성 비행 속도 대폭 상향 (도달 시간 4초 -> 2.1초의 박진감 넘치는 메테오 샤워)
+    objs.push({ z: 0.04, speed: (0.44 + elapsed() * 0.008) * (big ? 0.85 : 1), big, hp: big ? 2 : 1, tx, ty,
+      base: big ? 1.35 : 0.9, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.08,
       seed: Math.random() * 100, hitFlash: 0 });
     sfx.incoming(objs[objs.length - 1].tx);
   },
-  interval: () => Math.max(0.45, 1.1 - elapsed() * 0.01),
+  interval: () => Math.max(0.26, 0.62 - elapsed() * 0.008),
   pos(o) { return { x: W / 2 + (o.tx - W / 2) * o.z, y: H * 0.45 + (o.ty - H * 0.45) * o.z }; },
   size(o) { return Math.min(W, H) * 0.14 * o.base * (0.12 + o.z * 1.1); },
   update(dt) { spaceStep(dt, pointers); },
@@ -3123,12 +3124,13 @@ games.bballoon = {
     const isGold = !bomb && (isFeverTime ? Math.random() < 0.38 : (currentWave === 2 ? Math.random() < 0.15 : Math.random() < 0.08));
     const r = (46 + Math.random() * 26) * Math.max(0.8, Math.min(1.4, H / 720));
     const speedBonus = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0;
-    objs.push({ x: r + Math.random() * (W - 2 * r), y: H + r, r, vy: -(1.3 + Math.random() * 1.7) * (H / 800) * speedBonus,
+    // ⚡ 2배 고속 상승으로 전신 펀치 및 킥 연타감 강화
+    objs.push({ x: r + Math.random() * (W - 2 * r), y: H + r, r, vy: -(2.8 + Math.random() * 3.4) * (H / 800) * speedBonus,
       color: isGold ? "#ffd700" : COLORS[(Math.random() * COLORS.length) | 0], gold: isGold, bomb, ph: Math.random() * 6.28, t: 0 });
   },
-  interval: () => Math.max(0.3, 0.68 - elapsed() * 0.005),
+  interval: () => Math.max(0.20, 0.40 - elapsed() * 0.005),
   update(dt) {
-    for (const o of objs) { o.t += dt; o.y += o.vy * dt * 60 * (1 + elapsed() * 0.005); o.x += Math.sin(o.t * 2 + o.ph) * 0.6 * (H / 800); }
+    for (const o of objs) { o.t += dt; o.y += o.vy * dt * 60 * (1 + elapsed() * 0.009); o.x += Math.sin(o.t * 2 + o.ph) * 0.9 * (H / 800); }
     objs = objs.filter((o) => o.y > -o.r * 2);
     const hs = this.hs = bodyHitters(this);
     for (const h of hs) for (const o of objs) {
@@ -3232,7 +3234,7 @@ games.dodge = {
             rot: 0
           });
         } else {
-          this.spawnT = Math.max(0.28, 0.82 - e * 0.009) * (0.7 + Math.random() * 0.6);
+          this.spawnT = Math.max(0.18, 0.52 - e * 0.008) * (0.7 + Math.random() * 0.6); // ⚡ 바위 스폰 빈도 증가
           const rand = Math.random();
           let type = "rock";
           let r = 38 + Math.random() * 18;
@@ -3248,7 +3250,7 @@ games.dodge = {
             type,
             x: spawnX, baseX: spawnX,
             y: -r, r,
-            vy: (240 + e * 4.8) * (H / 800) * (type === "coin" ? 0.85 : 1),
+            vy: (440 + e * 8.5) * (H / 800) * (type === "coin" ? 0.88 : 1), // ⚡ 1.8배 쾌속 낙하로 스릴 만점 회피 액션!
             rot: 0
           });
         }
@@ -3560,7 +3562,7 @@ games.brick = {
   newLevel() { this.rows = Math.min(7, 3 + this.level); this.cols = 8; this.grid = Array.from({ length: this.rows }, () => Array(this.cols).fill(1)); this.left = this.rows * this.cols; },
   pw() { return clamp(W * 0.24, 110, 260); },
   py() { return H * 0.9; },
-  speed() { return Math.min(W, H) * (0.75 + 0.07 * this.level); },
+  speed() { return Math.min(W, H) * (1.18 + 0.10 * this.level); }, // ⚡ 1.55배 쾌속 바운스로 짜릿한 타격 반응
   rect(r, c) { const m = W * 0.04, bw = (W - 2 * m) / this.cols, bh = Math.min(H * 0.045, 34); return { x: m + c * bw + 2, y: H * 0.16 + r * (bh + 4), w: bw - 4, h: bh }; },
   resetBall() { this.ball = { x: this.px, y: this.py() - 14, r: Math.max(9, Math.min(W, H) * 0.02), vx: 0, vy: 0, stuck: true, t: 0 }; },
   update(dt) {
@@ -3570,7 +3572,7 @@ games.brick = {
     this.px = clamp(this.px, pw / 2, W - pw / 2);
     if (b.stuck) {
       b.x = this.px; b.y = py - b.r - 2; b.t += dt;
-      if (b.t > 1.2) { const a = (Math.random() - 0.5) * 0.9, sp = this.speed(); b.vx = sp * Math.sin(a); b.vy = -sp * Math.cos(a); b.stuck = false; }
+      if (b.t > 0.6) { const a = (Math.random() - 0.5) * 0.9, sp = this.speed(); b.vx = sp * Math.sin(a); b.vy = -sp * Math.cos(a); b.stuck = false; }
       return;
     }
     const N = 4;
@@ -3742,7 +3744,7 @@ games.runner = {
       const isZeroG = this.event === "zeroG";
 
       // 🌌 무중력 상태 반영 점프 물리 (체공 시간 및 높이 2배)
-      const g = isZeroG ? H * 1.6 : H * 3.4;
+      const g = isZeroG ? H * 1.8 : H * 4.4; // ⚡ 날렵하고 탄력적인 착지감
       const v0 = Math.sqrt(2 * g * hs * (isZeroG ? 1.45 : 1.05));
       if (jump && this.jy <= 0) {
         this.vy = v0;
@@ -3764,10 +3766,10 @@ games.runner = {
         popup(this.cx(), this.gy() - hs * 0.35, "SLIDE! ⚡", "#ffea00");
       }
 
-      // 🚀 3단계 웨이브 & 부스터 연동 속도 계산
+      // 🚀 3단계 웨이브 & 부스터 연동 속도 계산 (1.45배 고속 주행감)
       const waveMult = currentWave === 3 ? 1.55 : (currentWave === 2 ? 1.25 : 1.0);
       const boostMult = isBoosting ? 1.50 : 1.0;
-      const v = W * 0.46 * waveMult * boostMult * (1 + e * 0.008);
+      const v = W * 0.66 * waveMult * boostMult * (1 + e * 0.010);
       this.dist += v * dt;
 
       // 🏁 진행형 마일스톤 돌파 & 테마 배경 전환
@@ -4289,7 +4291,8 @@ games.kungfu = {
       else { type = "bomb"; hp = 1; }
     }
 
-    const speed = (0.22 + elapsed() * 0.005) * waveMult * (type === "oni" ? 0.75 : type === "shuriken" ? 1.35 : 1.0);
+    // ⚡ 1.9배 고속 돌진으로 권법 정권 찌르기 타격 리듬감 극대화
+    const speed = (0.42 + elapsed() * 0.008) * waveMult * (type === "oni" ? 0.78 : type === "shuriken" ? 1.45 : 1.0);
     const sx = W * (0.25 + 0.5 * Math.random());
     const sy = H * 0.38;
     const ex = W * (0.12 + 0.76 * Math.random());
@@ -4300,7 +4303,7 @@ games.kungfu = {
       sx, sy, ex, ey, rot: 0, dead: false
     });
   },
-  interval: () => Math.max(0.48, 1.15 - elapsed() * 0.01),
+  interval: () => Math.max(0.30, 0.70 - elapsed() * 0.009),
   pos(o) { return { x: o.sx + (o.ex - o.sx) * o.z, y: o.sy + (o.ey - o.sy) * o.z }; },
   size(o) {
     const base = Math.min(W, H) * 0.12 * (0.15 + o.z * 1.1);
@@ -4576,7 +4579,7 @@ games.versus = {
   init() { this.s = [0, 0]; },
   scoreText() { return `🔵 ${this.s[0]} : ${this.s[1]} 🔴`; },
   update(dt) {
-    for (const o of objs) o.y += o.vy * dt * 60 * (1 + elapsed() * 0.006);
+    for (const o of objs) o.y += o.vy * dt * 60 * (1 + elapsed() * 0.010);
     objs = objs.filter((o) => o.y > -o.r * 2);
     for (const p of pointers) for (const o of objs) {
       if (o.dead || !segHitsCircle(p.px, p.py, p.x, p.y, o.x, o.y, o.r + 10)) continue;
@@ -5221,7 +5224,8 @@ games.keeper = {
   spawn() {
     this.goalW = Math.min(W * 0.72, 700);
     this.goalH = H * 0.65;
-    const speed = (0.22 + elapsed() * 0.004) * (currentWave === 3 ? 1.3 : currentWave === 2 ? 1.15 : 1.0);
+    // ⚡ 1.9배 쾌속 슈팅으로 진짜 월드컵 승부차기 같은 날렵한 반응성 부여
+    const speed = (0.42 + elapsed() * 0.007) * (currentWave === 3 ? 1.35 : currentWave === 2 ? 1.18 : 1.0);
     const gx = W / 2 - this.goalW / 2;
     const targetX = gx + 60 + Math.random() * (this.goalW - 120);
     const targetY = H * 0.15 + 40 + Math.random() * (this.goalH - 80);
@@ -5231,7 +5235,7 @@ games.keeper = {
       rot: 0, r: 18, dead: false, saved: false
     });
   },
-  interval: () => Math.max(0.48, 1.2 - elapsed() * 0.01),
+  interval: () => Math.max(0.32, 0.72 - elapsed() * 0.008),
   update(dt) {
     this.flash = Math.max(0, this.flash - dt * 2);
     for (const b of objs) {
@@ -5648,7 +5652,8 @@ games.baseball = {
   spawn() {
     const fieldW = Math.floor(W * this.fieldRatio);
     const waveMult = currentWave === 3 ? 1.35 : currentWave === 2 ? 1.15 : 1.0;
-    const baseSpd = 0.30 + elapsed() * 0.005;
+    // ⚡ 1.6배 고속 투구로 실제 야구 타석 같은 생생한 타격 타이밍 제공
+    const baseSpd = 0.48 + elapsed() * 0.008;
     const speed = baseSpd * waveMult;
 
     // 0: 직구(Fastball), 1: 슬라이더(Slider), 2: 커브(Curve), 3: 체인지업(Changeup), 4: 골든파이어볼(Fever)
@@ -5676,7 +5681,7 @@ games.baseball = {
       resolved: false
     });
   },
-  interval: () => Math.max(0.75, 1.45 - elapsed() * 0.012),
+  interval: () => Math.max(0.55, 1.05 - elapsed() * 0.010),
   update(dt) {
     this.flash = Math.max(0, this.flash - dt * 2);
     this.stadiumCheer = Math.max(0, this.stadiumCheer - dt);
