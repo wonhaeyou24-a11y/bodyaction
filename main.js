@@ -14,12 +14,12 @@ import { drawMascot, drawGhost, drawUserLimbs, easeOutBack } from "./pose-art.js
 import { bakeToon } from "./costume-toon.js?v=20261013_0900";
 import { jumpSample, newJumpState, stepJump } from "./jump.js?v=20261013_0900";
 import { CostumeMotion } from "./costume-physics.js?v=20261013_0900";
-import { CHARACTERS, loadCharacterId, saveCharacterId, characterById, skeletonFromBody, skeletonRetarget } from "./character.js?v=20261013_1414";
-import { skeletonToPx } from "./character.js?v=20261013_1414";
-import { CRUN, createRun, stepRun } from "./crun-core.js?v=20261013_1414";
-import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1414";
-import { newLaneState, stepLane } from "./lane.js?v=20261013_1414";
-import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1414";
+import { CHARACTERS, loadCharacterId, saveCharacterId, characterById, skeletonFromBody, skeletonRetarget } from "./character.js?v=20261013_1500";
+import { skeletonToPx } from "./character.js?v=20261013_1500";
+import { CRUN, createRun, stepRun } from "./crun-core.js?v=20261013_1500";
+import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1500";
+import { newLaneState, stepLane } from "./lane.js?v=20261013_1500";
+import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1500";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
 let profiles = null;
@@ -4304,6 +4304,7 @@ games.beat = {
 
     this.songStartTime = 0; // 게임 본편 시작 시각 (actx.currentTime)
     this.nextBeatIdx = 0; // 다음에 등장할 소절 박자 인덱스
+    this.nextHit = null;   // 다음 노트 시각(초)
     this.nextWallBeat = 16; // 벽 장애물 스폰 박자
     this.spawnCount = 0;
     this.lastParity = 0; // 0: 좌팔(Cyan), 1: 우팔(Magenta) 교대 리듬 플로우
@@ -4330,7 +4331,7 @@ games.beat = {
   // 🎵 레디타임(카운트다운) 종료 시점에 정확히 0.00초부터 오디오 및 비트 시퀀서 동기화 시작!
   onGameRealStart() {
     this.songStartTime = actx ? actx.currentTime : performance.now() / 1000;
-    this.nextBeatIdx = 0;
+    this.nextBeatIdx = 0; this.nextHit = null;
     this.nextWallBeat = 16;
     objs = []; // 레디타임 잔여물 리셋
     if (bgmAudio && bgmAudio.paused) {
@@ -4351,40 +4352,24 @@ games.beat = {
     const approachTime = track.approachTime ?? 1.8;
     const horizonTime = songTime + approachTime;
 
-    // 🛡️ 시간 드리프트 및 음원 루프 자동 보정 (박자 인덱스 재동기화)
-    const expectedIdx = Math.max(0, Math.floor((songTime - firstBeat) / beatSec));
-    if (this.nextBeatIdx < expectedIdx - 3 || this.nextBeatIdx > expectedIdx + 16) {
-      this.nextBeatIdx = Math.max(0, expectedIdx - 1);
-    }
-
     // 큐브 배열이 너무 많이 쌓이지 않도록 안전 캡 유지
     if (objs.length > 28) {
       objs = objs.filter((o) => !o.dead && o.z < 1.25);
     }
 
-    // 최대 16개 박자 앞까지 미래 노트 스케줄링 (무한루프 방지 Guard)
+    // 🎵 노트 시각을 "시간"으로 직접 관리해요 (예전엔 박자 번호로 관리해서, 피버에서 8분음표로 바뀔 때 번호의 뜻이 달라져
+    //    계산된 시각이 과거로 밀려 큐브가 하나도 안 나왔어요). 피버: 격자 간격이 절반(8분음표), 2단계: 4박마다 반박자 당김.
+    const step = currentWave === 3 ? beatSec * 0.5 : beatSec;
+    if (this.nextHit == null || this.nextHit < songTime - 0.5 || this.nextHit > songTime + approachTime + beatSec * 2) {
+      this.nextHit = firstBeat + Math.max(0, Math.ceil((songTime - 0.12 - firstBeat) / step)) * step;     // 지금 시각 다음 격자로 재동기화
+    }
     let loopGuard = 0;
     while (loopGuard++ < 16) {
-      // 🎵 노래의 실제 소절 박자 타임스탬프 (Beat Hit Timestamp)
-      let hitTime = firstBeat + this.nextBeatIdx * beatSec;
-
-      // 2단계 / 피버 모드에서는 음악의 드럼 리듬에 맞춘 8분음표/당김음 패턴 연동
-      if (currentWave === 3) {
-        // 피버: 8분음표 고속 리듬
-        hitTime = firstBeat + this.nextBeatIdx * (beatSec * 0.5);
-      } else if (currentWave === 2 && this.nextBeatIdx % 4 === 2) {
-        // 2단계: 경쾌한 당김음 반박자
-        hitTime = firstBeat + (this.nextBeatIdx - 0.5) * beatSec;
-      }
-
-      // 소실점 시야(approachTime) 바깥의 먼 미래 노트는 다음 프레임에 스폰
-      if (hitTime > horizonTime) break;
-
-      // 이미 플레이어 뒤로 지나간 과거 시간이 아니라면 스폰 큐에 등록!
-      if (hitTime >= songTime - 0.12) {
-        this.spawnNoteAt(hitTime, approachTime);
-      }
-      this.nextBeatIdx++;
+      let hitTime = this.nextHit;
+      if (currentWave === 2 && Math.round((hitTime - firstBeat) / beatSec) % 4 === 2) hitTime -= beatSec * 0.5;   // 2단계: 경쾌한 당김음
+      if (hitTime > horizonTime) break;                   // 소실점 시야 바깥의 먼 미래 노트는 다음 프레임에
+      if (hitTime >= songTime - 0.12) this.spawnNoteAt(hitTime, approachTime);
+      this.nextHit += step; this.nextBeatIdx += step / beatSec;
     }
 
     // 🎵 네온 벽 장애물 (16비트 주기 온몸 좌우 피하기)
