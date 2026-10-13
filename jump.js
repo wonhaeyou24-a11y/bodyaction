@@ -24,7 +24,12 @@ export function jumpSample(b) {
     const sw = Math.hypot(b[11].x - b[12].x, b[11].y - b[12].y);
     return { y: shY, tl, swTl: Math.max(40, sw * 1.35) };
   }
-  if (ok(0, 0.5)) return { y: b[0].y + 60, tl: null, swTl: null };      // 머리만 보일 때 (어깨 높이쯤으로 환산)
+  if (ok(0, 0.5)) {
+    // 머리/얼굴만 보일 때: 양쪽 귀(7, 8) 거리로 거리 적응형 어깨 너비 및 기준 높이 환산
+    const headW = ok(7, 0.35) && ok(8, 0.35) ? Math.hypot(b[7].x - b[8].x, b[7].y - b[8].y) : 55;
+    const estSw = Math.max(45, headW * 2.3);
+    return { y: b[0].y + estSw * 0.45, tl: null, swTl: estSw * 1.35 };
+  }
   return null;
 }
 

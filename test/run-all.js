@@ -20,6 +20,7 @@ const suites = [
   ["test/profiles.test.js", "가족 프로필"],
   ["test/guide.test.js", "카메라 세팅 판정"],
   ["online/test/room.test.js", "온라인 대결 방 규칙"],
+  ["test/diagnostic.test.js", "종합 진단(속도·모션·인식·복구)"],
 ];
 let failed = 0;
 for (const [file, name] of suites) {

@@ -17,8 +17,8 @@ export class AlphaBeta {
    * @param stillSpeed  이 속도(px/ms)보다 느리면 가만히 있는 것으로 보고 예측하지 않아요 (떨림 방지)
    * @param tau  새 결과가 와서 추정이 바뀌어도 그린 위치가 뚝 변하지 않게, 차이를 이 시간(ms) 동안 서서히 메워요
    */
-  constructor({ alpha = 0.5, beta = 0.18, maxPredictMs = 130, jumpPx = 360, stillSpeed = 0.06, tau = 70 } = {}) {
-    Object.assign(this, { alpha, beta, maxPredictMs, jumpPx, stillSpeed, tau });
+  constructor({ alpha = 0.5, beta = 0.18, maxPredictMs = 130, jumpPx = 360, stillSpeed = 0.06, tau = 70, adaptive = true } = {}) {
+    Object.assign(this, { alpha, beta, maxPredictMs, jumpPx, stillSpeed, tau, adaptive });
     this.reset();
   }
 
@@ -26,6 +26,7 @@ export class AlphaBeta {
 
   /** 시각 t(ms)에 (x, y)에서 손을 봤어요 */
   update(x, y, t) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(t)) return; // 🛡️ Zero-Trust: 비정상 좌표 유입 차단
     if (!this.ready) { this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.t = t; this.ready = true; this.cx = this.cy = 0; return; }
     const dt = t - this.t;
     if (dt <= 0) return;                                 // 같은/이전 시각의 결과는 무시
