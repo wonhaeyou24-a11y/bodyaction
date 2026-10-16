@@ -55,7 +55,10 @@ addEventListener("resize", resize); resize();
 // ---------- 소리 (효과음 · 배경음악 · 음성) ----------
 let actx, master, bgmMaster, bgmBus, noiseBuf, soundOn = true, voiceOn = true;
 // 효과음 크기(master)가 바뀔 때 배경음 쪽 크기도 같이 맞춰요 (배경음은 효과음과 다른 길로 나가요: 아래 ac() 참고)
-function setMasterGain(v) { if (master) master.gain.value = v; if (bgmMaster) bgmMaster.gain.value = v; }
+// 네온 슬래시처럼 노래에 맞추는 게임(beat)에서는 효과음을 작게(노래가 주인공이 되게), 노래는 크게 틀어요.
+const beatMix = () => { try { return mode === "beat"; } catch { return false; } };
+const songVol = () => Math.min(1, (playerSettings.bgmVol / 100) * (beatMix() ? 1.25 : 0.95));
+function setMasterGain(v) { if (master) master.gain.value = v * (beatMix() ? 0.4 : 1); if (bgmMaster) bgmMaster.gain.value = v; }
 
 // ============================================================================
 // ⚙️ Stitch 아케이드 플레이어 프로필 & 게임 환경 설정 시스템 (Player Settings Manager)
@@ -148,7 +151,7 @@ function applyPlayerSettings() {
     bgmBus.gain.value = soundOn ? (playerSettings.bgmVol / 100) * 0.9 : 0;
   }
   if (bgmAudio) {
-    bgmAudio.volume = soundOn ? (playerSettings.bgmVol / 100) * 0.95 : 0;
+    bgmAudio.volume = soundOn ? songVol() : 0;
   }
 
   // 3. 마우스 조작 모드 동기화
@@ -5080,7 +5083,7 @@ games.beat = {
     if (bgmAudio) {
       try {
         bgmAudio.currentTime = 0;
-        bgmAudio.volume = soundOn ? (playerSettings.bgmVol / 100) * 0.95 : 0;
+        bgmAudio.volume = soundOn ? songVol() : 0;
         const p = bgmAudio.play();
         if (p && typeof p.catch === "function") p.catch(() => {});
       } catch (err) {
