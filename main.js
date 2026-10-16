@@ -3969,91 +3969,13 @@ games.runner = {
     const now = performance.now();
 
     if (!useMouse && b) {
-      // 1. 다중 키포인트 폴백 (전신/상체/얼굴 무결성 트래킹)
-      let y = null, tl = 120;
-      const bv = (arr, i, minV = 0.18) => arr && arr[i] && (arr[i].v ?? 1) >= minV && Number.isFinite(arr[i].y);
-      const hasSh = bv(b, 11, 0.18) && bv(b, 12, 0.18);
-      const hasHip = bv(b, 23, 0.18) && bv(b, 24, 0.18);
-
-      if (hasSh) {
-        y = (b[11].y + b[12].y) / 2;
-        const sw = Math.hypot(b[11].x - b[12].x, b[11].y - b[12].y) || 80;
-        tl = hasHip ? Math.max(45, (b[23].y + b[24].y) / 2 - y) : Math.max(45, sw * 1.35);
-      } else if (bv(b, 0, 0.22)) { // 얼굴(코 0) 기반 상체 환산 폴백 (머리만 보여도 100% 인식)
-        const headW = bv(b, 7, 0.18) && bv(b, 8, 0.18) ? Math.hypot(b[7].x - b[8].x, b[7].y - b[8].y) : 50;
-        const estSw = Math.max(45, headW * 2.2);
-        y = b[0].y + estSw * 0.45;
-        tl = estSw * 1.35;
-      }
-
-      if (y != null) {
-        if (this.base == null) this.base = y;
-        if (this.prevY == null) this.prevY = y;
-
-        const dy = y - this.base;
-        const safeDt = Math.max(dt, 0.008);
-        const vUp = (this.prevY - y) / safeDt; // 위로 솟구치는 속도 (px/s)
-        const aUp = (vUp - (this.prevVUp || 0)) / safeDt; // 상향 가속도 (px/s^2)
-        this.prevY = y;
-        this.prevVUp = vUp;
-
-        // 서 있는 기준선 스마트 적응: 뛰어오르는 중이나 앉은 상태에는 왜곡 방지 동결, 평소에만 부드럽게 적응
-        if (dy >= -tl * 0.04 && dy <= tl * 0.12 && Math.abs(vUp) < tl * 0.35) {
-          this.base += dy * Math.min(1, dt * 1.2);
-        }
-
-        // 2. 🧎 앉기(Duck/Slide) 모션:
-        // [점프 반동 웅크림과 앉기 완전 분리]:
-        // 뛰려고 무릎을 살짝 구부리는 동작(하강 10~18%)은 절대 앉기로 처리하지 않음!
-        // 진짜 슬라이딩은 확실하게 깊이 몸을 숙였을 때(dy > tl * 0.23)만 진입.
-        // 그리고 일어설 때는 dy <= tl * 0.12 이하로 확실히 올라올 때까지 안정 유지(히스테리시스 23% vs 12%).
-        // 도약 준비 반동 후 솟구치는 순간(vUp > tl * 0.35 또는 aUp > 400)에는 즉시 슬라이드 해제!
-        const isRisingFast = vUp > tl * 0.35 || aUp > 400;
-
-        if (this.isDuckingState) {
-          // 앉아 있는 상태 유지 검증
-          if (dy <= tl * 0.12 || isRisingFast) {
-            this.isDuckingState = false;
-            this.lastStandUpTime = now; // 일어선 시각 기록
-          }
-        } else {
-          // 앉기 상태 신규 진입 검증
-          if (dy > tl * 0.23 && !isRisingFast) {
-            this.isDuckingState = true;
-            this.lastDuckTime = now;
-          }
-        }
-        duck = this.isDuckingState;
-
-        // 3. 🦘 점프(Jump) 모션:
-        // [앉았다 일어설 때 점프 오작동 100% 원천 차단!]
-        // 앉아 있다가 일어서는 것은 원래 서 있던 기준선(base)으로 복귀하는 것이므로,
-        // (1) 앉았던 후 복귀 중(now - this.lastDuckTime < 400ms 또는 now - this.lastStandUpTime < 380ms)일 때는
-        // (2) 몸이 원래 서 있던 기준선 위로 실제로 떠오르지 않는 한(dy >= -tl * 0.04) 절대로 점프로 오작동하지 않음!
-        const isReturningFromDuck = (now - this.lastDuckTime < 400) || (now - (this.lastStandUpTime || 0) < 380);
-        const reachedAboveBase = dy < -tl * 0.035;
-        const standUpBlocked = isReturningFromDuck && !reachedAboveBase;
-
-        // jump.js의 정밀 상태머신(stepJump) 결과
-        const sm = { y, tl, swTl: tl };
-        const stepRes = stepJump(this.js, sm, dt, now);
-
-        // 진짜 점프 조건:
-        // A. jump.js 정밀 상태머신에서 점프 감지되고 일어서기 차단 구간이 아닐 때
-        // B. 도약 가속도 피크(aUp > 700) + 충분한 속도(vUp > 0.40 * tl)로 기준선 부근을 뚫고 솟구칠 때 (초저지연 1프레임 도약)
-        // C. 확실한 공중 위치 도약 (dy < -tl * 0.06 && vUp > 40)
-        const isStepJumpVerified = stepRes.jump && !standUpBlocked;
-        const isAccelPeakJump = !this.isDuckingState && !isReturningFromDuck && aUp > 700 && vUp > tl * 0.38 && dy < tl * 0.02;
-        const isTruePositionJump = !standUpBlocked && dy < -tl * 0.06 && vUp > 35;
-
-        const up = isStepJumpVerified || isAccelPeakJump || isTruePositionJump;
-        if (up && !this.prevJump && (now - this.lastJumpTime > 300)) {
-          jump = true;
-          this.lastJumpTime = now;
-          this.isDuckingState = false; // 점프 발동 시 앉기 해제
-        }
-        this.prevJump = up;
-
+      // 점프/앉기 판정은 jump.js 하나만 써요 (시험으로 검증된 엔진). 예전에는 여기에 가속도·위치 규칙을 더 겹쳐 썼는데,
+      // 앉았다 일어설 때·제자리 걷기·몸을 기울일 때 점프로 오인하고, 얕게 앉으면 앉기를 못 알아봤어요 (node test/runner-sense.mjs 로 비교).
+      const sm = jumpSample(b);
+      if (sm) {
+        const r = stepJump(this.js, sm, dt, now);
+        duck = r.duck;
+        if (r.jump && now - this.lastJumpTime > 300) { jump = true; this.lastJumpTime = now; }
         this.seen = true;
       } else {
         this.seen = false;
