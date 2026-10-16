@@ -416,27 +416,19 @@ function pickBestKoreanVoice() {
   if (!window.speechSynthesis) return null;
   const voices = speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
-
-  const koVoices = voices.filter((v) => v.lang && (v.lang.toLowerCase().startsWith("ko") || v.lang.toLowerCase().includes("korean")));
+  const koVoices = voices.filter((v) => v.lang && (v.lang.toLowerCase().replace("_", "-").startsWith("ko") || v.lang.toLowerCase().includes("korean")));
   if (koVoices.length === 0) return null;
-
-  // 1순위: Edge/Windows 최신 고품질 Natural(신경망) 사람 목소리 (SunHi, InJoon, Natural)
-  const natural = koVoices.find((v) => /natural|online|선희|인준|신경망/i.test(v.name));
-  if (natural) return natural;
-
-  // 2순위: Chrome/Android 구글 고품질 한국어 음성
-  const google = koVoices.find((v) => /google/i.test(v.name));
-  if (google) return google;
-
-  // 3순위: Apple/iOS 고품질 한국어 (Yuna, Sora)
-  const apple = koVoices.find((v) => /yuna|sora|유나|소라/i.test(v.name));
-  if (apple) return apple;
-
-  // 4순위: 윈도우 혜미(Heami) 등 기본 한국어 음성
-  const heami = koVoices.find((v) => /heami|혜미/i.test(v.name));
-  if (heami) return heami;
-
-  return koVoices[0];
+  // 점수: 사람 목소리에 가까운 신경망(Natural/Online) > 구글 > 애플 > 윈도우 기본(혜미, 기계음 느낌) 순이에요
+  const score = (v) => {
+    let sc = 10;
+    if (/natural|neural|online|선희|인준|sunhi|injoon|hyunsu|현수/i.test(v.name)) sc = 100;
+    else if (/google/i.test(v.name)) sc = 80;
+    else if (/yuna|sora|유나|소라/i.test(v.name)) sc = 70;
+    else if (/heami|혜미/i.test(v.name)) sc = 20;
+    if (!v.localService) sc += 5;
+    return sc;
+  };
+  return koVoices.slice().sort((a, b) => score(b) - score(a))[0];
 }
 
 if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -446,32 +438,62 @@ if (typeof window !== "undefined" && window.speechSynthesis) {
   };
 }
 
+// 고정 문장은 미리 만들어 둔 사람 같은 음성 파일(assets/voice)로 말해요. 어느 기기·브라우저든 메인 화면과 게임에서 똑같은 목소리예요.
+// 파일에 없는 문장(이름·숫자가 들어가는 말)만 브라우저 기본 음성으로 말해요.
+let voiceClips = null, voiceClipAudio = null;
+try { fetch("assets/voice/index.json").then((r) => (r.ok ? r.json() : null)).then((j) => { voiceClips = j; }).catch(() => {}); } catch {}
+function cancelVoice() {
+  try { speechSynthesis.cancel(); } catch {}
+  if (voiceClipAudio) { try { voiceClipAudio.pause(); } catch {} voiceClipAudio = null; }
+}
+let pendingSpeech = null;
 function speak(text, force = false) {
-  if (!voiceOn || !window.speechSynthesis) return;
+  if (!voiceOn) return;
   const n = performance.now();
   if (!force && n - lastVoice < 1200) return;
   lastVoice = n;
+  const clip = voiceClips && voiceClips[text];
+  if (clip) {
+    try {
+      cancelVoice();
+      const a = new Audio("assets/voice/" + clip);
+      a.volume = 1;
+      voiceClipAudio = a;
+      a.onended = () => { if (voiceClipAudio === a) voiceClipAudio = null; };
+      const pr = a.play();
+      if (pr && pr.catch) pr.catch(() => { if (voiceClipAudio === a) voiceClipAudio = null; speakTTS(text); });
+      return;
+    } catch {}
+  }
+  speakTTS(text);
+}
+function speakTTS(text) {
+  if (!window.speechSynthesis) return;
+  if (voiceClipAudio) { try { voiceClipAudio.pause(); } catch {} voiceClipAudio = null; }
+  // 목소리 목록이 아직 안 불러와졌으면(메인 화면에서 처음 말할 때) 기본 기계음으로 말하지 말고 잠깐 기다렸다가 좋은 목소리로 말해요
+  let best = pickBestKoreanVoice() || cachedBestKoreanVoice;
+  if (!best && speechSynthesis.getVoices().length === 0) {
+    pendingSpeech = { text };
+    const go = () => { if (!pendingSpeech) return; const q = pendingSpeech; pendingSpeech = null; speakTTS(q.text); };
+    const prev = speechSynthesis.onvoiceschanged;
+    speechSynthesis.onvoiceschanged = (e) => { try { prev && prev(e); } catch {} go(); };
+    setTimeout(() => { if (pendingSpeech) { const q = pendingSpeech; pendingSpeech = null; speakNow(q.text, null); } }, 1500);
+    return;
+  }
+  speakNow(text, best);
+}
+function speakNow(text, best) {
   try {
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     activeUtterance = u; // 🛡️ 전역 참조 보관으로 가비지 컬렉션(GC) 발화 중단 원천 방지
-    
-    // 🌟 가장 사람답고 자연스러운 보이스 지정
-    if (!cachedBestKoreanVoice) cachedBestKoreanVoice = pickBestKoreanVoice();
-    if (cachedBestKoreanVoice) {
-      u.voice = cachedBestKoreanVoice;
-      u.lang = cachedBestKoreanVoice.lang || "ko-KR";
-    } else {
-      u.lang = "ko-KR";
-    }
-
-    // 🌟 사람 목소리처럼 친근하고 부드러운 억양 (Pitch 1.06, Rate 0.98로 기계적인 딱딱함 제거)
-    u.rate = 0.98;
-    u.pitch = 1.06;
+    if (best) { cachedBestKoreanVoice = best; u.voice = best; u.lang = best.lang || "ko-KR"; } else u.lang = "ko-KR";
+    // 같은 목소리가 메인 화면과 게임에서 똑같이 들리도록 속도·높낮이를 한 군데에서만 정해요
+    // (기계음 느낌이 나는 기본 윈도우 음성은 조금 천천히 말해야 덜 딱딱해요)
+    const robotic = best && /heami|혜미/i.test(best.name);
+    u.rate = robotic ? 0.92 : 1.0;
+    u.pitch = robotic ? 1.1 : 1.0;
     u.volume = 1.0;
-
     u.onend = () => { activeUtterance = null; };
     u.onerror = () => { activeUtterance = null; };
     speechSynthesis.speak(u);
@@ -6729,7 +6751,7 @@ function endGame() {
 }
 function toMenu() {
   if (mode) bus.emit("game:quit", {});
-  try { speechSynthesis.cancel(); } catch {}
+  cancelVoice();
   stopTrackPreview?.();
   closeBeatTrackSelector?.();
   if (mode) games[mode].exit?.();
@@ -7275,7 +7297,7 @@ for (const [id, set, key] of [["optSound", (v) => (soundOn = v), "sound"], ["opt
   el.addEventListener("change", () => {
     set(el.checked); localStorage.setItem(key, el.checked ? "1" : "0");
     if (actx) setMasterGain(soundOn ? 1 : 0);
-    if (!voiceOn) try { speechSynthesis.cancel(); } catch {}
+    if (!voiceOn) cancelVoice();
   });
 }
 // 메뉴: 전체 / 손놀이 / 몸놀이 탭 (마지막으로 본 탭을 기억)
