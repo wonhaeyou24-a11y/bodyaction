@@ -790,7 +790,10 @@ function bgmTick(isIntro = false) {
       }
 
       // 3. 비트 드럼 엔진 (4-on-the-floor EDM & POP)
-      if (c.drums === "edm") {
+      // 진짜 노래 파일이 나올 때는 가짜 드럼을 끄고(노래와 박자가 어긋나서), 화면 번쩍임은 노래 시간 기준으로 따로 줘요.
+      if (c.audioFile) {
+        // no-op
+      } else if (c.drums === "edm") {
         // 💥 강력한 4-on-the-floor 펀치 서브 킥 (정박 s=0, 2, 4, 6)
         if (s % 2 === 0) {
           tone(175, t, 0.18, "sine", 0.58 * v, 36, undefined, bgmBus);
@@ -5198,6 +5201,11 @@ games.beat = {
     // 🎵 1. 오디오 단일 기준 시간(songTime)을 기준으로 비트 스케줄러 가동
     const songTime = this.getSongTime();
     this.scheduleNotes(songTime);
+    // 진짜 노래의 박자에 맞춘 화면 번쩍임 (드럼 소리 대신)
+    if (!isReadyTime && this.currentTrack?.audioFile) {
+      const bs = Math.max(0.1, 60 / (this.currentTrack.bpm || 120)), bi = Math.floor((songTime - (this.currentTrack.firstBeat ?? 0.4)) / bs);
+      if (bi !== this.flashIdx) { if (this.flashIdx != null && bi > this.flashIdx) this.beatFlash = Math.max(this.beatFlash, 0.7); this.flashIdx = bi; }
+    }
 
     // 콤보 배수 계산
     if (combo >= 14) this.multiplier = 8;
