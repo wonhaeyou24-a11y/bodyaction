@@ -5033,6 +5033,14 @@ games.beat = {
     try { localStorage.setItem("kk_last_beat_track", track.id); } catch {}
     this.currentTrack = track;
     BGM.beat = { ...this.currentTrack };
+    // 곡 파일에서 실제로 뽑아 둔 박자(타격 순간) 목록. 있으면 큐브를 거기에 맞춰요 (없으면 예전처럼 BPM 격자)
+    this.beatMap = null; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
+    if (track.audioFile) {
+      const wantId = track.id;
+      fetch(track.audioFile.replace(/\.\w+$/, ".beats.json")).then((r) => (r.ok ? r.json() : null)).then((m) => {
+        if (m && Array.isArray(m.notes) && this.currentTrack?.id === wantId) this.beatMap = m;
+      }).catch(() => {});
+    }
 
     // 곡 시작 네온 배너 알림
     setTimeout(() => {
@@ -5081,7 +5089,7 @@ games.beat = {
     this.simSongTime = 0;
     this.songStartTime = (actx && actx.state === "running") ? actx.currentTime : 0;
     this.nextBeatIdx = 0; this.nextHit = null;
-    this.nextWallBeat = 16;
+    this.nextWallBeat = 16; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
     objs = []; // 레디타임 잔여물 리셋
     if (bgmAudio) {
       try {
@@ -5108,6 +5116,24 @@ games.beat = {
     // 큐브 배열이 너무 많이 쌓이지 않도록 안전 캡 유지
     if (objs.length > 28) {
       objs = objs.filter((o) => !o.dead && o.z < 1.25);
+    }
+
+    // 🎵 실제 노래에서 뽑은 박자가 있으면 그 순간에 큐브를 보내요 (피버에서는 더 촘촘한 목록)
+    if (this.beatMap) {
+      const list = currentWave === 3 && this.beatMap.dense ? this.beatMap.dense : this.beatMap.notes;
+      for (let i = 0; i < list.length && i < 4000; i++) {
+        const t = list[i];
+        if (t <= this.lastSpawnT) continue;
+        if (t > horizonTime) break;
+        if (t >= songTime - 0.12) this.spawnNoteAt(t, approachTime);
+        this.lastSpawnT = t;
+      }
+      if (songTime + 3 >= this.wallAt) {
+        const wallSide = rng() < 0.5 ? -1 : 1;
+        this.walls.push({ hitTime: this.wallAt + 3, approachTime: approachTime * 1.05, side: wallSide, w: W * 0.38, h: H * 0.65, dead: false, hit: false, z: 0.0 });
+        this.wallAt += 12;
+      }
+      return;
     }
 
     // 🎵 노트 시각을 "시간"으로 직접 관리해요 (예전엔 박자 번호로 관리해서, 피버에서 8분음표로 바뀔 때 번호의 뜻이 달라져
@@ -5202,7 +5228,11 @@ games.beat = {
     const songTime = this.getSongTime();
     this.scheduleNotes(songTime);
     // 진짜 노래의 박자에 맞춘 화면 번쩍임 (드럼 소리 대신)
-    if (!isReadyTime && this.currentTrack?.audioFile) {
+    if (!isReadyTime && this.beatMap) {
+      const nl = this.beatMap.notes; let fi = this.flashNote || 0;
+      while (fi < nl.length && nl[fi] <= songTime) { if (nl[fi] > songTime - 0.15) this.beatFlash = Math.max(this.beatFlash, 0.6); fi++; }
+      this.flashNote = fi;
+    } else if (!isReadyTime && this.currentTrack?.audioFile) {
       const bs = Math.max(0.1, 60 / (this.currentTrack.bpm || 120)), bi = Math.floor((songTime - (this.currentTrack.firstBeat ?? 0.4)) / bs);
       if (bi !== this.flashIdx) { if (this.flashIdx != null && bi > this.flashIdx) this.beatFlash = Math.max(this.beatFlash, 0.7); this.flashIdx = bi; }
     }
