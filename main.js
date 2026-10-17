@@ -670,37 +670,12 @@ const BEAT_TRACKS = [
     noteSpeed: 1.0,
     tagColor: "#ff3377"
   },
-  // 🎉 신나는 신스 노래 (직접 작곡한 곡이라 박자가 정확히 맞아요: 큐브가 노래의 박자에 딱 떨어져요)
-  {
-    id: "sunny", title: "☀️ 써니 디스코 점프 (Sunny Disco Jump)", genre: "HAPPY DISCO", bpm: 124, firstBeat: 0.1, approachTime: 1.8,
-    root: 261.63, wave: "square", drums: "edm", vol: 0.9, noteSpeed: 1.0, tagColor: "#ffd166",
-    bassSeq: [0, -5, -3, -7],
-    melody: [12, null, 16, null, 19, null, 16, 12,   14, null, 19, null, 23, null, 19, 14,   12, null, 16, null, 21, null, 16, 12,   9, 12, 17, null, 16, 14, 12, null]
-  },
-  {
-    id: "candy", title: "🍭 캔디 팝 러시 (Candy Pop Rush)", genre: "BUBBLEGUM POP", bpm: 140, firstBeat: 0.1, approachTime: 1.7,
-    root: 392, wave: "sawtooth", drums: "edm", vol: 0.82, noteSpeed: 1.05, tagColor: "#ff7eb6",
-    bassSeq: [0, -5, -3, -7],
-    melody: [12, null, 7, 12, 16, null, 12, 7,   14, null, 11, 14, 19, null, 14, 11,   16, null, 12, 16, 19, null, 16, 12,   17, null, 12, 9, 12, null, 16, null]
-  },
-  {
-    id: "hyper", title: "🚀 하이퍼 점프 (Hyper Jump)", genre: "ENERGY EDM", bpm: 150, firstBeat: 0.1, approachTime: 1.6,
-    root: 293.66, wave: "square", drums: "edm", vol: 0.85, noteSpeed: 1.15, tagColor: "#00e5ff",
-    bassSeq: [0, -3, -7, -5],
-    melody: [12, null, 16, null, 19, 16, 12, null,   9, null, 12, null, 16, 12, 9, null,   17, null, 14, null, 17, 21, 17, null,   16, null, 19, null, 21, 19, 16, null]
-  },
-  {
-    id: "funk", title: "🕺 파티 펑크 (Party Time Funk)", genre: "GROOVY FUNK", bpm: 112, firstBeat: 0.1, approachTime: 1.9,
-    root: 220, wave: "sawtooth", drums: "pop", vol: 0.88, noteSpeed: 0.98, tagColor: "#b388ff",
-    bassSeq: [0, 0, 5, 5],
-    melody: [12, null, 15, 12, null, 17, 15, null,   12, null, 15, 12, null, 10, 12, null,   17, null, 15, 17, null, 19, 17, null,   15, null, 12, 15, null, 10, 12, null]
-  },
-  {
-    id: "rocket", title: "🌠 로켓 댄스 (Rocket Dance)", genre: "SPACE DANCE", bpm: 132, firstBeat: 0.1, approachTime: 1.8,
-    root: 329.63, wave: "square", drums: "edm", vol: 0.85, noteSpeed: 1.08, tagColor: "#69f0ae",
-    bassSeq: [0, -4, -9, -2],
-    melody: [12, null, 15, null, 19, 15, 12, null,   8, null, 12, null, 15, 12, 8, null,   7, null, 10, null, 15, 10, 7, null,   14, null, 10, null, 17, 14, 10, null]
-  }
+  // 🎉 진짜 연주 음원 (Kevin MacLeod, incompetech.com — CC BY 4.0: 출처 표기 필요)
+  { id: "polka", title: "🎈 픽셀 피커 폴카 (Pixel Peeker Polka)", genre: "HAPPY POLKA", bpm: 120, firstBeat: 0.3, approachTime: 1.8, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "square", drums: "edm", vol: 0.85, noteSpeed: 1.1, tagColor: "#ffd166", audioFile: "assets/music/polka.mp3", credit: "Pixel Peeker Polka (faster) — Kevin MacLeod (incompetech.com) CC BY 4.0" },
+  { id: "funkorama", title: "🕺 펑코라마 (Funkorama)", genre: "GROOVY FUNK", bpm: 110, firstBeat: 0.5, approachTime: 1.8, root: 220, scale: [0, 3, 5, 7, 10], prog: [0, 5, 7, 5], wave: "sawtooth", drums: "edm", vol: 0.85, noteSpeed: 1.0, tagColor: "#b388ff", audioFile: "assets/music/funkorama.mp3", credit: "Funkorama — Kevin MacLeod (incompetech.com) CC BY 4.0" },
+  { id: "carefree", title: "🌈 케어프리 (Carefree)", genre: "CHEERFUL ACOUSTIC", bpm: 120, firstBeat: 0.3, approachTime: 1.8, root: 261.63, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.85, noteSpeed: 1.0, tagColor: "#69f0ae", audioFile: "assets/music/carefree.mp3", credit: "Carefree — Kevin MacLeod (incompetech.com) CC BY 4.0" },
+  { id: "runamok", title: "🏃 런 어머크 (Run Amok)", genre: "ENERGY ROCK", bpm: 140, firstBeat: 0.5, approachTime: 1.7, root: 196, scale: [0, 3, 5, 7, 10], prog: [0, 5, 7, 5], wave: "sawtooth", drums: "edm", vol: 0.85, noteSpeed: 1.1, tagColor: "#ff7043", audioFile: "assets/music/runamok.mp3", credit: "Run Amok — Kevin MacLeod (incompetech.com) CC BY 4.0" },
+  { id: "monkeys", title: "🐒 몽키 스피닝 (Monkeys Spinning Monkeys)", genre: "PLAYFUL JAUNT", bpm: 125, firstBeat: 0.5, approachTime: 1.8, root: 293.66, scale: [0, 2, 4, 7, 9], prog: [0, 5, 7, 5], wave: "triangle", drums: "pop", vol: 0.85, noteSpeed: 1.0, tagColor: "#00e5ff", audioFile: "assets/music/monkeys.mp3", credit: "Monkeys Spinning Monkeys — Kevin MacLeod (incompetech.com) CC BY 4.0" }
 ];
 let lastBeatTrackIdx = -1;
 
@@ -5003,8 +4978,10 @@ games.beat = {
       // 랜덤: 직전에 한 곡은 피해요. 이번 접속의 직전 곡이 없으면 저장해 둔 지난 접속의 마지막 곡을 피해서, 처음 시작해도 매번 다른 곡이 나와요
       let last = lastBeatTrackIdx;
       if (last < 0) { try { last = BEAT_TRACKS.findIndex((t) => t.id === localStorage.getItem("kk_last_beat_track")); } catch { last = -1; } }
-      let trackIdx = Math.floor(Math.random() * BEAT_TRACKS.length);
-      if (trackIdx === last) trackIdx = (trackIdx + 1) % BEAT_TRACKS.length;
+      // 컴퓨터가 만든 소리(신스) 곡은 빼고 진짜 연주 음원만 랜덤으로 골라요
+      const pool = BEAT_TRACKS.map((t, i) => (t.audioFile ? i : -1)).filter((i) => i >= 0);
+      let trackIdx = pool[Math.floor(Math.random() * pool.length)];
+      if (trackIdx === last && pool.length > 1) trackIdx = pool[(pool.indexOf(trackIdx) + 1) % pool.length];
       lastBeatTrackIdx = trackIdx;
       track = BEAT_TRACKS[trackIdx];
     }
@@ -5024,6 +5001,7 @@ games.beat = {
     setTimeout(() => {
       popup(W / 2, H * 0.36, `🎵 NOW PLAYING: ${this.currentTrack.title}`, this.currentTrack.tagColor);
       popup(W / 2, H * 0.43, `[${this.currentTrack.genre}]  ${this.currentTrack.bpm} BPM`, "#ffffff");
+      if (this.currentTrack.credit) popup(W / 2, H * 0.49, `♪ ${this.currentTrack.credit}`, "#9fb3c8");
     }, 250);
 
     this.halves = [];
