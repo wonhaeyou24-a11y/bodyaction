@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>새 1등 보상 모자·가면 미리보기 (개발 확인용)</title>
+<body style="margin:0;background:#1b1340;color:#fff;font:14px sans-serif"><canvas id="c" width="1000" height="300"></canvas>
+<script>
+(async () => {
+  const src = await (await fetch('../main.js', { cache: 'reload' })).text();
+  const a = src.indexOf('case "mask_balloon_clown"'), b = src.indexOf('default: // 전용 그림이 없으면 슬롯별 벡터로', a);
+  const fn = new Function('ctx', 'id', 'switch(id){' + src.slice(a, b) + '}');
+  const ctx = document.getElementById('c').getContext('2d');
+  ['mask_balloon_clown', 'head_comet_cap', 'head_turbo_beanie', 'mask_knight_visor'].forEach((id, i) => {
+    ctx.save(); ctx.translate(130 + i * 240, 170); ctx.scale(1.8, 1.8);
+    ctx.fillStyle = '#f5d0a9'; ctx.beginPath(); ctx.arc(0, 0, 30, 0, 7); ctx.fill();
+    fn(ctx, id); ctx.restore(); ctx.fillStyle = '#fff'; ctx.fillText(id, 70 + i * 240, 290);
+  });
+})();
+</script>

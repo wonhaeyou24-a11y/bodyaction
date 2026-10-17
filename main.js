@@ -441,17 +441,44 @@ if (typeof window !== "undefined" && window.speechSynthesis) {
 // 고정 문장은 미리 만들어 둔 사람 같은 음성 파일(assets/voice)로 말해요. 어느 기기·브라우저든 메인 화면과 게임에서 똑같은 목소리예요.
 // 파일에 없는 문장(이름·숫자가 들어가는 말)만 브라우저 기본 음성으로 말해요.
 let voiceClips = null, voiceClipAudio = null;
-try { fetch("assets/voice/index.json").then((r) => (r.ok ? r.json() : null)).then((j) => { voiceClips = j; }).catch(() => {}); } catch {}
+try { fetch("assets/voice/index.json?v=20261017_1900").then((r) => (r.ok ? r.json() : null)).then((j) => { voiceClips = j; }).catch(() => {}); } catch {}
 function cancelVoice() {
   try { speechSynthesis.cancel(); } catch {}
   if (voiceClipAudio) { try { voiceClipAudio.pause(); } catch {} voiceClipAudio = null; }
 }
 let pendingSpeech = null;
+// 받침에 맞는 조사 (을/를, 이/가 ...): josa("나무", "을", "를") → "나무를"
+function josa(word, withBatchim, without) {
+  const c = String(word).trim().replace(/[^가-힣0-9A-Za-z]+$/, "").slice(-1).charCodeAt(0);
+  const has = c >= 0xac00 && c <= 0xd7a3 ? (c - 0xac00) % 28 !== 0 : "013678".includes(String.fromCharCode(c));
+  return word + (has ? withBatchim : without);
+}
 function speak(text, force = false) {
   if (!voiceOn) return;
   const n = performance.now();
   if (!force && n - lastVoice < 1200) return;
   lastVoice = n;
+  // 여러 조각을 이어서 말하기: speak(["레벨 3!", "나무 자세!"]) — 조각마다 미리 만든 음성이 있으면 차례로, 하나라도 없으면 통째로 브라우저 음성
+  if (Array.isArray(text)) {
+    const parts = text, clips = voiceClips ? parts.map((t) => voiceClips[t]) : [];
+    if (voiceClips && clips.every(Boolean)) {
+      try {
+        cancelVoice();
+        let i = 0;
+        const next = () => {
+          if (i >= clips.length) return;
+          const a = new Audio("assets/voice/" + clips[i++]);
+          voiceClipAudio = a; a.volume = 1;
+          a.onended = () => { if (voiceClipAudio === a) { voiceClipAudio = null; next(); } };
+          const pr = a.play(); if (pr && pr.catch) pr.catch(() => { if (voiceClipAudio === a) voiceClipAudio = null; });
+        };
+        next();
+        return;
+      } catch {}
+    }
+    speakTTS(parts.join(" "));
+    return;
+  }
   const clip = voiceClips && voiceClips[text];
   if (clip) {
     try {
@@ -3752,7 +3779,7 @@ games.pose = {
     this.limit = this.cfg.time; this.left = this.limit; this.hold = 0; this.spoke = false; this.hint = null; this.hintT = 0.8;
     if (this.level > prevLevel) {
       triggerWaveBanner(`LEVEL ${this.level}`, `${this.cfg.name} · 더 어려운 자세가 나와요!`, false);
-      sfx.levelUp(); speak(`레벨 ${this.level}! ${this.pose.name}`, true);
+      sfx.levelUp(); speak([`레벨 ${this.level}!`, this.pose.name], true);
     } else speak(this.pose.name);
   },
   update(dt) {
@@ -7970,6 +7997,28 @@ const COSTUME_ITEMS = {
     id: "hand_wand", name: "스타 매직 팝 완드", slot: "hand", tier: "rare",
     icon: "🪄", desc: "3등 보급형 독점! 휘두르면 별빛 방울이 터지는 마법 요술봉.",
     color: "#00d2ff", game: "balloon"
+  },
+
+  // --- [몸 놀이 4종 1등 보상: 모자·가면] ---
+  mask_balloon_clown: {
+    id: "mask_balloon_clown", name: "팡팡 광대 가면", slot: "face", tier: "legend",
+    icon: "🤡", desc: "1등 최고급 독점! 빨간 코와 알록달록 볼터치, 몸 풍선 터뜨리기 챔피언의 광대 가면.",
+    color: "#ff3377", game: "bballoon"
+  },
+  head_comet_cap: {
+    id: "head_comet_cap", name: "혜성 수호대 모자", slot: "head", tier: "legend",
+    icon: "☄️", desc: "1등 최고급 독점! 꼬리별이 반짝이는 유성 수호대 대장 모자.",
+    color: "#7dd3fc", game: "bspace"
+  },
+  head_turbo_beanie: {
+    id: "head_turbo_beanie", name: "터보 러너 비니", slot: "head", tier: "legend",
+    icon: "🧢", desc: "1등 최고급 독점! 달릴수록 번개 꼬리가 휘날리는 트랩 탈출 챔피언 비니.",
+    color: "#facc15", game: "crun"
+  },
+  mask_knight_visor: {
+    id: "mask_knight_visor", name: "용사 투구 가면", slot: "face", tier: "legend",
+    icon: "🛡️", desc: "1등 최고급 독점! 검과 방패 패링 배틀 챔피언의 반짝이는 기사 얼굴 가면.",
+    color: "#94a3b8", game: "cduel"
   }
 };
 
@@ -7985,7 +8034,11 @@ const RANK_REWARDS = {
   dodge:    ["helm_miner"],      // 🪖 모자·헤드 (1등 전설 황금 탐험가 헬멧)
   pose:     ["aura_starlight"],  // 🌟 오라 (1등 전설 슈퍼스타 스포트라이트 오라)
   keeper:   ["head_cap"],        // 🧢 모자·헤드 (1등 전설 에메랄드 세이버 캡)
-  balloon:  ["head_partyhat"]    // 🥳 모자·헤드 (1등 전설 네온 카니발 파티햇)
+  balloon:  ["head_partyhat"],   // 🥳 모자·헤드 (1등 전설 네온 카니발 파티햇)
+  bballoon: ["mask_balloon_clown"], // 🤡 가면 (몸 풍선 1등: 팡팡 광대 가면)
+  bspace:   ["head_comet_cap"],  // ☄️ 모자 (몸 유성막기 1등: 혜성 수호대 모자)
+  crun:     ["head_turbo_beanie"], // 🧢 모자 (트랩 탈출 러너 1등: 터보 러너 비니)
+  cduel:    ["mask_knight_visor"]  // 🛡️ 가면 (검·방패 패링 1등: 용사 투구 가면)
 };
 
 // 3. 커스튬 인벤토리 & 장착 상태 (암호화 체크포인트 저장소 관리)
@@ -8075,7 +8128,7 @@ async function auditAndStripIneligibleCostumes() {
       strippedCount++;
       const tierText = item.tier === "legend" ? "1등 최고급" : item.tier === "hero" ? "2등 중고급" : "3등 보급형";
       popup(W / 2, H * 0.45, `👑 [${item.name}] 박탈됨! (${tierText} 전용 - 순위 밀림)`, "#ff3366");
-      speak(`등수가 밀려 ${item.name}을(를) 뺏겼습니다! 다시 순위를 탈환하세요!`, true);
+      speak(`등수가 밀려 ${josa(item.name, "을", "를")} 뺏겼습니다! 다시 순위를 탈환하세요!`, true);
     }
   }
   if (strippedCount > 0) {
@@ -8222,7 +8275,7 @@ function checkAndAwardRankCostume(modeId, rankIdx) {
 
     if (isNewlyUnlocked) {
       sfx.fanfare?.();
-      speak(`1등 보상으로 ${item.name}을 획득하셨습니다! 축하합니다!`, true);
+      speak(`1등 보상으로 ${josa(item.name, "을", "를")} 획득하셨습니다! 축하합니다!`, true);
     }
   }
 }
@@ -9119,6 +9172,42 @@ function drawCostumeLocal(ctx, item, isBuddy, bake) {
       ctx.fill();
       break;
     }
+
+    case "mask_balloon_clown": // 팡팡 광대 가면 (빨간 코 + 알록달록 볼터치 + 별 눈썹)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.96)"; ctx.strokeStyle = "#ff3377"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, 0, 36, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#38bdf8"; ctx.beginPath(); ctx.arc(-18, -6, 7, 0, Math.PI * 2); ctx.arc(18, -6, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fde047"; ctx.beginPath(); ctx.arc(-24, 9, 6, 0, Math.PI * 2); ctx.arc(24, 9, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(0, 4, 9, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = "#ff3377"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 12, 14, 0.2, Math.PI - 0.2); ctx.stroke();
+      break;
+
+    case "head_comet_cap": // 혜성 수호대 모자 (파란 캡 + 별 + 꼬리별)
+      ctx.fillStyle = "#1e3a8a"; ctx.strokeStyle = "#7dd3fc"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, 4, 36, 24, 0, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#38bdf8"; ctx.beginPath(); ctx.ellipse(0, 6, 42, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fde047"; ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 5 : 11, ang = -Math.PI / 2 + (i * Math.PI) / 5; ctx.lineTo(Math.cos(ang) * r, -12 + Math.sin(ang) * r); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(125, 211, 252, 0.8)"; ctx.lineWidth = 3;
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(30, -10 + k * 6); ctx.lineTo(52 + k * 6, -22 + k * 9 + Math.sin(performance.now() / 200 + k) * 2); ctx.stroke(); }
+      break;
+
+    case "head_turbo_beanie": // 터보 러너 비니 (노란 비니 + 번개 + 방울)
+      ctx.fillStyle = "#facc15"; ctx.strokeStyle = "#a16207"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, 4, 34, 28, 0, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.rect(-36, 2, 72, 11); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-3, -22); ctx.lineTo(-11, -6); ctx.lineTo(-1, -6); ctx.lineTo(-7, 0); ctx.lineTo(9, -14); ctx.lineTo(0, -14); ctx.lineTo(6, -22); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(0, -28, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      break;
+
+    case "mask_knight_visor": // 용사 투구 가면 (은빛 얼굴 가리개 + 눈 틈 + 깃털)
+      ctx.fillStyle = "#cbd5e1"; ctx.strokeStyle = "#475569"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-34, -22); ctx.quadraticCurveTo(0, -36, 34, -22); ctx.lineTo(30, 18); ctx.quadraticCurveTo(0, 32, -30, 18); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#0f172a"; ctx.beginPath(); ctx.rect(-26, -8, 52, 8); ctx.fill();
+      ctx.strokeStyle = "#64748b"; ctx.lineWidth = 2; [-10, 0, 10].forEach((bx) => { ctx.beginPath(); ctx.moveTo(bx, 6); ctx.lineTo(bx, 22); ctx.stroke(); });
+      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.moveTo(0, -30); ctx.quadraticCurveTo(26, -50, 34, -34 + Math.sin(performance.now() / 300) * 2); ctx.quadraticCurveTo(14, -34, 0, -26); ctx.closePath(); ctx.fill();
+      break;
 
     default: // 전용 그림이 없으면 슬롯별 벡터로 (이모티콘 사용 안 함)
       drawGenericCostume(ctx, item, col);
