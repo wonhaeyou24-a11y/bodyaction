@@ -46,8 +46,9 @@ const video = $("video"), canvas = $("stage"), ctx = canvas.getContext("2d");
 const USE_WORKER = !location.search.includes("noworker");
 const visionAI = createVisionClient({ video });
 let W = 0, H = 0;
+let renderScale = 1.0;   // 가벼운 화면 모드에서는 0.75 (아래 applyLite)
 function resize() {
-  const d = 1.0;   // 60 FPS 무지연 렌더링을 위해 캔버스 스케일 1.0 고정 (GPU 렌더링 부하 55% 절감)
+  const d = renderScale;   // 기본 1.0: 60 FPS 무지연 렌더링을 위해 캔버스 스케일 1.0 (GPU 렌더링 부하 55% 절감)
   W = innerWidth; H = innerHeight;
   canvas.width = W * d; canvas.height = H * d;
   ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -992,7 +993,7 @@ function recTick() {
 function recStop(save) {
   clearInterval(recTimer); recTimer = 0;
   const rec = recorder.stop();
-  if (rec) { const st = visionAI.stats; rec.meta.stats = { delegate: st.delegate, scale: st.scale, tuning: st.tuning, tune: st.tune, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
+  if (rec) { const st = visionAI.stats; rec.meta.stats = { lite: liteLevel, dpr: devicePixelRatio, delegate: st.delegate, scale: st.scale, tuning: st.tuning, tune: st.tune, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
   recUI?.remove(); recUI = null;
   if (save && rec && (rec.results.length || rec.handResults.length)) {
     const d = new Date(), pad = (n) => String(n).padStart(2, "0");
@@ -6365,15 +6366,47 @@ function drawBackground(color, camAlpha = 0.20) {
   }
 }
 
+// ============================================================================
+// 🪶 가벼운 화면 모드 (자동): 게임 화면이 GPU를 많이 써서 AI 인식이 느려지는 컴퓨터를 위해
+//   같은 컴퓨터에서 게임 밖(diag.html)에서는 몸 18ms·손 25ms(초당 30번)인데 게임 안에서는 130~165ms(초당 5~10번)로 느려지는 일이 있었어요.
+//   인식이 계속 느리면(90ms 초과) 화면을 단계적으로 가볍게 하고, 인식이 15% 이상 빨라지면 그 단계를 유지해요. 빨라지지 않으면 원래대로 되돌려요.
+//   1단계: 번짐 효과(그림자 번짐·배경 흐림) 끄기 + 그리는 해상도 0.75배   2단계: 화면을 초당 30번만 그리기 (인식이 GPU를 더 쓸 수 있게)
+//   주소에 ?lite=1 / ?lite=2 로 강제, ?full 로 끄기(자동 판단도 끔)
+// ============================================================================
+const LITE_URL = (() => { const q = new URLSearchParams(location.search); if (q.has("full")) return 0; if (q.has("lite")) return Math.max(1, Math.min(2, Number(q.get("lite")) || 1)); return null; })();
+let liteLevel = 0, liteTick = false, liteSlow = 0, liteSince = 0, liteBase = 0, liteDone = LITE_URL !== null, liteLastCheck = 0;
+function applyLite(level) {
+  liteLevel = level; liteTick = false;
+  document.documentElement.classList.toggle("lite", level >= 1);
+  if (level >= 1) Object.defineProperty(ctx, "shadowBlur", { configurable: true, get() { return 0; }, set() { /* 번짐 그림자 끔 */ } });
+  else delete ctx.shadowBlur;
+  renderScale = level >= 1 ? 0.75 : 1.0; resize();
+}
+try { if (location.search.includes("retune")) localStorage.removeItem("kk_lite_level"); const saved = Number(localStorage.getItem("kk_lite_level")) || 0; if (LITE_URL !== null) applyLite(LITE_URL); else if (saved >= 1 && saved <= 2) { applyLite(saved); liteDone = true; } } catch { /* 무시 */ }
+/** 1초마다 불러요: 인식이 계속 느린지 보고 단계를 올리거나 되돌려요 */
+function liteGovernor(now, st) {
+  if (liteDone || !playing || !mode || !st.delegate || st.tuning) { liteSlow = 0; return; }
+  const slow = st.inferMs > 90;
+  if (liteLevel === 0) { liteSlow = slow ? liteSlow + 1 : 0; if (liteSlow >= 5) { liteBase = st.inferMs; liteSince = now; applyLite(1); console.info(`[가벼운 화면] 인식이 느려서(${Math.round(st.inferMs)}ms) 1단계로 낮춰요`); } return; }
+  if (now - liteSince < 8000) return;                                   // 바꾼 뒤 8초 지켜봐요
+  const improved = st.inferMs < liteBase * 0.85;
+  if (improved && st.inferMs <= 90) { liteDone = true; try { localStorage.setItem("kk_lite_level", String(liteLevel)); } catch { /* 무시 */ } console.info(`[가벼운 화면] ${liteLevel}단계로 ${Math.round(liteBase)}ms → ${Math.round(st.inferMs)}ms, 유지해요`); return; }
+  if (liteLevel === 1) { liteBase = improved ? st.inferMs : liteBase; liteSince = now; applyLite(2); console.info(`[가벼운 화면] 더 낮춰요: 2단계`); return; }
+  if (improved) { liteDone = true; try { localStorage.setItem("kk_lite_level", "2"); } catch { /* 무시 */ } return; }
+  applyLite(0); liteDone = true; console.info("[가벼운 화면] 화면을 가볍게 해도 인식이 빨라지지 않아 원래대로 되돌려요 (게임 화면이 원인이 아니에요)");
+}
+
 function frame(now) {
   requestAnimationFrame(frame);
+  if (liteLevel >= 2 && (liteTick = !liteTick)) return;     // 2단계: 한 프레임 걸러 그려요 (초당 30번)
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   // 📊 실제 성능을 1초마다 HUD에 표시: 화면 fps · 초당 AI 인식 횟수 · 인식 1회 시간 (예전엔 "60 FPS LOCKED" 고정 문구였어요)
   perfFrames++;
   if (now - perfT0 >= 1000) {
     const secs = (now - perfT0) / 1000, st = visionAI.stats, el = $("hudFpsText");
     const aiTotal = st.results + mainInfers;
-    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.path === "data" ? " 픽셀방식" : "") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
+    try { liteGovernor(now, st); } catch (e) { console.warn("가벼운 화면 판단 오류(무시)", e); }
+    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.path === "data" ? " 픽셀방식" : "") + (liteLevel ? " · 가벼운 화면 " + liteLevel + "단계" : "") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
     perfFrames = 0; perfT0 = now; perfAi = aiTotal;
   } // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 
