@@ -19,20 +19,22 @@ const TUNE_FORCE = typeof location !== "undefined" && location.search.includes("
 // 이전 레거시 엔진을 원할 때만 주소에 ?engine=classic 을 붙입니다.
 export const CLASSIC_ENGINE = typeof location !== "undefined" && new URLSearchParams(location.search).get("engine") === "classic";
 const CONFIGS = [
-  { cpu: false, s: 0.65, p: "bitmap" }, // ① GPU·0.65배율 (표준 권장: 15~25ms 초고속 추론)
-  { cpu: false, s: 1, p: "bitmap" },    // ② GPU·원본 크기 (초고해상도 환경)
+  { cpu: false, s: 0.5, p: "bitmap" },  // ① GPU·0.5배율 (320x240, 15~25ms 초고속 추론)
+  { cpu: false, s: 0.65, p: "bitmap" }, // ② GPU·0.65배율 (416x312)
   { cpu: true, s: 0.5, p: "bitmap" },   // ③ CPU·0.5배율 (GPU 가속 미지원 환경 폴백)
 ];
-const prefKey = (kind) => "kk_tune_" + kind;
+// ⚡ v2 캐시 키: 구버전 원본 크기(scale: 1.0) 캐시를 무효화하고 초경량 해상도 강제
+const prefKey = (kind) => "kk_tune_v2_" + kind;
 const readPref = (kind) => {
   try {
     if (typeof location !== "undefined" && location.search.includes("retune")) return null;
     const v = JSON.parse(localStorage.getItem(prefKey(kind)) || "null");
-    return v && typeof v.cpu === "boolean" && v.s > 0 && v.s <= 1 ? { cpu: v.cpu, s: v.s, p: "bitmap" } : null;
+    // scale이 0.7보다 크면 초경량 0.5로 강제 보정
+    return v && typeof v.cpu === "boolean" && v.s > 0 && v.s <= 0.7 ? { cpu: v.cpu, s: v.s, p: "bitmap" } : null;
   } catch { return null; }
 };
 const writePref = (kind, c) => {
-  try { localStorage.setItem(prefKey(kind), JSON.stringify({ cpu: c.cpu, s: c.s, p: "bitmap" })); } catch { /* 무시 */ }
+  try { localStorage.setItem(prefKey(kind), JSON.stringify({ cpu: c.cpu, s: Math.min(0.65, c.s), p: "bitmap" })); } catch { /* 무시 */ }
 };
 
 export function createVisionClient({ video, classic = CLASSIC_ENGINE }) {
@@ -48,9 +50,9 @@ export function createVisionClient({ video, classic = CLASSIC_ENGINE }) {
   const waiters = { hand: [], pose: [] };
   const stats = { inferMs: 0, latencyMs: 0, results: 0, startedAt: 0 };
   const initArgs = {};            // kind -> ensure()에 받은 모델/옵션
-  // ⚡ 기본 최적 스케일: 손 0.65배, 몸 0.7배 (MediaPipe 권장 해상도로 추론 시간 60% 단축)
-  const defaultScale = classic ? 1 : 0.65;
-  const scale = { hand: defaultScale, pose: classic ? 1 : 0.7 };
+  // ⚡ 기본 최적 스케일: 손 0.5배(320x240), 몸 0.6배 (MediaPipe 최적 입력 크기로 추론 시간 70% 단축)
+  const defaultScale = classic ? 1 : 0.5;
+  const scale = { hand: defaultScale, pose: classic ? 1 : 0.6 };
   const path = { hand: "bitmap", pose: "bitmap" };
   const cur = { hand: { cpu: false, s: scale.hand, p: "bitmap" }, pose: { cpu: false, s: scale.pose, p: "bitmap" } };
   const tune = { hand: { phase: "wait", i: 0, n: 0, sum: 0, avgs: [], skip: 0 }, pose: { phase: "wait", i: 0, n: 0, sum: 0, avgs: [], skip: 0 } };
@@ -237,6 +239,13 @@ export function createVisionClient({ video, classic = CLASSIC_ENGINE }) {
     /** 인식할 종류를 정함 ("hand" | "pose" | null). null이면 영상을 보내지 않아요 */
     setActive(kind) {
       if (kind !== active) { active = kind; if (kind) { state[kind].fresh = false; stats.startedAt = performance.now(); } }
+    },
+    /** 모델 실행 옵션 동적 변경 (예: numHands 1 ↔ 2) */
+    setOptions(kind, options) {
+      if (initArgs[kind]?.options) Object.assign(initArgs[kind].options, options);
+      if (worker && state[kind].ready) {
+        worker.postMessage({ type: "setOptions", kind, options });
+      }
     },
     /** 작업자로 인식 중인지 */
     ready(kind) { return !broken && state[kind].ready; },

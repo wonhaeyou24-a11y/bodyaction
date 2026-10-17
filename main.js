@@ -1040,8 +1040,8 @@ let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 let bodyVelocities = []; // (예전 방식 호환용)
 // 📍 위치 추적기: 인식 결과가 들쭉날쭉한 간격으로 와도 손/관절이 튀지 않고 부드럽게 따라가게 해요 (tracker.js)
-// ⚡ 손 전용 튜닝: jumpPx 900px, maxPredictMs 65ms(카메라+인식 지연 완전 상쇄), tau 35ms(민첩한 추종)
-const HAND_AB = { alpha: 0.58, beta: 0.24, tau: 35, maxPredictMs: 65, stillSpeed: 0.05, jumpPx: 900, rateAdapt: !CLASSIC_ENGINE };
+// ⚡ 노트북LM Dead Reckoning: maxPredictMs 110ms(카메라 센서+워커 지연 전액 상쇄), tau 28ms(초저지연 1:1 추종)
+const HAND_AB = { alpha: 0.60, beta: 0.28, tau: 28, maxPredictMs: 110, stillSpeed: 0.05, jumpPx: 900, rateAdapt: !CLASSIC_ENGINE };
 const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta(HAND_AB));
 const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 50, maxPredictMs: 110, stillSpeed: 0.04, jumpPx: 300, rateAdapt: !CLASSIC_ENGINE };
 let bodyTracks = [], bodyVis = [], bodyHave = false;
@@ -6551,6 +6551,9 @@ function startGame(m, opts = {}) {
 
   seedGame(opts.seed);                                                            // 온라인 대결이면 같은 시드 = 같은 판
   visionAI.setActive(useMouse ? null : (games[m].body ? "pose" : "hand"));          // ⚡ 이번 게임에 필요한 인식만 작업자에서 돌림
+  // ⚡ 노트북LM 동적 numHands 스위칭: 양손 필수 게임(beat/box)만 2손, 풍선 등은 1손으로 지정해 추론 속도 2배 가속
+  const needDualHands = (m === "beat" || m === "box");
+  visionAI.setOptions?.("hand", { numHands: needDualHands ? 2 : 1 });
   if (m === "beat" && opts.trackId) games.beat.chosenTrackId = opts.trackId;      // 온라인: 방장이 고른 곡
   ac(); // 오디오 컨텍스트 즉시 활성화 (브라우저 유저 제스처 정책 준수)
   // 🎵 네오노트슬래시(beat)는 대중 명곡을 충분히 감상하고 베어낼 수 있도록 90초(1분 30초, +30초 연장) 적용!
@@ -6931,8 +6934,9 @@ async function makeLandmarker(Cls, modelAssetPath, extra) {
   catch { return await Cls.createFromOptions(vision, opts("CPU")); }
 }
 // 오인식(노이즈) 방지 및 빠른 스윙 추적력 극대화를 위한 고정밀 신뢰도 세팅
-const POSE_OPTIONS = { numPoses: 1, minPoseDetectionConfidence: 0.38, minPosePresenceConfidence: 0.38, minTrackingConfidence: 0.40 };
-const HAND_OPTIONS = { numHands: 2, minHandDetectionConfidence: 0.35, minHandPresenceConfidence: 0.35, minTrackingConfidence: 0.40 };   // 1인 2손 집중 추적
+const POSE_OPTIONS = { numPoses: 1, minPoseDetectionConfidence: 0.40, minPosePresenceConfidence: 0.40, minTrackingConfidence: 0.45 };
+// ⚡ 노트북LM 지침: minDetectionConfidence를 0.55/0.50으로 조정해 Palm Detection 중복 호출을 줄이고 15~25ms 초고속 트래킹 상태 유지
+const HAND_OPTIONS = { numHands: 2, minHandDetectionConfidence: 0.55, minHandPresenceConfidence: 0.50, minTrackingConfidence: 0.45 };
 async function ensureModel(kind) {
   if (kind === "pose" ? poseLandmarker : handLandmarker) return true;
   if (visionAI.ready(kind)) return true;

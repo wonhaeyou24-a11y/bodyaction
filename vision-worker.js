@@ -40,6 +40,18 @@ self.onmessage = async (e) => {
     return;
   }
 
+  if (m.type === "setOptions") {
+    try {
+      const task = tasks[m.kind];
+      if (task?.setOptions) {
+        task.setOptions(m.options);
+      }
+    } catch (err) {
+      console.warn("setOptions 실패:", err);
+    }
+    return;
+  }
+
   if (m.type === "detect") {
     const task = tasks[m.kind];
     try {
