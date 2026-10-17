@@ -734,7 +734,7 @@ function prepareRealTrackAudio(fileUrl, loop = true) {
   try {
     stopRealTrackAudio();
     if (!fileUrl) return;
-    bgmAudio = new Audio(fileUrl);
+    bgmAudio = new Audio(fileUrl + "?v=20261017_2000");
     bgmAudio.loop = loop;
     bgmAudio.preload = "auto";
     // ⚡ iOS / iPadOS Safari 자동재생 언락: 사용자가 카드를 터치한 바로 이 순간에 무음 play()를 시작하여
