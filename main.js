@@ -19,6 +19,7 @@ import { skeletonToPx } from "./character.js?v=20261013_1500";
 import { CRUN, createRun, stepRun } from "./crun-core.js?v=20261013_1500";
 import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1500";
 import { newLaneState, stepLane } from "./lane.js?v=20261013_1500";
+import { Recorder, buildScript, downloadRecording } from "./recorder.js?v=20261017_2100";
 import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1500";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
@@ -947,6 +948,46 @@ const euroFilters = Array.from({ length: MAX_HANDS }, () => ({
   y: new OneEuroFilter(1.3, 0.075)
 }));
 
+// ---------- 몸 움직임 녹화 (F8, 개발·진단용) ----------
+// 몸 게임을 하는 중이거나 커스튬 룸에서 F8을 누르면 화면 안내대로 약 100초 동안 움직이는 동작을 관절 좌표로 저장해서 내려받아요.
+// 그 파일을 node test/replay.mjs 로 다시 돌리면 점프·앉기·기울이기·펀치가 얼마나 잘 인식됐는지 채점해 줘요. (영상은 저장하지 않아요)
+const recorder = new Recorder();
+let recUI = null, recTimer = 0;
+function recToast(msg) {
+  const el = document.createElement("div");
+  el.textContent = msg;
+  el.style.cssText = "position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;background:rgba(20,16,50,.92);color:#fff;border:1px solid #7df9ff;border-radius:12px;padding:10px 16px;font:700 15px sans-serif;pointer-events:none";
+  document.body.appendChild(el); setTimeout(() => el.remove(), 3500);
+}
+function recStart() {
+  if (!((mode && games[mode]?.body && playing) || isCostumeRoomOpen)) { recToast("몸 인식이 켜진 곳에서 F8을 눌러 주세요 (몸놀이 게임을 하는 중이거나 커스튬 룸)"); return; }
+  const script = buildScript();
+  recorder.start({ W, H, vw: video.videoWidth || 640, vh: video.videoHeight || 480, mirror: playerSettings.mirror !== false, mode: mode || "costume", ua: navigator.userAgent }, script);
+  recUI = document.createElement("div");
+  recUI.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99998;text-align:center;pointer-events:none;font-family:sans-serif;color:#fff;text-shadow:0 2px 8px #000";
+  document.body.appendChild(recUI);
+  recTimer = setInterval(recTick, 100);
+  recTick();
+}
+function recTick() {
+  if (!recorder.on) return;
+  const t = recorder.now() / 1000, seg = recorder.rec.script.find((s) => t >= s.start && t < s.end);
+  if (!seg) { recStop(true); return; }
+  const left = Math.ceil(seg.end - t);
+  recUI.innerHTML = `<div style="margin-top:18px;display:inline-block;background:rgba(0,0,0,.55);border-radius:18px;padding:12px 28px"><div style="font-size:15px;color:#ff6b6b">● 녹화 중 ${Math.floor(t)}초 / ${Math.round(recorder.rec.script[recorder.rec.script.length - 1].end)}초  ·  F8: 중단하고 저장</div><div style="font-size:40px;font-weight:900;margin-top:4px">${seg.say}</div><div style="font-size:15px;opacity:.8">${seg.type === "setup" || seg.type === "still" || seg.type === "walk" ? left + "초" : ""}</div></div>`;
+}
+function recStop(save) {
+  clearInterval(recTimer); recTimer = 0;
+  const rec = recorder.stop();
+  recUI?.remove(); recUI = null;
+  if (save && rec && rec.results.length) {
+    const d = new Date(), pad = (n) => String(n).padStart(2, "0");
+    downloadRecording(rec, `kk-rec-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`);
+    recToast(`녹화 저장 완료 (${rec.results.length}번 인식, ${Math.round(rec.durationMs / 1000)}초) — 다운로드 폴더를 확인하세요`);
+  } else recToast("녹화된 내용이 없어요 (몸이 안 보였어요)");
+}
+addEventListener("keydown", (e) => { if (e.key === "F8") { e.preventDefault(); if (recorder.on) recStop(true); else recStart(); } });
+
 function videoToScreen(lm) {
   const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
   const s = Math.max(W / vw, H / vh);
@@ -1050,6 +1091,7 @@ function updatePointers() {
           if (r && r.landmarks && r.landmarks.length) {
             bodySeen = t0;
             feedArmVel(r.landmarks[0], t0);
+            if (recorder.on) recorder.result(t0, r.landmarks[0]);
             r.landmarks[0].forEach((l, i) => {
               const p = videoToScreen(l);
               (bodyTracks[i] ??= new AlphaBeta(BODY_AB)).update(p.x, p.y, t0);
@@ -1058,6 +1100,7 @@ function updatePointers() {
             bodyTracks.length = r.landmarks[0].length;
             bodyHave = true;
           } else if (t0 - bodySeen > 600) {
+            if (recorder.on) recorder.mark("lost");
             body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset()); resetArmVel();
           }
         } catch (err) {
@@ -11060,5 +11103,5 @@ GAME_HUD_META.cduel = { theme: "space", badge: "SWORD & SHIELD", title: "PARRY B
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
-  window.__kk = { setForcedBody: (fn) => { forcedBody = fn; }, games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+  window.__kk = { recorder, setForcedBody: (fn) => { forcedBody = fn; }, games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
 }
