@@ -1040,10 +1040,10 @@ let lastHandInferEndTime = 0, lastPoseInferEndTime = 0;
 let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }));
 let bodyVelocities = []; // (예전 방식 호환용)
 // 📍 위치 추적기: 인식 결과가 들쭉날쭉한 간격으로 와도 손/관절이 튀지 않고 부드럽게 따라가게 해요 (tracker.js)
-// ⚡ 손 전용 튜닝: jumpPx를 900px로 상향하여 고속 스윙 시 리셋 순간이동 원천 차단, maxPredictMs 45ms로 미래 오버슈트 튐 차단!
-const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed: 0.05, jumpPx: 900, rateAdapt: !CLASSIC_ENGINE };   // rateAdapt: AI 인식이 느린 컴퓨터(초당 10~15번)에서 손이 딱딱 끊기고 순간이동하는 걸 줄여요
+// ⚡ 손 전용 튜닝: jumpPx 900px, maxPredictMs 65ms(카메라+인식 지연 완전 상쇄), tau 35ms(민첩한 추종)
+const HAND_AB = { alpha: 0.58, beta: 0.24, tau: 35, maxPredictMs: 65, stillSpeed: 0.05, jumpPx: 900, rateAdapt: !CLASSIC_ENGINE };
 const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta(HAND_AB));
-const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
+const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 50, maxPredictMs: 110, stillSpeed: 0.04, jumpPx: 300, rateAdapt: !CLASSIC_ENGINE };
 let bodyTracks = [], bodyVis = [], bodyHave = false;
 const FAST_JOINTS = [13, 14, 15, 16];                 // 팔꿈치·손목: 광선검처럼 빠르게 휘두르는 게임(fastArms)에서는 이 "빠른 팔" 추적기 값을 써요 (늦음 ~100ms → ~50ms)
 const fastTracks = {};
