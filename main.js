@@ -21,6 +21,7 @@ import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1500";
 import { newLaneState, stepLane } from "./lane.js?v=20261013_1500";
 import { Recorder, buildScript, downloadRecording } from "./recorder.js?v=20261017_2100";
 import { newSwingState, stepSwing } from "./swing.js?v=20261017_2200";
+import { SLASH, DIRS, newFlow, nextNotes, sweepBlade, tipDirection, judgeCut } from "./slash.js?v=20261018_0100";
 import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1500";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
@@ -453,7 +454,7 @@ if (typeof window !== "undefined" && window.speechSynthesis) {
 // 고정 문장은 미리 만들어 둔 사람 같은 음성 파일(assets/voice)로 말해요. 어느 기기·브라우저든 메인 화면과 게임에서 똑같은 목소리예요.
 // 파일에 없는 문장(이름·숫자가 들어가는 말)만 브라우저 기본 음성으로 말해요.
 let voiceClips = null, voiceClipAudio = null;
-try { fetch("assets/voice/index.json?v=20261017_1900").then((r) => (r.ok ? r.json() : null)).then((j) => { voiceClips = j; }).catch(() => {}); } catch {}
+try { fetch("assets/voice/index.json?v=20261018_0100").then((r) => (r.ok ? r.json() : null)).then((j) => { voiceClips = j; }).catch(() => {}); } catch {}
 function cancelVoice() {
   try { speechSynthesis.cancel(); } catch {}
   if (voiceClipAudio) { try { voiceClipAudio.pause(); } catch {} voiceClipAudio = null; }
@@ -555,7 +556,7 @@ const INTRO = {
   kungfu: "다가오는 악당들을 번개같은 주먹으로 물리쳐 보세요!",
   pose: "화면 속 친구와 똑같은 멋진 자세를 따라 해 보세요!",
   versus: "친구와 함께하는 2인 대결! 풍선을 더 많이 터뜨리는 사람이 승리해요!",
-  beat: "신나는 음악에 맞춰 네온 큐브를 시원하게 베어 보세요!",
+  beat: "신나는 음악에 맞춰 네온 큐브를 화살표 방향으로 시원하게 베어 보세요! 박자에 딱 맞게 힘차게 지나가면 점수가 높아요!",
   keeper: "골대로 날아오는 공을 온몸으로 멋지게 막아내세요!",
   box: "샌드백을 향해 양주먹으로 신나게 펀치를 날려 보세요!",
 };
@@ -5019,6 +5020,25 @@ games.versus = {
 // ============================================================================
 // 1. 🎵 네온 노트 슬래시 (beat): 비트세이버 정통 게임플레이 디자인 (Body Motion & Parity Flow)
 // ============================================================================
+/** 큐브 앞면에 "베는 방향 화살표"(●이면 아무 방향)를 그려요 */
+function drawSlashArrow(o) {
+  const r = o.r;
+  if (r < 14) return;
+  ctx.save();
+  ctx.translate(o.x, o.y);
+  if (o.dir == null) {
+    ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = Math.max(1.5, r * 0.04);
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else {
+    const v = DIRS[o.dir], s = r * 0.62;
+    ctx.rotate(Math.atan2(v[1], v[0]));
+    ctx.fillStyle = "rgba(255,255,255,0.97)"; ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = Math.max(1.5, r * 0.05); ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * 0.55, -s * 0.78); ctx.lineTo(-s * 0.25, 0); ctx.lineTo(-s * 0.55, s * 0.78); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 games.beat = {
   body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 오디오 타임스탬프 100% 동기화 엔진 가동
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
@@ -5116,7 +5136,9 @@ games.beat = {
       { base: { x: W * 0.65, y: H * 0.6 }, tip: { x: W * 0.7, y: H * 0.4 } }
     ];
     this.swingPower = [0, 0];
-    this.swingSt = [newSwingState(), newSwingState()]; this.swinging = [false, false];   // 어깨 기준 속도로 휘두름을 판정 (swing.js)
+    this.swingSt = [newSwingState(), newSwingState()]; this.swinging = [false, false];
+    this.flow = newFlow();                                   // 큐브 배치 흐름 (손 번갈아·위↔아래 왕복, slash.js)
+    this.prevSabers = [null, null]; this.tipHist = [[], []]; this.swingN = [0, 0];   // 칼날이 쓸고 간 곳·칼끝 방향·휘두른 속도로 베기 판정 (slash.js)   // 어깨 기준 속도로 휘두름을 판정 (swing.js)
 
     this.energy = 50;
     this.multiplier = 1;
@@ -5133,7 +5155,7 @@ games.beat = {
     this.simSongTime = 0;
     this.songStartTime = (actx && actx.state === "running") ? actx.currentTime : 0;
     this.nextBeatIdx = 0; this.nextHit = null;
-    this.nextWallBeat = 16; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
+    this.nextWallBeat = 16; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0; this.flow = newFlow();
     if (!this.currentTrack?.audioFile && actx) { bgmNext = actx.currentTime + 0.08; bgmStep = 0; }   // 신스 곡은 본 게임 시작 순간부터 처음 박자로 다시 시작 (큐브 박자와 맞추기)
     objs = []; // 레디타임 잔여물 리셋
     if (bgmAudio) {
@@ -5215,35 +5237,24 @@ games.beat = {
   },
 
   spawnNoteAt(hitTime, approachTime) {
+    // 박자마다 나올 큐브(들)를 흐름 규칙으로 정해요: 손 번갈아, 같은 손은 위↔아래 왕복, 쉬었다 나오면 가끔 양손 동시 (slash.js)
+    for (const q of nextNotes(this.flow, rng, currentWave, hitTime)) this.spawnOne(q, hitTime, approachTime);
+  },
+
+  spawnOne(q, hitTime, approachTime) {
     this.spawnCount++;
-
-    // 1. 네온 스파이크 폭탄 (9개 큐브마다 1개 출현하여 리듬 긴장감 조성)
+    // 네온 스파이크 폭탄 (9개 큐브마다 1개 꼴로 출현)
     const isBomb = this.spawnCount % 9 === 0 && rng() < 0.65;
-
-    // 2. 비트세이버 정통 패리티 플로우: 왼손(0)과 오른손(1)이 교대로 춤추듯 슬래시
-    this.lastParity = 1 - this.lastParity;
-    const isLeft = this.lastParity === 0;
-
-    // 가로 레인: 0(좌측외곽), 1(좌측센터), 2(우측센터), 3(우측외곽)
-    const laneIdx = isLeft ? (rng() < 0.72 ? 1 : 0) : (rng() < 0.72 ? 2 : 3);
-    const targetXList = [W * 0.18, W * 0.38, W * 0.62, W * 0.82];
-    const targetX = targetXList[laneIdx];
-
-    // 높이 레이어: 상단(머리 위) 30%, 중단(가슴/배) 40%, 하단(허리/아래) 30%
-    const heightRand = rng();
-    let targetY = H * 0.52; // 중단 기본
-    if (heightRand < 0.30) {
-      targetY = H * 0.28; // 상단 (만세하듯 위로 올려베기)
-    } else if (heightRand > 0.70) {
-      targetY = H * 0.74; // 하단 (시원하게 내려베기)
-    }
-
+    const isLeft = q.hand === 0;
+    const targetX = [W * 0.18, W * 0.38, W * 0.62, W * 0.82][q.lane];
+    const targetY = [H * 0.28, H * 0.52, H * 0.74][q.row];
     objs.push({
-      hitTime, // 🎵 정확히 이 시점(노래의 박자 순간)에 플레이어 판정선(z=1.0)에 도달!
+      hitTime, // 정확히 이 시점(노래의 박자 순간)에 판정선(z=1.0)에 도달!
       approachTime,
       targetX,
       targetY,
       isLeft,
+      dir: isBomb ? null : q.dir,          // 베는 방향 (0~7, null=점: 아무 방향)
       color: isLeft ? "#00d2ff" : "#ff3377",
       isBomb,
       dead: false,
@@ -5263,6 +5274,7 @@ games.beat = {
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
     this.beatFlash = Math.max(0, this.beatFlash - dt * 2.8);
     this.laserAngle += dt * 0.95;
+    this.prevSabers = this.sabers.map((sb) => (sb && sb.base && sb.tip ? { bx: sb.base.x, by: sb.base.y, tx: sb.tip.x, ty: sb.tip.y } : null));   // 이전 프레임 칼 모양 (칼날이 쓸고 간 곳 계산용)
 
     // ⚡ 레디타임 종료 후에는 프레임 dt를 시계에 즉각 합산하여 프레임 동기화 보장
     if (!isReadyTime && this.realStartTime > 0) {
@@ -5409,6 +5421,20 @@ games.beat = {
       }
     }
 
+    // 슬래시 판정용 기록: 칼끝이 움직이는 방향과 휘두른 속도(어깨너비/초)
+    {
+      const shW = skel && skel[11] && skel[12] ? Math.hypot(skel[11].x - skel[12].x, skel[11].y - skel[12].y) : 0;
+      for (let i = 0; i < 2; i++) {
+        const sb = this.sabers[i];
+        if (!sb || !sb.base || !sb.tip) continue;
+        const hist = this.tipHist[i];
+        hist.push({ t: now, x: sb.tip.x, y: sb.tip.y });
+        while (hist.length > 16 || (hist.length && now - hist[0].t > 220)) hist.shift();
+        const av = armVel[1 - i];                                     // 몸 인식: 어깨 기준 손목 속도 (왼손=armVel[1])
+        this.swingN[i] = !useMouse && now - av.t < 300 ? av.vN(now) : (((this.wristVel[useMouse ? 0 : i]?.spd || 0) * 60) / (shW > 40 ? shW : W * 0.14));
+      }
+    }
+
     // [PSVR 비트세이버 세이버 리본 트레일 기록]
     [0, 1].forEach((i) => {
       const s = this.sabers[i];
@@ -5451,40 +5477,19 @@ games.beat = {
       o.y = originY + (o.targetY - originY) * o.z;
       o.r = Math.max(12, 16 + o.z * 52);
 
-      // 판정선 윈도우: 오디오 시간 기준 ±160ms (0.16초) 또는 Z 위치 0.80 ~ 1.12
-      const inTimeWindow = Math.abs(timeRemaining) <= 0.16;
-      const inZWindow = o.z >= 0.80 && o.z <= 1.12;
-
-      if (!o.dead && !o.cut && inZWindow && inTimeWindow) {
+      // 베기 판정 (비트세이버 방식): 박자 앞뒤 SLASH.WINDOW(0.22초) 안에, 칼날이 큐브를 "쓸고 지나가며" 충분히 빠르게 휘둘렀을 때
+      if (!o.dead && !o.cut && Math.abs(timeRemaining) <= SLASH.WINDOW && o.z >= 0.6) {
         const handIdx = o.isLeft ? 0 : 1;
-        const saber = this.sabers[handIdx];
+        const hands = useMouse || o.isBomb ? [0, 1] : [handIdx];       // 마우스는 아무 칼, 폭탄은 어느 칼이든 닿으면
+        for (const hI of hands) {
+          const sab = this.sabers[hI];
+          if (!sab || !sab.base || !sab.tip) continue;
+          const cur = { bx: sab.base.x, by: sab.base.y, tx: sab.tip.x, ty: sab.tip.y };
+          const sw = sweepBlade(this.prevSabers[hI], cur, o.x, o.y, o.isBomb ? o.r * 0.8 : o.r, o.isBomb ? 6 : SLASH.PAD);
+          if (!sw.hit) continue;
 
-        // 1. [위치 일치] 광선검 검신 선분 또는 손목이 큐브 위치에 실제로 닿았는가?
-        const isSaberTouch = Boolean(saber && saber.base && saber.tip && segHitsCircle(saber.base.x, saber.base.y, saber.tip.x, saber.tip.y, o.x, o.y, o.r + 36));
-        const curWrist = (this.prevWrist && this.prevWrist[handIdx]) || { x: W * 0.5, y: H * 0.5 };
-        const wristDist = Math.hypot(curWrist.x - o.x, curWrist.y - o.y);
-        const isWristTouch = wristDist < (o.r + 42);
-
-        let isInPosition = Boolean(isSaberTouch || isWristTouch);
-
-        if (useMouse) {
-          const mDist = Math.hypot(mouse.x - o.x, mouse.y - o.y);
-          const mSaberTouch = Boolean((this.sabers && this.sabers[0] && segHitsCircle(this.sabers[0].base.x, this.sabers[0].base.y, this.sabers[0].tip.x, this.sabers[0].tip.y, o.x, o.y, o.r + 36)) ||
-                              (this.sabers && this.sabers[1] && segHitsCircle(this.sabers[1].base.x, this.sabers[1].base.y, this.sabers[1].tip.x, this.sabers[1].tip.y, o.x, o.y, o.r + 36)));
-          if (mDist < (o.r + 45) || mSaberTouch) isInPosition = true;
-        }
-
-        // 2. [스윙 액션] 가만히 대고 있는 것이 아닌, 실제로 칼을 휘두르는 가속도가 실렸는가?
-        const wVel = (this.wristVel && this.wristVel[handIdx]) || { spd: 0 };
-        const isSwinging = Boolean(swing[handIdx] || this.swinging[handIdx] || (useMouse && (swing[0] || swing[1])));
-
-        // 3. [모멘텀 쿨다운] 제자리 뱅글뱅글 비비기 방지
-        const lastCut = (this.lastCutT && this.lastCutT[handIdx]) || 0;
-        const isCooldownOk = (now - lastCut > 110);
-
-        // [A] 네온 폭탄(Bomb) 판정: 폭탄을 치면 대폭발!
-        if (o.isBomb) {
-          if (isInPosition) {
+          // [A] 네온 폭탄: 칼날이 닿으면 대폭발!
+          if (o.isBomb) {
             o.dead = true;
             this.energy = Math.max(0, this.energy - 12);
             this.screenShake = 0.35;
@@ -5493,49 +5498,55 @@ games.beat = {
             sfx.incoming(o.x);
             burst(o.x, o.y, "#ff0055", 35);
             popup(o.x, o.y, "BOMB HIT! 💥 -12", "#ff0055");
+            break;
           }
-        } else {
-          // [B] 일반 비트 큐브: 광선검 터치 + 스윙 액션 + 쿨다운 만족 시 통쾌한 절단!
-          if (isInPosition && isSwinging && isCooldownOk) {
-            if (this.lastCutT) this.lastCutT[handIdx] = now;
-            o.dead = true;
-            o.cut = true;
 
-            // 🎵 실제 음악 박자와의 시간 오차(밀리초)에 따른 정확도 채점!
-            const diffMs = Math.abs(timeRemaining) * 1000;
-            const timingScore = diffMs <= 60 ? 35 : (diffMs <= 110 ? 25 : 15);
-            const speedScore = Math.min(65, Math.round(35 + (wVel.spd || 0) * 3.2));
-            const centerScore = 15;
-            const baseScore = speedScore + timingScore + centerScore;
-            const finalScore = baseScore * this.multiplier;   // 점수는 아래 award()에서 한 번만 더해짐 (콤보도 award()가 올림)
+          // [B] 일반 큐브: 속도·방향·정확도·박자로 채점 (최대 115점)
+          if (now - (this.lastCutT[hI] || 0) <= 90) continue;          // 한 번 휘두름에 같은 손으로 연달아 베이는 것 방지
+          const tipDir = tipDirection(this.tipHist[hI], now);
+          const j = judgeCut({ dir: o.dir, r: o.r }, { dist: sw.dist, swingN: this.swingN[hI], tipDir, dtMs: Math.abs(timeRemaining) * 1000 });
+          if (!j.cut) continue;                                         // 너무 느리게 스친 것: 안 베어져요 (그냥 손을 옮기는 건 베기가 아니에요)
+          this.lastCutT[hI] = now;
+          o.dead = true;
+          o.cut = true;
+          const ang = tipDir ? Math.atan2(-tipDir[0], tipDir[1]) : 0;      // 베는 방향에 맞춰 큐브가 갈라지게 (갈림선이 칼이 지나간 방향)
+          const px = Math.cos(ang), py = Math.sin(ang);
 
-            this.energy = Math.min(100, this.energy + 2.8);
-            this.screenShake = 0.10;
-            this.beatFlash = 1.0; // 비트 펄스 조명 즉시 점등!
-
-            sfx.saber(o.x, o.isLeft);
-            burst(o.x, o.y, o.color, baseScore >= 105 ? 40 : 26);
-
-            // 컷팅 스파크 팽창 링 생성
-            this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.3, vr: o.r * 6.5, color: o.color, life: 1.0 });
-
-            const isPerfect = diffMs <= 60;
-            award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
-
-            const cutLabel = isPerfect ? `PERFECT! +${finalScore} [${this.multiplier}x]` : `SLASH! +${finalScore} [${this.multiplier}x]`;
-            popup(o.x, o.y - 40, cutLabel, isPerfect ? "#ffd700" : o.color);
-
-            // 입체 회전 물리 파편 (Halves)
+          if (j.bad) {                                                  // 반대 방향으로 벰: 점수 없이 콤보 끊김
+            this.energy = Math.max(0, this.energy - 4);
+            this.screenShake = 0.15;
+            combo = 0; this.multiplier = 1;
+            sfx.chip(o.x);
+            popup(o.x, o.y - 40, "WRONG WAY! ↺ 화살표 방향으로!", "#ff9f43");
             this.halves.push(
-              { x: o.x - 14, y: o.y, r: o.r, color: o.color, vx: -8, vy: -4, rot: 0, vRot: -0.25, half: -1, life: 1 },
-              { x: o.x + 14, y: o.y, r: o.r, color: o.color, vx: 8, vy: -3, rot: 0, vRot: 0.22, half: 1, life: 1 }
+              { x: o.x - 10, y: o.y, r: o.r, color: "#7a7f93", vx: -px * 4, vy: -py * 4, rot: ang, vRot: -0.1, half: -1, life: 0.8 },
+              { x: o.x + 10, y: o.y, r: o.r, color: "#7a7f93", vx: px * 4, vy: py * 4, rot: ang, vRot: 0.1, half: 1, life: 0.8 }
             );
+            break;
           }
+
+          const diffMs = Math.abs(timeRemaining) * 1000;
+          const finalScore = j.total * this.multiplier;                  // 점수는 아래 award()에서 한 번만 더해짐 (콤보도 award()가 올림)
+          this.energy = Math.min(100, this.energy + 2.8);
+          this.screenShake = 0.10;
+          this.beatFlash = 1.0;                                          // 비트 펄스 조명 즉시 점등!
+          sfx.saber(o.x, o.isLeft);
+          burst(o.x, o.y, o.color, j.total >= 100 ? 40 : 26);
+          this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.3, vr: o.r * 6.5, color: o.color, life: 1.0 });
+          const isPerfect = diffMs <= 60 && j.total >= 95;
+          award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
+          const note = o.dir != null && j.parts.dir < 10 ? " · 방향!" : j.parts.speed < 25 ? " · 더 힘차게!" : "";
+          popup(o.x, o.y - 40, `${isPerfect ? "PERFECT" : "SLASH"} ${j.total}${this.multiplier > 1 ? ` ×${this.multiplier}` : ""}${note}`, isPerfect ? "#ffd700" : o.color);
+          this.halves.push(
+            { x: o.x - 10, y: o.y, r: o.r, color: o.color, vx: -px * 7, vy: -py * 7 - 2, rot: ang, vRot: -0.2, half: -1, life: 1 },
+            { x: o.x + 10, y: o.y, r: o.r, color: o.color, vx: px * 7, vy: py * 7 - 2, rot: ang, vRot: 0.18, half: 1, life: 1 }
+          );
+          break;
         }
       }
 
       // 판정선 완전히 지나쳐 놓침 (MISS) - 음악 시간 기준 180ms 초과 시
-      if (!o.dead && !o.cut && (timeRemaining < -0.18 || o.z > 1.15)) {
+      if (!o.dead && !o.cut && (timeRemaining < -(SLASH.WINDOW + 0.01) || o.z > 1.3)) {
         o.dead = true;
         if (!o.isBomb) {
           combo = 0;
@@ -5612,6 +5623,7 @@ games.beat = {
         Art.drawNeonBomb(o.x, o.y, o.r);
       } else {
         Art.drawBeatNote(o.x, o.y, o.r, o.color, 0);
+        drawSlashArrow(o);
       }
     }
     // 잘린 큐브 파편 렌더링
@@ -8151,7 +8163,7 @@ async function autoEquipRankCostumeForGame(modeId) {
 
         const slotName = item.slot === "head" ? "모자" : item.slot === "face" ? "가면" : "오라";
         setTimeout(() => {
-          popup(W / 2, H * 0.40, `👑 [1등 챔피언 독점 ${slotName}] ${item.name} 자동 착용!`, item.color || "#ffd700");
+          popup(W / 2, H * 0.40, `👑 [1등 챔피언 독점 ${slotName}] ${item.name} 자동 착용! (이 게임에서만 보여요)`, item.color || "#ffd700");
           sfx.equip?.();
         }, 180);
         return item;
@@ -9558,7 +9570,12 @@ function drawEquippedCostumesOnBody(ctx, skel, pointers, isBuddy = false) {
     if (!chestAnchor && !headAnchor) return;
 
     // 👗 장착한 모든 커스튬 파츠는 레디타임 시작부터 100% 온전히 착용한 채로 노출
-    const isSlotReady = (slot) => isCostumeRoomOpen || !HIDE_IN_GAME.has(slot);   // 게임 중에는 상의·장갑(손 아이템)을 숨겨요 (화면이 복잡해지고 판정에 방해돼서). 피팅룸에서는 보여요
+    const isSlotReady = (slot) => {
+      if (isCostumeRoomOpen) return true;                                    // 피팅룸에서는 모두 보여요
+      if (HIDE_IN_GAME.has(slot)) return false;
+      const it = COSTUME_ITEMS[equippedCostume[slot]];
+      return !it?.game || it.game === mode;                                  // 게임 1등 전용 커스튬은 그 게임에서만 입어요 (다른 게임에서는 안 보여요)
+    };   // 게임 중에는 상의·장갑(손 아이템)을 숨겨요 (화면이 복잡해지고 판정에 방해돼서). 피팅룸에서는 보여요
 
     // 1. 오라 (가장 뒷면 레이어 — 신체 33개 관절 기반 전신 초사이어인 포스 엔진!)
     if (equippedCostume.aura && isSlotReady("aura")) {
