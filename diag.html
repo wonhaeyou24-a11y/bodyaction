@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인식 속도 진단</title>
+<style>
+  :root { --bg:#0d0f18; --fg:#eaf2ff; --muted:#9fb3c8; --card:#171a2a; --accent:#7df9ff; --bad:#ff7b8a; --ok:#6ee7a8; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f4f6fb; --fg:#12162a; --muted:#52607a; --card:#fff; --accent:#0a7aa0; --bad:#c03348; --ok:#13804f; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, "Malgun Gothic", sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.3rem; margin:8px 0; }
+  p { color:var(--muted); margin:6px 0 12px; }
+  button { font:inherit; padding:10px 18px; border-radius:10px; border:0; background:var(--accent); color:#00232e; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .card { background:var(--card); border-radius:14px; padding:12px 14px; margin:12px 0; }
+  video { width:100%; max-width:320px; border-radius:10px; transform:scaleX(-1); background:#000; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid rgba(127,127,127,.25); }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .fast { color:var(--ok); font-weight:700; } .slow { color:var(--bad); font-weight:700; }
+  #log { white-space:pre-wrap; font:.85rem/1.4 ui-monospace, Consolas, monospace; color:var(--muted); }
+  textarea { width:100%; height:120px; background:var(--card); color:var(--fg); border:1px solid rgba(127,127,127,.4); border-radius:8px; padding:8px; box-sizing:border-box; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🔬 인식 속도 진단</h1>
+  <p>게임과 따로, 이 컴퓨터가 몸·손 인식을 얼마나 빨리 하는지 방법별로 재요. <b>카메라 앞에 서서 한 손을 들고(몸 전체가 보이게)</b> 시작을 누른 뒤 약 1분 동안 가만히 움직여 주세요. 영상은 저장하지 않아요.</p>
+  <div class="card">
+    <button id="go">▶ 측정 시작</button>
+    <span id="state" style="margin-left:10px;color:var(--muted)"></span>
+    <div style="margin-top:10px"><video id="video" playsinline muted></video></div>
+  </div>
+  <div class="card" id="cpuCard" hidden><b>컴퓨터 기본 속도</b> <span id="cpu"></span></div>
+  <div class="card" id="resCard" hidden>
+    <b>측정 결과</b> (인식 1번에 걸린 시간 · 작을수록 좋아요)
+    <table id="tbl"><thead><tr><th>종류</th><th>방법</th><th class="num">초당 인식</th><th class="num">1번 평균</th><th class="num">느린 10%</th><th class="num">영상→도착</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="card"><b>진행 기록</b><div id="log"></div></div>
+  <div class="card" id="outCard" hidden><b>이 내용을 복사해서 보내 주세요</b><textarea id="out" readonly></textarea><div style="margin-top:8px"><button id="copy">복사</button></div></div>
+</main>
+<script type="module">
+import { createVisionClient } from "./vision-client.js?v=20261018_0720";
+
+const $ = (id) => document.getElementById(id);
+const video = $("video"), log = (m) => { $("log").textContent += m + "\n"; };
+const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const POSE_OPTIONS = { numPoses: 1, minPoseDetectionConfidence: 0.38, minPosePresenceConfidence: 0.38, minTrackingConfidence: 0.40 };
+const HAND_OPTIONS = { numHands: 2, minHandDetectionConfidence: 0.35, minHandPresenceConfidence: 0.35, minTrackingConfidence: 0.40 };
+const CONFIGS = [
+  { name: "GPU · 원본 크기", cpu: false, s: 1, p: "bitmap" },
+  { name: "GPU · 절반 크기", cpu: false, s: 0.5, p: "bitmap" },
+  { name: "CPU · 절반 크기", cpu: true, s: 0.5, p: "bitmap" },
+  { name: "GPU · 절반 · 픽셀 방식", cpu: false, s: 0.5, p: "data" },
+  { name: "CPU · 절반 · 픽셀 방식", cpu: true, s: 0.5, p: "data" },
+];
+const SECS = Number(new URLSearchParams(location.search).get("secs")) || 7;   // ?secs=2 처럼 붙이면 짧게 시험
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const pct = (a, p) => { const b = [...a].sort((x, y) => x - y); return b[Math.min(b.length - 1, Math.floor(b.length * p))]; };
+/** 짧은 계산을 돌려서 이 컴퓨터가 지금 얼마나 빠른지(느려졌는지) 재요 */
+function cpuScore() { const t0 = performance.now(); let x = 0; for (let i = 0; i < 20000000; i++) x += Math.sqrt(i); return Math.round(performance.now() - t0 + (x < 0 ? 1 : 0)); }
+
+$("go").onclick = async () => {
+  $("go").disabled = true; $("state").textContent = "카메라 연결 중…";
+  const rows = [], report = { when: new Date().toISOString(), ua: navigator.userAgent, hw: navigator.hardwareConcurrency, mem: navigator.deviceMemory ?? null, dpr: devicePixelRatio, cpuBefore: null, cpuAfter: null, results: [] };
+  try {
+    video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 30 }, facingMode: "user" } });
+    await video.play();
+    const trk = video.srcObject.getVideoTracks()[0]; const set = trk.getSettings(); report.camera = { w: set.width, h: set.height, fps: set.frameRate, label: trk.label };
+    log(`카메라: ${trk.label} ${set.width}x${set.height} @${set.frameRate}fps`);
+    report.cpuBefore = cpuScore(); $("cpuCard").hidden = false; $("cpu").textContent = `· 계산 시험 ${report.cpuBefore}ms (작을수록 빠름)`;
+    const client = createVisionClient({ video });
+    let cur = null;
+    client.onResult = (kind, m) => { if (cur && cur.kind === kind) { cur.infer.push(m.inferMs || 0); cur.lat.push(performance.now() - m.ts); if (m.landmarks && m.landmarks.length) cur.target++; } };
+    for (const kind of ["pose", "hand"]) {
+      $("state").textContent = `${kind === "pose" ? "몸" : "손"} 모델 불러오는 중…`;
+      const ok = await client.ensure(kind, { model: kind === "pose" ? POSE_MODEL : MODEL, options: kind === "pose" ? POSE_OPTIONS : HAND_OPTIONS, cpu: false });
+      if (!ok) { log(`${kind} 모델을 불러오지 못했어요`); continue; }
+      for (const c of CONFIGS) {
+        client.setConfig(kind, c); client.setActive(kind);
+        const t0 = performance.now(); while (client.switching && performance.now() - t0 < 20000) await sleep(100);
+        await sleep(1200);                                          // 바뀐 직후 준비운동
+        cur = { kind, infer: [], lat: [], target: 0 };
+        $("state").textContent = `${kind === "pose" ? "몸" : "손"} · ${c.name} 측정 중… (${SECS}초)`;
+        await sleep(SECS * 1000);
+        const r = { kind, config: c.name, results: cur.infer.length, withTarget: cur.target, rate: +(cur.infer.length / SECS).toFixed(1), inferAvg: Math.round(cur.infer.reduce((a, b) => a + b, 0) / Math.max(1, cur.infer.length)), inferP90: Math.round(pct(cur.infer, 0.9) || 0), latAvg: Math.round(cur.lat.reduce((a, b) => a + b, 0) / Math.max(1, cur.lat.length)) };
+        report.results.push(r); cur = null;
+        log(`${kind} · ${c.name}: 초당 ${r.rate}번 · 1번 ${r.inferAvg}ms (느린 10% ${r.inferP90}ms) · 영상→도착 ${r.latAvg}ms · 사람/손 잡힌 결과 ${r.withTarget}/${r.results}`);
+      }
+      client.setActive(null);
+    }
+    report.cpuAfter = cpuScore(); $("cpu").textContent += ` → 끝난 뒤 ${report.cpuAfter}ms`;
+    // 표
+    $("resCard").hidden = false; const tb = $("tbl").querySelector("tbody");
+    const bestBy = {}; for (const r of report.results) if (!bestBy[r.kind] || r.inferAvg < bestBy[r.kind].inferAvg) bestBy[r.kind] = r;
+    for (const r of report.results) { const tr = document.createElement("tr"); const best = bestBy[r.kind] === r; tr.innerHTML = `<td>${r.kind === "pose" ? "몸" : "손"}</td><td>${r.config}${best ? " ⭐" : ""}</td><td class="num">${r.rate}</td><td class="num ${r.inferAvg > 90 ? "slow" : r.inferAvg < 45 ? "fast" : ""}">${r.inferAvg}ms</td><td class="num">${r.inferP90}ms</td><td class="num">${r.latAvg}ms</td>`; tb.append(tr); }
+    $("out").value = JSON.stringify(report); $("outCard").hidden = false;
+    $("state").textContent = "끝! 아래 내용을 복사해서 보내 주세요."; $("copy").onclick = () => { $("out").select(); document.execCommand("copy"); $("copy").textContent = "복사했어요 ✔"; };
+  } catch (e) { $("state").textContent = "오류: " + (e && e.message || e); log("오류: " + (e && e.stack || e)); }
+  $("go").disabled = false;
+};
+</script>
+</body>
+</html>

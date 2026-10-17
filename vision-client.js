@@ -13,6 +13,7 @@
 // 모델과 인식 방식은 같아서 결과(정확도)는 거의 같아요. 결과는 이 기기에 기억해서 다음부터는 재지 않고 바로 그 방법으로 시작하고,
 // 주소에 ?retune 을 붙이면 다시 재요. (시험용 ?tune 은 70ms 기준 없이 무조건 재 봐요)
 const TUNE_N = 14, TUNE_WARM = 2, TUNE_SLOW = (typeof location !== "undefined" && location.search.includes("tune")) ? 0 : 70, TUNE_GAIN = 0.8;
+const TUNE_FORCE = typeof location !== "undefined" && location.search.includes("tune");   // 시험용: 사람이 없어도 잰다
 const CONFIGS = [{ cpu: false, s: 1, p: "bitmap" }, { cpu: false, s: 0.5, p: "bitmap" }, { cpu: true, s: 0.5, p: "bitmap" }, { cpu: false, s: 0.5, p: "data" }, { cpu: true, s: 0.5, p: "data" }];
 const prefKey = (kind) => "kk_tune_" + kind;
 const readPref = (kind) => { try { if (typeof location !== "undefined" && location.search.includes("retune")) return null; const v = JSON.parse(localStorage.getItem(prefKey(kind)) || "null"); return v && typeof v.cpu === "boolean" && v.s > 0 && v.s <= 1 ? { cpu: v.cpu, s: v.s, p: v.p === "data" ? "data" : "bitmap" } : null; } catch { return null; } };
@@ -39,9 +40,21 @@ export function createVisionClient({ video }) {
     cur[kind] = { ...c }; scale[kind] = c.s; path[kind] = c.p;
     if (needInit && worker && initArgs[kind]) { tune[kind].switching = true; worker.postMessage({ type: "init", kind, ...initArgs[kind], cpu: c.cpu, replace: true }); }
   }
-  function tuneResult(kind, inferMs) {
+  // 사람/손이 실제로 잡힌 결과만 재요 (아무도 없을 때는 인식이 훨씬 빨라서 그때 재면 "충분히 빠르다"고 잘못 판단해요 — 실제 사고)
+  // 또 이미 "충분히 빠르다"고 정했는데 나중에 계속 느리면(최근 40번 평균 100ms 넘게) 한 번 다시 재요.
+  function tuneResult(kind, inferMs, hasTarget) {
     const t = tune[kind];
-    if (!inferMs || t.phase !== "measure" || t.switching) return;
+    if (!inferMs || (!hasTarget && !TUNE_FORCE) || t.switching) return;
+    if (t.phase === "done") {
+      t.roll = t.roll ? t.roll * 0.95 + inferMs * 0.05 : inferMs; t.rollN = (t.rollN || 0) + 1;
+      if (t.rollN >= 40 && t.roll > 100 && (t.restarts || 0) < 1 && !(typeof location !== "undefined" && location.search.includes("notune"))) {
+        t.restarts = (t.restarts || 0) + 1; t.phase = "measure"; t.i = 0; t.avgs = []; t.n = 0; t.sum = 0; t.skip = 0;
+        console.info(`[속도 자동 선택] ${kind}: 인식이 계속 느려서(평균 ${t.roll.toFixed(0)}ms) 방법을 다시 재요`);
+        applyConfig(kind, CONFIGS[0]);
+      }
+      return;
+    }
+    if (t.phase !== "measure") return;
     if (++t.skip <= TUNE_WARM) return;                        // 처음 몇 번은 준비운동이라 제외
     t.n++; t.sum += inferMs;
     if (t.n < TUNE_N) return;
@@ -64,7 +77,7 @@ export function createVisionClient({ video }) {
     if (broken) return null;
     if (!worker) {
       try {
-        worker = new Worker(new URL("./vision-worker.js?v=20261018_0710", import.meta.url));   // 일반(classic) 작업자
+        worker = new Worker(new URL("./vision-worker.js?v=20261018_0720", import.meta.url));   // 일반(classic) 작업자
         worker.onmessage = onMessage;
         worker.onerror = (e) => { console.warn("AI 작업자 오류 - 예전 방식으로 전환:", e.message); fail("작업자 오류"); };
       } catch (e) { console.warn("AI 작업자를 만들 수 없어요:", e); broken = true; return null; }
@@ -110,7 +123,8 @@ export function createVisionClient({ video }) {
         errStreak = 0;
         const s = state[m.kind];
         s.latest = { ts: m.ts, result: { landmarks: m.landmarks || [] }, inferMs: m.inferMs || 0 };
-        tuneResult(m.kind, m.inferMs);
+        tuneResult(m.kind, m.inferMs, !!(m.landmarks && m.landmarks.length));
+        api.onResult?.(m.kind, m);                         // 진단 페이지용: 결과가 올 때마다 알려 줘요
         s.fresh = true;
         stats.results++;
         if (m.inferMs) stats.inferMs = stats.inferMs ? stats.inferMs * 0.85 + m.inferMs * 0.15 : m.inferMs;
@@ -185,8 +199,11 @@ export function createVisionClient({ video }) {
   }
   pump();
 
-  return {
+  const api = {
     ensure,
+    /** 진단용: 자동 선택을 끄고 방법을 직접 정해요 ({cpu, s, p}) */
+    setConfig(kind, c) { tune[kind].phase = "done"; applyConfig(kind, { cpu: !!c.cpu, s: c.s ?? 1, p: c.p ?? "bitmap" }); },
+    get switching() { return !!(tune.hand.switching || tune.pose.switching); },
     /** 인식할 종류를 정함 ("hand" | "pose" | null). null이면 영상을 보내지 않아요 */
     setActive(kind) {
       if (kind !== active) { active = kind; if (kind) { state[kind].fresh = false; stats.startedAt = performance.now(); } }
@@ -199,4 +216,5 @@ export function createVisionClient({ video }) {
     peek(kind) { return state[kind].latest; },
     get stats() { return { ...stats, delegate: state[active]?.delegate ?? null, scale: active ? scale[active] : 1, path: active ? path[active] : "bitmap", tuning: active ? tune[active].phase === "measure" : false, tune: Object.fromEntries(["hand", "pose"].map((k) => [k, { phase: tune[k].phase, avgs: tune[k].avgs.map((v) => Math.round(v)), cur: cur[k] }])), broken }; },
   };
+  return api;
 }
