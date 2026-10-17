@@ -91,7 +91,7 @@ export class Room {
     this._attach();
     const reply = new Promise((resolve, reject) => {
       this._joinWait = { resolve, reject };
-      this._joinTimer = setTimeout(() => reject(new RoomError("not_found", "방을 찾을 수 없어요. 코드를 다시 확인해 주세요")), this.joinTimeoutMs);
+      this._joinTimer = setTimeout(() => reject(new RoomError("not_found", this.transport.explain?.() || "방을 찾을 수 없어요. 코드를 다시 확인해 주세요")), this.joinTimeoutMs);
     });
     const sendJoin = () => this._send({ type: MSG.JOIN, code, name: this.self.name, avatar: this.self.avatar });
     sendJoin();

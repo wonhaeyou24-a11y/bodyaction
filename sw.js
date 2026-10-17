@@ -27,7 +27,9 @@ async function put(req, res) {
 
 async function networkFirst(req) {
   try {
-    const res = await Promise.race([fetch(req), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000))]);
+    // 주소에 버전(?v=)이 없는 파일은 서버에 "바뀌었나요?"를 꼭 물어봐요 (서버가 10분 동안 옛 파일을 내주는 걸 피해서, 고친 게 바로 반영돼요)
+    const fresh = new URL(req.url).searchParams.has("v") ? undefined : { cache: "no-cache" };
+    const res = await Promise.race([fetch(req, fresh), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000))]);
     put(req, res.clone()).catch(() => {});
     return res;
   } catch (err) {

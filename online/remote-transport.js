@@ -26,6 +26,19 @@ export class RemoteTransport extends Transport {
     this.seq = 0;                // 보낸 메시지 번호: 같은 메시지가 탭 연결·인터넷 연결로 두 번 와도 한 번만 처리
     this.seen = new Map();       // 보낸 사람 → 마지막으로 처리한 번호들
     this.connectTries = 0;
+    this.issue = null;           // 연결이 안 될 때 원인 기록: cdn | broker | nohost | p2p
+    this.brokerOpen = false;     // 중개 서버(PeerJS)에 연결됐는지
+    this.noHostAt = 0;
+    this.hostSeen = false;       // 손님: 방장을 찾았는지(연결 시도에서 "없음" 오류가 안 왔는지)
+  }
+
+  /** 연결이 안 됐을 때 사용자에게 보여 줄 원인 설명 (모르면 null) */
+  explain() {
+    if (this.issue === "cdn") return "연결 도우미(PeerJS)를 불러오지 못했어요. 인터넷이 막혀 있거나 보안 프로그램이 esm.sh 접속을 막고 있을 수 있어요";
+    if (this.peer && !this.brokerOpen) return "연결 중개 서버에 닿지 못했어요. 인터넷 연결이나 방화벽(회사·학교 네트워크)을 확인해 주세요";
+    if (this.issue === "p2p") return "방장은 찾았는데 직접 연결이 막혔어요. 서로 다른 네트워크(휴대폰 데이터·회사·학교)에서는 연결이 안 될 수 있어요. 같은 와이파이에서 해 보세요";
+    if (this.noHostAt) return "같은 코드의 방을 찾지 못했어요. 코드가 맞는지, 방장이 방을 열어 둔 채인지 확인해 주세요 (방장이 창을 닫으면 방이 사라져요)";
+    return null;
   }
 
   /**
@@ -71,6 +84,7 @@ export class RemoteTransport extends Transport {
         PeerModule = await import(PEERJS_URL);
       } catch (cdnErr) {
         console.warn("PeerJS CDN 로드 실패 (로컬 통신 유지):", cdnErr);
+        this.issue = "cdn";
         return;
       }
 
@@ -92,6 +106,7 @@ export class RemoteTransport extends Transport {
           }
         });
 
+        this.peer.on("open", () => { this.brokerOpen = true; });
         this.peer.on("connection", (conn) => {
           this._setupConnection(conn);
         });
@@ -113,15 +128,16 @@ export class RemoteTransport extends Transport {
           this._setupConnection(this.peer.connect(hostPeerId, { reliable: true }));
         };
         this._connectToHost = connectToHost;
-        this.peer.on("open", connectToHost);
+        this.peer.on("open", () => { this.brokerOpen = true; connectToHost(); });
       }
 
       this.peer.on("error", (err) => {
         // 방이 없거나 중복 생성 등 정상 흐름 내 피어 오류 조용히 격리.
         // 손님이 방장보다 먼저 연결을 시도했거나 연결이 잠깐 안 됐을 때(peer-unavailable)는 잠시 뒤 다시 시도해요
         console.warn("피어 네트워크 알림:", err?.type || err?.message);
-        if (!this.isHost && err?.type === "peer-unavailable" && this.connectTries++ < 12) {
-          setTimeout(() => this._connectToHost?.(), 1200);
+        if (!this.isHost && err?.type === "peer-unavailable") {
+          if (this.issue !== "p2p") this.issue = "nohost"; this.noHostAt = Date.now();
+          if (this.connectTries++ < 12) setTimeout(() => this._connectToHost?.(), 1200);
         }
       });
     } catch (err) {
@@ -132,7 +148,10 @@ export class RemoteTransport extends Transport {
   _setupConnection(conn) {
     if (!conn) return;
 
+    this.hostSeen = !this.isHost;                                // 연결 시도에서 방장을 찾으면(없다는 오류가 안 오면) 방장은 있는 거예요
+    conn.on("iceStateChanged", (st) => { if (st === "failed") this.issue = "p2p"; });
     conn.on("open", () => {
+      this.hostSeen = true;
       this.connections.add(conn);
       const queued = this.outbox.splice(0);                     // 연결이 열리기 전에 모아 둔 메시지 보내기
       for (const pkt of queued) { try { conn.send(pkt); } catch {} }
@@ -147,6 +166,7 @@ export class RemoteTransport extends Transport {
     });
 
     conn.on("error", () => {
+      this.issue = "p2p";
       this.connections.delete(conn);
     });
   }

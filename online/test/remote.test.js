@@ -32,6 +32,15 @@ test("내가 보낸 메시지가 되돌아와도 무시", async () => {
   await t._handleIncomingRaw({ type: "x", _senderId: t.senderId, _n: 1 }); assert.equal(got.length, 0);
 });
 
+test("연결이 안 될 때 원인을 알려 줌 (도우미 로드 실패 / 중개 서버 / 방 없음 / 직접 연결 막힘)", () => {
+  const t = new RemoteTransport();
+  assert.equal(t.explain(), null);
+  t.issue = "cdn"; assert.match(t.explain(), /PeerJS/);
+  t.issue = null; t.peer = {}; t.brokerOpen = false; assert.match(t.explain(), /중개 서버/);
+  t.brokerOpen = true; t.noHostAt = Date.now(); t.issue = "nohost"; assert.match(t.explain(), /코드/);
+  t.issue = "p2p"; assert.match(t.explain(), /직접 연결/);
+});
+
 let failed = 0;
 for (const [n, f] of tests) { try { await f(); console.log("  ok  ", n); } catch (e) { failed++; console.log("  FAIL", n, "\n      ", String(e.message).split("\n")[0]); } }
 console.log(`\n${tests.length - failed}/${tests.length} 통과`);
