@@ -669,6 +669,37 @@ const BEAT_TRACKS = [
     vol: 0.85,
     noteSpeed: 1.0,
     tagColor: "#ff3377"
+  },
+  // 🎉 신나는 신스 노래 (직접 작곡한 곡이라 박자가 정확히 맞아요: 큐브가 노래의 박자에 딱 떨어져요)
+  {
+    id: "sunny", title: "☀️ 써니 디스코 점프 (Sunny Disco Jump)", genre: "HAPPY DISCO", bpm: 124, firstBeat: 0.1, approachTime: 1.8,
+    root: 261.63, wave: "square", drums: "edm", vol: 0.9, noteSpeed: 1.0, tagColor: "#ffd166",
+    bassSeq: [0, -5, -3, -7],
+    melody: [12, null, 16, null, 19, null, 16, 12,   14, null, 19, null, 23, null, 19, 14,   12, null, 16, null, 21, null, 16, 12,   9, 12, 17, null, 16, 14, 12, null]
+  },
+  {
+    id: "candy", title: "🍭 캔디 팝 러시 (Candy Pop Rush)", genre: "BUBBLEGUM POP", bpm: 140, firstBeat: 0.1, approachTime: 1.7,
+    root: 392, wave: "sawtooth", drums: "edm", vol: 0.82, noteSpeed: 1.05, tagColor: "#ff7eb6",
+    bassSeq: [0, -5, -3, -7],
+    melody: [12, null, 7, 12, 16, null, 12, 7,   14, null, 11, 14, 19, null, 14, 11,   16, null, 12, 16, 19, null, 16, 12,   17, null, 12, 9, 12, null, 16, null]
+  },
+  {
+    id: "hyper", title: "🚀 하이퍼 점프 (Hyper Jump)", genre: "ENERGY EDM", bpm: 150, firstBeat: 0.1, approachTime: 1.6,
+    root: 293.66, wave: "square", drums: "edm", vol: 0.85, noteSpeed: 1.15, tagColor: "#00e5ff",
+    bassSeq: [0, -3, -7, -5],
+    melody: [12, null, 16, null, 19, 16, 12, null,   9, null, 12, null, 16, 12, 9, null,   17, null, 14, null, 17, 21, 17, null,   16, null, 19, null, 21, 19, 16, null]
+  },
+  {
+    id: "funk", title: "🕺 파티 펑크 (Party Time Funk)", genre: "GROOVY FUNK", bpm: 112, firstBeat: 0.1, approachTime: 1.9,
+    root: 220, wave: "sawtooth", drums: "pop", vol: 0.88, noteSpeed: 0.98, tagColor: "#b388ff",
+    bassSeq: [0, 0, 5, 5],
+    melody: [12, null, 15, 12, null, 17, 15, null,   12, null, 15, 12, null, 10, 12, null,   17, null, 15, 17, null, 19, 17, null,   15, null, 12, 15, null, 10, 12, null]
+  },
+  {
+    id: "rocket", title: "🌠 로켓 댄스 (Rocket Dance)", genre: "SPACE DANCE", bpm: 132, firstBeat: 0.1, approachTime: 1.8,
+    root: 329.63, wave: "square", drums: "edm", vol: 0.85, noteSpeed: 1.08, tagColor: "#69f0ae",
+    bassSeq: [0, -4, -9, -2],
+    melody: [12, null, 15, null, 19, 15, 12, null,   8, null, 12, null, 15, 12, 8, null,   7, null, 10, null, 15, 10, 7, null,   14, null, 10, null, 17, 14, 10, null]
   }
 ];
 let lastBeatTrackIdx = -1;
@@ -779,7 +810,7 @@ function bgmTick(isIntro = false) {
     while (bgmNext < actx.currentTime + 0.25 && ++loopGuard < 16) {
       const e = bgmStep++, s = e % 8, bar = (e / 8) | 0, ch = (c.prog ? c.prog[bar % (c.prog.length || 4)] : 0), t = bgmNext, v = (c.vol ?? 0.8) * (isIntro ? 0.75 : 1.0);
       const bpmSafe = Math.max(40, c.bpm || 120);
-      const speed = Math.max(0.5, 1 + (isIntro ? 0 : Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0)));
+      const speed = mode === "beat" ? 1 : Math.max(0.5, 1 + (isIntro ? 0 : Math.min(elapsed(), 60) * 0.003 + (timeLeft < 10 ? 0.08 : 0)));   // 네온 슬래시는 템포가 변하면 큐브 박자와 어긋나서 고정
       bgmNext += 60 / (bpmSafe * speed) / 2;
       const f = (semi, oct = 1) => c.root * oct * 2 ** ((semi + ch) / 12);
 
@@ -1903,6 +1934,9 @@ function updateLiveHud(force = false) {
   if (heartsRow) {
     if (meta.showHearts) {
       heartsRow.classList.remove("hidden");
+      // 남은 생명만큼만 빨간 하트로 보여요 (부딪힐 때마다 하나씩 회색으로)
+      const left = Math.max(0, Math.round(g?.lives ?? 3));
+      heartsRow.querySelectorAll(".heart-icon").forEach((h, i) => h.classList.toggle("lost", i >= left));
     } else {
       heartsRow.classList.add("hidden");
     }
@@ -5034,6 +5068,7 @@ games.beat = {
     this.songStartTime = (actx && actx.state === "running") ? actx.currentTime : 0;
     this.nextBeatIdx = 0; this.nextHit = null;
     this.nextWallBeat = 16; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
+    if (!this.currentTrack?.audioFile && actx) { bgmNext = actx.currentTime + 0.08; bgmStep = 0; }   // 신스 곡은 본 게임 시작 순간부터 처음 박자로 다시 시작 (큐브 박자와 맞추기)
     objs = []; // 레디타임 잔여물 리셋
     if (bgmAudio) {
       try {
@@ -5053,7 +5088,7 @@ games.beat = {
     const track = this.currentTrack || BEAT_TRACKS[0];
     const bpm = track.bpm || 132;
     const beatSec = Math.max(0.1, 60 / bpm);
-    const firstBeat = track.firstBeat ?? 0.40;
+    const firstBeat = track.audioFile ? (track.firstBeat ?? 0.40) : 0.1;   // 신스 곡은 시작 박자가 0.08초 뒤
     const approachTime = track.approachTime ?? 1.8;
     const horizonTime = songTime + approachTime;
 
