@@ -9,12 +9,16 @@ export const Z_WEIGHT = 0.7;            // 깊이 속도를 얼마나 믿을지 
 const STALE_MS = 220;                   // 이만큼 결과가 안 오면 속도를 0으로 (손이 사라졌을 때 허공에서 계속 펀치가 나가지 않게)
 
 export class ArmVel {
-  constructor() { this.xy = new AlphaBeta(XY_AB); this.z = new AlphaBeta(Z_AB); this.sw = 100; this.t = -1e9; }
-  reset() { this.xy.reset(); this.z.reset(); this.t = -1e9; }
+  constructor() { this.xy = new AlphaBeta(XY_AB); this.z = new AlphaBeta(Z_AB); this.sw = 100; this.t = -1e9; this.fd = 0; this.prev = null; }
+  reset() { this.xy.reset(); this.z.reset(); this.t = -1e9; this.fd = 0; this.prev = null; }
   /** 새 인식 결과(시각 t ms): 어깨 대비 손목 위치(rx, ry: 화면 px, rz: z를 화면 px로 환산한 값), 어깨너비(px) */
   update(t, rx, ry, rz, swPx) {
     if (!(swPx > 20) || !Number.isFinite(rx + ry + rz)) return;
     this.sw = this.sw * 0.7 + swPx * 0.3;
+    // 인식이 느려서(초당 10~15번) 결과가 듬성듬성 올 때, 추적기의 속도 추정은 천천히 따라 올라가서 실제보다 작게 나와요.
+    // 그래서 "방금 두 결과 사이에 실제로 움직인 거리 ÷ 시간"(화면 x·y만, 깊이는 떨려서 제외)도 같이 재고 둘 중 큰 쪽을 써요.
+    if (this.prev && t > this.prev.t && t - this.prev.t < 250) this.fd = Math.hypot(rx - this.prev.rx, ry - this.prev.ry) / (t - this.prev.t) * 1000 / Math.max(20, this.sw);
+    this.prev = { t, rx, ry };
     this.xy.update(rx, ry, t); this.z.update(rz, 0, t); this.t = t;
   }
   /** 움직이는 방향 (길이 1인 3차원 벡터 [x,y,z], 거의 안 움직이면 null) — 휘두른 뒤 팔을 거두는 동작(되돌림)을 구분하는 데 써요 */
@@ -27,5 +31,10 @@ export class ArmVel {
   vN(nowMs) {
     if (nowMs - this.t > STALE_MS || !this.xy.ready) return 0;
     return Math.hypot(this.xy.vx, this.xy.vy, Z_WEIGHT * this.z.vx) * 1000 / this.sw;
+  }
+  /** 휘두르는 속도(광선검용): 추적기 속도와 "두 결과 사이 실제 이동 속도" 중 큰 쪽. 인식이 느려도 빠른 휘두름을 놓치지 않지만, 샌드백 펀치 판정(vN)에는 쓰지 않아요 (손 흔들기가 펀치로 잡히는 걸 막으려고) */
+  vFast(nowMs) {
+    if (nowMs - this.t > STALE_MS || !this.xy.ready) return 0;
+    return Math.max(this.vN(nowMs), this.fd * 0.85);
   }
 }

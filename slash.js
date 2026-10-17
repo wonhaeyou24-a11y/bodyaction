@@ -10,11 +10,12 @@
 //   ⑤ 큐브는 박자(오른손/왼손 번갈아 · 위→아래 다음엔 아래→위)로 이어지도록 배치돼서, 몸이 자연스럽게 춤추듯 휘둘러져요.
 
 export const SLASH = {
-  MIN_V: 2.2,          // 이 속도(어깨너비/초) 이상으로 휘둘러야 "벤 것" (그냥 손을 옮기거나 스치는 건 안 베어져요)
+  MIN_V: 2.6,          // 이 속도(어깨너비/초) 이상으로 휘둘러야 "벤 것" (그냥 손을 옮기거나 스치는 건 안 베어져요)
   FULL_V: 6.5,         // 이 속도면 힘 점수 만점
   WINDOW: 0.22,        // 박자 시각에서 앞뒤로 이 시간(초) 안에 베어야 해요
   PAD: 12,             // 칼날이 큐브 반지름보다 이만큼(px) 더 가까이 지나가면 닿은 것으로 봐요
-  DIR_FULL: 30, DIR_OK: 75, DIR_BAD: 105,   // 방향 오차(도): 이 안이면 만점 / 감점 시작 / 이 넘으면 "잘못 벰"
+  DIR_FULL: 40, DIR_OK: 90, DIR_BAD: 120,   // 방향 오차(도): 이 안이면 방향 만점 / 이 넘으면 방향 점수 0 / 이 넘으면 "잘못 벰" (너그럽게: 대충 그쪽으로 지나가면 돼요)
+  PEAK_MS: 140,        // 휘두른 속도는 최근 이 시간(ms) 동안의 최고 속도로 봐요 (인식이 느리면 속도가 듬성듬성 갱신되기 때문)
   TIP_MS: 110,         // 칼끝이 어느 쪽으로 움직였는지 볼 때 거슬러 올라가는 시간
 };
 
@@ -86,7 +87,7 @@ export function judgeCut(c, m) {
 export function newFlow() { return { lastDir: [null, null], lastHand: 1, lastT: -9, n: 0 }; }
 
 /** 단계(1~3)별 비율: 점(●, 아무 방향) / 대각선 / 좌우 */
-const MIX = { 1: { dot: 0.45, diag: 0, side: 0 }, 2: { dot: 0.25, diag: 0.3, side: 0.1 }, 3: { dot: 0.12, diag: 0.35, side: 0.15 } };
+const MIX = { 1: { dot: 0.65, diag: 0, side: 0 }, 2: { dot: 0.45, diag: 0.15, side: 0.05 }, 3: { dot: 0.3, diag: 0.2, side: 0.08 } };
 
 const vertOf = (d) => (d === 0 || d === 4 || d === 5 ? 0 : d === 1 || d === 6 || d === 7 ? 1 : null);   // 0 아래로 베기 계열, 1 위로 베기 계열
 const diagOf = (vertical, hand) => (vertical === 0 ? (hand === 0 ? 5 : 4) : (hand === 0 ? 7 : 6));       // 몸 안쪽으로 향하는 대각선
@@ -163,7 +164,7 @@ export function buildMap(times, feats, seed = 1) {
     const prev = st.lastDir[hand], pv = vertOf(prev), since = t - st.lastT[hand];
     const pitchV = p > 0.6 ? 0 : p < 0.4 ? 1 : null;
     let wantV = pv == null ? (pitchV ?? (rng() < 0.5 ? 0 : 1)) : (since < 0.9 ? 1 - pv : (pitchV ?? 1 - pv));
-    const dotP = (e < 0.35 ? 0.45 : e < 0.7 ? 0.2 : 0.08) * (s > 0.85 ? 0 : 1) * (1 - 0.5 * ramp * (e > 0.5 ? 1 : 0)), diagP = e > 0.55 ? 0.3 * ramp : 0, sideP = e > 0.75 ? 0.12 * ramp : 0;
+    const dotP = (e < 0.35 ? 0.75 : e < 0.7 ? 0.5 : 0.3) * (s > 0.92 ? 0.5 : 1) * (1 - 0.35 * ramp * (e > 0.5 ? 1 : 0)), diagP = e > 0.6 ? 0.2 * ramp : 0, sideP = e > 0.8 ? 0.08 * ramp : 0;   // 점(●)이 절반 이상: 화살표는 센 박자·클라이막스에 위주로, 대각선·가로는 드물게
     const r = rng();
     let dir;
     if (r < dotP) dir = null;

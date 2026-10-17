@@ -19,7 +19,7 @@ import { skeletonToPx } from "./character.js?v=20261013_1500";
 import { CRUN, createRun, stepRun } from "./crun-core.js?v=20261013_1500";
 import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1500";
 import { newLaneState, stepLane } from "./lane.js?v=20261013_1500";
-import { Recorder, buildScript, downloadRecording } from "./recorder.js?v=20261017_2100";
+import { Recorder, buildScript, buildHandScript, downloadRecording } from "./recorder.js?v=20261018_0400";
 import { newSwingState, stepSwing } from "./swing.js?v=20261017_2200";
 import { SLASH, DIRS, newFlow, nextNotes, buildMap, hashSeed, sweepBlade, tipDirection, judgeCut } from "./slash.js?v=20261018_0200";
 import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1500";
@@ -972,9 +972,10 @@ function recToast(msg) {
   document.body.appendChild(el); setTimeout(() => el.remove(), 3500);
 }
 function recStart() {
-  if (!((mode && games[mode]?.body && playing) || isCostumeRoomOpen)) { recToast("몸 인식이 켜진 곳에서 F8을 눌러 주세요 (몸놀이 게임을 하는 중이거나 커스튬 룸)"); return; }
-  const script = buildScript();
-  recorder.start({ W, H, vw: video.videoWidth || 640, vh: video.videoHeight || 480, mirror: playerSettings.mirror !== false, mode: mode || "costume", ua: navigator.userAgent }, script);
+  if (!((mode && playing) || isCostumeRoomOpen)) { recToast("카메라 인식이 켜진 곳에서 F8을 눌러 주세요 (게임을 하는 중이거나 커스튬 룸)"); return; }
+  const handGame = !!mode && !games[mode]?.body && !useMouse;         // 손 인식 게임(풍선·닌자 등)이면 손 전용 안내 순서로 녹화
+  const script = handGame ? buildHandScript() : buildScript();
+  recorder.start({ W, H, vw: video.videoWidth || 640, vh: video.videoHeight || 480, mirror: playerSettings.mirror !== false, mode: mode || "costume", kind: handGame ? "hand" : "body", ua: navigator.userAgent }, script);
   recUI = document.createElement("div");
   recUI.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99998;text-align:center;pointer-events:none;font-family:sans-serif;color:#fff;text-shadow:0 2px 8px #000";
   document.body.appendChild(recUI);
@@ -991,11 +992,12 @@ function recTick() {
 function recStop(save) {
   clearInterval(recTimer); recTimer = 0;
   const rec = recorder.stop();
+  if (rec) { const st = visionAI.stats; rec.meta.stats = { delegate: st.delegate, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
   recUI?.remove(); recUI = null;
-  if (save && rec && rec.results.length) {
+  if (save && rec && (rec.results.length || rec.handResults.length)) {
     const d = new Date(), pad = (n) => String(n).padStart(2, "0");
     downloadRecording(rec, `kk-rec-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`);
-    recToast(`녹화 저장 완료 (${rec.results.length}번 인식, ${Math.round(rec.durationMs / 1000)}초) — 다운로드 폴더를 확인하세요`);
+    recToast(`녹화 저장 완료 (${rec.results.length || rec.handResults.length}번 인식, ${Math.round(rec.durationMs / 1000)}초) — 다운로드 폴더를 확인하세요`);
   } else recToast("녹화된 내용이 없어요 (몸이 안 보였어요)");
 }
 addEventListener("keydown", (e) => { if (e.key === "F8") { e.preventDefault(); if (recorder.on) recStop(true); else recStart(); } });
@@ -1038,7 +1040,7 @@ let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }))
 let bodyVelocities = []; // (예전 방식 호환용)
 // 📍 위치 추적기: 인식 결과가 들쭉날쭉한 간격으로 와도 손/관절이 튀지 않고 부드럽게 따라가게 해요 (tracker.js)
 // ⚡ 손 전용 튜닝: jumpPx를 900px로 상향하여 고속 스윙 시 리셋 순간이동 원천 차단, maxPredictMs 45ms로 미래 오버슈트 튐 차단!
-const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed: 0.05, jumpPx: 900 };
+const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed: 0.05, jumpPx: 900, rateAdapt: true };   // rateAdapt: AI 인식이 느린 컴퓨터(초당 10~15번)에서 손이 딱딱 끊기고 순간이동하는 걸 줄여요
 const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta(HAND_AB));
 const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
 let bodyTracks = [], bodyVis = [], bodyHave = false;
@@ -1197,6 +1199,8 @@ function updatePointers() {
     prevSlotPos[s] = { x: p.x, y: p.y };
   });
 
+  if (recorder.on) recorder.frame(now, pointers);
+
   // 슬롯별 독립 트레일 관리: 손이 사라지면 해당 슬롯만 초기화하여 화면 가로지르는 궤적 튐 차단
   const activeSlots = new Set(pts.map((p) => p.slot ?? 0));
   for (let s = 0; s < MAX_HANDS; s++) {
@@ -1250,6 +1254,7 @@ function detectHandsNow() {
     const childBonus = (playerSettings?.heightMode === "child" ? 14 : 0);
     reach = Math.max(10, (palm ? 32 : 12) + reachBonus + childBonus);
 
+    if (recorder.on) recorder.handResult(t0, r.landmarks || []);
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0;
       lastHandT0 = t0;
@@ -5153,7 +5158,7 @@ games.beat = {
     this.swingPower = [0, 0];
     this.swingSt = [newSwingState(), newSwingState()]; this.swinging = [false, false];
     this.flow = newFlow();                                   // 큐브 배치 흐름 (손 번갈아·위↔아래 왕복, slash.js)
-    this.prevSabers = [null, null]; this.tipHist = [[], []]; this.swingN = [0, 0];   // 칼날이 쓸고 간 곳·칼끝 방향·휘두른 속도로 베기 판정 (slash.js)   // 어깨 기준 속도로 휘두름을 판정 (swing.js)
+    this.prevSabers = [null, null]; this.tipHist = [[], []]; this.swingN = [0, 0]; this.vHist = [[], []];   // 칼날이 쓸고 간 곳·칼끝 방향·휘두른 속도로 베기 판정 (slash.js)   // 어깨 기준 속도로 휘두름을 판정 (swing.js)
 
     this.energy = 50;
     this.multiplier = 1;
@@ -5448,7 +5453,9 @@ games.beat = {
         hist.push({ t: now, x: sb.tip.x, y: sb.tip.y });
         while (hist.length > 16 || (hist.length && now - hist[0].t > 220)) hist.shift();
         const av = armVel[1 - i];                                     // 몸 인식: 어깨 기준 손목 속도 (왼손=armVel[1])
-        this.swingN[i] = !useMouse && now - av.t < 300 ? av.vN(now) : (((this.wristVel[useMouse ? 0 : i]?.spd || 0) * 60) / (shW > 40 ? shW : W * 0.14));
+        const vNow = !useMouse && now - av.t < 300 ? av.vFast(now) : (((this.wristVel[useMouse ? 0 : i]?.spd || 0) * 60) / (shW > 40 ? shW : W * 0.14));
+        const vh = (this.vHist ??= [[], []])[i]; vh.push({ t: now, v: vNow }); while (vh.length && now - vh[0].t > SLASH.PEAK_MS) vh.shift();
+        this.swingN[i] = vh.reduce((m, e) => Math.max(m, e.v), 0);       // 최근 0.14초 동안의 최고 속도 (인식이 느려도 빠른 휘두름을 놓치지 않게)
       }
     }
 

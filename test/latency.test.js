@@ -15,7 +15,7 @@ const cur = avg({ cfg: BODY, stamp: "send" }), cap = avg({ cfg: BODY, stamp: "ca
 show("예전(기본 설정 + 영상 보낸 시각)", cur); show("찍힌 시각만 적용", cap); show("지금(빠른 팔 + 찍힌 시각)", fast);
 
 t("찍힌 시각으로 표시하면 같은 설정에서도 덜 늦음", () => ok(cap.lag < cur.lag && cap.err < cur.err, `${cur.lag}→${cap.lag}`));
-t("빠른 팔 설정: 늦음 60ms 이하, 예전의 60% 이하", () => ok(fast.lag <= 60 && fast.lag <= cur.lag * 0.6, `예전 ${cur.lag.toFixed(0)}ms → ${fast.lag.toFixed(0)}ms`));
+t("빠른 팔 설정: 늦음 70ms 이하, 예전의 65% 이하", () => ok(fast.lag <= 70 && fast.lag <= cur.lag * 0.65, `예전 ${cur.lag.toFixed(0)}ms → ${fast.lag.toFixed(0)}ms`));
 t("빠른 팔 설정: 평균 위치 오차가 예전의 65% 이하", () => ok(fast.err <= cur.err * 0.65, `예전 ${cur.err.toFixed(0)}px → ${fast.err.toFixed(0)}px`));
 t("빠른 팔 설정: 가만히 있을 때 떨림이 1px 이하 (몸이 덜덜거리지 않음)", () => ok(fast.jit <= 1.0, `${fast.jit.toFixed(2)}px`));
 for (const [aiHz, camMs, inferMs] of [[20, 60, 40], [30, 45, 25], [60, 35, 15], [15, 80, 60]]) {

@@ -29,12 +29,31 @@ export function buildScript() {
   return s;
 }
 
+/** 손 게임용 안내 순서: 손을 카메라에 보여 주고 천천히/빠르게/원 그리기/양손/손 숨겼다 보이기/주먹 쥐기 */
+export function buildHandScript() {
+  const s = []; let t = 0;
+  const add = (type, dur, say) => { s.push({ type, start: t, end: t + dur, say }); t += dur; };
+  add("setup", 5, "준비! 한 손을 카메라에 보여 주세요");
+  add("hold", 6, "손을 든 채로 가만히");
+  add("slow", 8, "손을 왼쪽↔오른쪽으로 천천히 움직여요");
+  add("fast", 8, "손을 왼쪽↔오른쪽으로 빠르게 휘저어요");
+  add("circle", 6, "손으로 크게 원을 그려요");
+  add("two", 8, "두 손을 모두 보여 주고 움직여요");
+  for (let i = 0; i < 3; i++) { add("hide", 2.5, "손을 화면 밖으로 내려요"); add("show", 2.5, "손을 다시 올려요"); }
+  add("fist", 6, "주먹을 쥐었다 폈다 해요");
+  add("done", 2, "끝! 저장했어요");
+  return s;
+}
+
+/** 손 랜드마크에서 저장할 점 번호: 손목, 검지 시작·끝, 가운데손가락 시작, 약지·새끼 시작 */
+export const HAND_POINTS = [0, 5, 8, 9, 13, 17];
+
 export class Recorder {
   constructor() { this.on = false; this.rec = null; this.start0 = 0; }
   /** @param meta 화면·카메라 크기 등 (좌표를 화면 픽셀로 바꾸는 데 필요)  @param script 안내 순서(없으면 자유 녹화) */
   start(meta, script = null) {
     this.start0 = performance.now();
-    this.rec = { version: 1, app: "kinetic-kaboom", startedAt: new Date().toISOString(), meta: { ...meta }, script, joints: JOINTS, results: [], marks: [] };
+    this.rec = { version: 1, app: "kinetic-kaboom", startedAt: new Date().toISOString(), meta: { ...meta }, script, joints: JOINTS, results: [], marks: [], handResults: [], frames: [] };
     this.on = true;
   }
   now() { return performance.now() - this.start0; }
@@ -44,6 +63,16 @@ export class Recorder {
     const row = [Math.round(tMs - this.start0)];
     for (const j of JOINTS) { const p = lm[j]; row.push(p ? [r(p.x, 4), r(p.y, 4), r(p.z ?? 0, 3), r(p.visibility ?? 1, 2)] : null); }
     this.rec.results.push(row);
+  }
+  /** 손 인식 결과 한 번: hands = 손마다 랜드마크 21개 → 핵심 6점만 [x,y] 저장 */
+  handResult(tMs, hands) {
+    if (!this.on || !hands) return;
+    this.rec.handResults.push([Math.round(tMs - this.start0), hands.map((h) => HAND_POINTS.map((i) => [r(h[i].x, 4), r(h[i].y, 4)]))]);
+  }
+  /** 화면에 실제로 그려진 손 위치(추적기를 거친 값) 한 프레임: 순간이동·끊김을 직접 볼 수 있어요 */
+  frame(tMs, ptrs) {
+    if (!this.on) return;
+    this.rec.frames.push([Math.round(tMs - this.start0), ptrs.map((p) => [p.slot ?? 0, Math.round(p.x), Math.round(p.y)])]);
   }
   /** 사건 표시: 몸이 사라짐("lost"), 안내 칸 시작 등 */
   mark(type, extra = {}) { if (this.on) this.rec.marks.push({ t: Math.round(this.now()), type, ...extra }); }

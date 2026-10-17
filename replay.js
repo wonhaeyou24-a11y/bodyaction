@@ -112,3 +112,61 @@ export function evaluate(rec, events) {
   for (const f of falses) { const k = `${f.during}:${f.type}`; falseByDuring[k] = (falseByDuring[k] || 0) + 1; }
   return { per, falses, falseByDuring };
 }
+
+// ---------- 손 게임 녹화 분석 ----------
+/**
+ * 손 게임 녹화(rec.kind === "hand")를 분석해서 "끊김·순간이동·손 놓침"을 숫자로 알려 줘요.
+ *  - AI 인식: 초당 몇 번 · 결과 간격(ms) · 손이 안 잡힌 비율
+ *  - 화면 속 손(추적기를 거쳐 실제로 그려진 위치): 한 프레임에 크게 튄 횟수(순간이동), 안 움직인 프레임 비율(멈춤), 최대 속도
+ *  구간별(안내 순서의 type)로도 나눠서 보여 줘요.
+ */
+export function analyzeHand(rec) {
+  const hr = rec.handResults || [], fr = rec.frames || [], script = rec.script || [];
+  const segOf = (tms) => script.find((s) => tms / 1000 >= s.start && tms / 1000 < s.end)?.type ?? "other";
+  const out = { ai: null, segs: {}, teleports: [] };
+  if (hr.length > 1) {
+    const gaps = []; for (let i = 1; i < hr.length; i++) gaps.push(hr[i][0] - hr[i - 1][0]);
+    gaps.sort((a, b) => a - b);
+    const dur = (hr[hr.length - 1][0] - hr[0][0]) / 1000;
+    out.ai = { rate: hr.length / dur, gapP50: gaps[Math.floor(gaps.length * 0.5)], gapP90: gaps[Math.floor(gaps.length * 0.9)], gapMax: gaps[gaps.length - 1], noHand: hr.filter((h) => !h[1].length).length / hr.length, results: hr.length };
+  }
+  const by = {};            // 구간 → 통계
+  const get = (k) => (by[k] ??= { frames: 0, moving: 0, freeze: 0, tele: 0, maxSpeed: 0, lost: 0, secs: 0 });
+  const lastBySlot = {};
+  for (let i = 1; i < fr.length; i++) {
+    const [t, ptrs] = fr[i], dt = (t - fr[i - 1][0]) / 1000, seg = get(segOf(t));
+    seg.frames++; seg.secs += dt;
+    if (!ptrs.length) { seg.lost++; continue; }
+    for (const [slot, x, y] of ptrs) {
+      const prev = (fr[i - 1][1] || []).find((p) => p[0] === slot);
+      if (!prev || dt <= 0 || dt > 0.1) continue;
+      const d = Math.hypot(x - prev[1], y - prev[2]), v = d / dt;
+      seg.maxSpeed = Math.max(seg.maxSpeed, v);
+      lastBySlot[slot] = { t, d };
+      // 순간이동: 한 프레임에 200px 넘게(초당 약 12000px) 이동
+      if (d > 200) { seg.tele++; out.teleports.push({ t: t / 1000, px: Math.round(d), seg: segOf(t) }); }
+    }
+  }
+  // 멈춤/움직임: 앞뒤 5프레임의 이동량이 큰데 이 프레임만 거의 안 움직인 경우
+  const series = {};
+  for (const [t, ptrs] of fr) for (const [slot, x, y] of ptrs) (series[slot] ??= []).push({ t, x, y });
+  for (const arr of Object.values(series)) {
+    const steps = arr.map((p, i) => (i ? Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) : 0));
+    for (let i = 6; i < arr.length - 6; i++) {
+      const nb = steps.slice(i - 6, i + 7).filter((_, k) => k !== 6).sort((a, b) => a - b), med = nb[6];
+      if (med < 3) continue;
+      const seg = get(segOf(arr[i].t)); seg.moving++;
+      if (steps[i] < med * 0.2) seg.freeze++;
+    }
+    // 멈춤 구간: 움직이던 손이 4프레임(약 70ms) 이상 거의 안 움직이다가 다시 움직이는 경우 (AI 결과 사이에서 손이 굳었다 튀는 현상)
+    for (let i = 3; i < arr.length - 3; ) {
+      if (steps[i] >= 0.5) { i++; continue; }
+      let j = i; while (j < arr.length && steps[j] < 0.5) j++;
+      const before = steps.slice(Math.max(1, i - 3), i).reduce((a, b) => a + b, 0) / 3, after = steps.slice(j, j + 3).reduce((a, b) => a + b, 0) / 3;
+      if (j - i >= 4 && j - i <= 40 && before > 3 && after > 3) { const seg = get(segOf(arr[i].t)); seg.stalls = (seg.stalls || 0) + 1; seg.stallMs = (seg.stallMs || 0) + (arr[j].t - arr[i].t); }
+      i = j;
+    }
+  }
+  out.segs = by;
+  return out;
+}

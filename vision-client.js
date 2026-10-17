@@ -47,6 +47,8 @@ export function createVisionClient({ video }) {
       waiters[m.kind].splice(0).forEach((w) => w.resolve(false));
     } else if (m.type === "result") {
       busy = false;
+      // 인식이 끝난 순간, 그 사이에 새 카메라 프레임이 이미 와 있으면 다음 프레임을 기다리지 않고 바로 보내요 (예전엔 최대 16ms를 놀았어요)
+      if (frameSeq > sentSeq) queueMicrotask(() => send(latestCapture));
       if (m.error) {
         errStreak++;
         if (errStreak >= 4) {
@@ -80,7 +82,7 @@ export function createVisionClient({ video }) {
   }
 
   // ---------- 새 카메라 프레임마다 보내기 ----------
-  let lastRvfc = 0, lastTs = 0;
+  let lastRvfc = 0, lastTs = 0, frameSeq = 0, sentSeq = 0, latestCapture = 0;   // frameSeq: 지금까지 카메라가 보낸 새 프레임 수 / sentSeq: 그중 마지막으로 인식에 보낸 프레임
   /**
    * 이 영상이 카메라에서 "실제로 찍힌 시각". 영상을 작업자에 보내는 시각(찍힌 뒤 카메라·전송 지연만큼 늦음)이 아니라
    * 찍힌 시각으로 표시해야, 추적기가 그 지연만큼 앞을 예측해서 화면 속 손이 진짜 손을 늦지 않게 따라가요.
@@ -93,7 +95,7 @@ export function createVisionClient({ video }) {
   function pump() {
     // 1순위: 카메라에 새 프레임이 그려질 때마다 알림 (requestVideoFrameCallback)
     if (typeof video.requestVideoFrameCallback === "function") {
-      const onFrame = (now, meta) => { lastRvfc = performance.now(); send(captureStamp(meta)); video.requestVideoFrameCallback(onFrame); };
+      const onFrame = (now, meta) => { lastRvfc = performance.now(); frameSeq++; latestCapture = captureStamp(meta); send(latestCapture); video.requestVideoFrameCallback(onFrame); };
       video.requestVideoFrameCallback(onFrame);
     }
     // 보조: 알림이 0.1초 넘게 안 오면(지원 안 함/브라우저가 멈춤) 영상 시간이 바뀌었는지 직접 확인
@@ -108,7 +110,7 @@ export function createVisionClient({ video }) {
       if (performance.now() - busySince < Math.max(350, 4 * (stats.inferMs || 0))) return;
     }
     if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
-    busy = true; busySince = performance.now();
+    busy = true; busySince = performance.now(); sentSeq = frameSeq;
     const kind = active, ts = (lastTs = Math.max(captureTs ?? performance.now(), lastTs + 0.01));
     try {
       const bitmap = await createImageBitmap(video);

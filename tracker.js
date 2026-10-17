@@ -16,13 +16,17 @@ export class AlphaBeta {
    * @param jumpPx  오차가 이보다 크면 "다른 손/재인식"으로 보고 바로 따라가요
    * @param stillSpeed  이 속도(px/ms)보다 느리면 가만히 있는 것으로 보고 예측하지 않아요 (떨림 방지)
    * @param tau  새 결과가 와서 추정이 바뀌어도 그린 위치가 뚝 변하지 않게, 차이를 이 시간(ms) 동안 서서히 메워요
+   * @param rateAdapt  true면 "인식 결과가 오는 간격"에 맞춰 이어 주는 시간(tau)을 자동으로 늘려요.
+   *                   인식이 느린 컴퓨터(초당 10~15번)에서는 새 결과가 올 때마다 화면 속 손이 한 번에 이동(딱딱 끊김·순간이동)해요.
+   *                   차이를 결과 간격 정도의 시간(최대 130ms)에 걸쳐 메우면 부드럽게 이어져요. 대신 조금 더 늦어져요.
+   *                   인식이 빠르면(간격 55ms 이하, 초당 18번 이상) 기본값 그대로예요. (예측 시간은 건드리지 않아요: 늘리면 방향이 바뀔 때 튀어나가요)
    */
-  constructor({ alpha = 0.5, beta = 0.18, maxPredictMs = 130, jumpPx = 360, stillSpeed = 0.06, tau = 70, adaptive = true } = {}) {
-    Object.assign(this, { alpha, beta, maxPredictMs, jumpPx, stillSpeed, tau, adaptive });
+  constructor({ alpha = 0.5, beta = 0.18, maxPredictMs = 130, jumpPx = 360, stillSpeed = 0.06, tau = 70, adaptive = true, rateAdapt = false } = {}) {
+    Object.assign(this, { alpha, beta, maxPredictMs, jumpPx, stillSpeed, tau, adaptive, rateAdapt });
     this.reset();
   }
 
-  reset() { this.ready = false; this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.t = 0; this.cx = 0; this.cy = 0; this.corrT = 0; this._last = null; this._lastNow = 0; }
+  reset() { this.ema = 0; this.ready = false; this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.t = 0; this.cx = 0; this.cy = 0; this.corrT = 0; this._last = null; this._lastNow = 0; }
 
   /** 시각 t(ms)에 (x, y)에서 손을 봤어요 */
   update(x, y, t) {
@@ -30,6 +34,7 @@ export class AlphaBeta {
     if (!this.ready) { this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.t = t; this.ready = true; this.cx = this.cy = 0; return; }
     const dt = t - this.t;
     if (dt <= 0) return;                                 // 같은/이전 시각의 결과는 무시
+    this.ema = this.ema ? this.ema * 0.8 + Math.min(dt, 400) * 0.2 : Math.min(dt, 400);   // 결과가 오는 평균 간격(ms)
     const step = Math.min(dt, 200);                      // 오랜만에 온 결과가 속도를 망치지 않게
     const px = this.x + this.vx * step, py = this.y + this.vy * step;
     const rx = x - px, ry = y - py;
@@ -64,7 +69,8 @@ export class AlphaBeta {
   /** 지금 시각(now, ms)에 그릴 위치와 속도 (화면을 그릴 때마다 불러요) */
   at(now) {
     const e = this._est(now);
-    const w = this.tau > 0 ? Math.exp(-Math.max(0, now - this.corrT) / this.tau) : 0;
+    const tau = this.rateAdapt ? Math.max(this.tau, Math.min(130, this.ema * (this.rateAdapt === true ? 0.9 : this.rateAdapt))) : this.tau;   // rateAdapt: true=0.9배, 숫자면 그 배수
+    const w = tau > 0 ? Math.exp(-Math.max(0, now - this.corrT) / tau) : 0;
     const out = { x: e.x + this.cx * w, y: e.y + this.cy * w, vx: e.vx, vy: e.vy };
     this._last = out; this._lastNow = now;
     return out;
@@ -77,4 +83,4 @@ export class AlphaBeta {
  * 이 설정은 속도 반응을 빠르게(beta .6)·부드럽게 이어 주는 시간을 짧게(tau 12)·느린 움직임은 예측하지 않게(stillSpeed .16) 해서 늦음을 약 50ms로 줄여요 (앞을 예측하는 시간을 70ms로 제한해서, 휘두름이 끝나는 점에서 튀어나가는 정도는 예전과 비슷하게 유지).
  * 대신 가만히 있을 때 떨림이 조금 늘어요(시험: node test/latency.test.js).
  */
-export const FAST_ARM_AB = { alpha: 0.55, beta: 0.6, tau: 12, maxPredictMs: 70, stillSpeed: 0.16, jumpPx: 300 };
+export const FAST_ARM_AB = { alpha: 0.55, beta: 0.6, tau: 12, maxPredictMs: 70, stillSpeed: 0.16, jumpPx: 300, rateAdapt: 0.5 };   // rateAdapt: 인식이 느리면 새 결과가 올 때 한 번에 튀지 않게 이어 줘요(결과 간격의 0.5배 시간 동안) — 늦음은 조금 늘고 끊김은 줄어요

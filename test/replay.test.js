@@ -1,7 +1,7 @@
 // 녹화·재생 도구 시험: 가짜 사람 녹화를 만들어 → 파일 모양이 맞고 → 다시 돌렸을 때 동작이 대부분 인식되는지 확인해요.
 import assert from "node:assert/strict";
 import { makeSynthRecording } from "./synth-recording.mjs";
-import { replay, evaluate } from "../replay.js";
+import { replay, evaluate, analyzeHand } from "../replay.js";
 import { buildScript, JOINTS } from "../recorder.js";
 
 const tests = [];
@@ -45,6 +45,19 @@ test("가려진 관절(null)이 있어도 멈추지 않음", () => {
   const rec = makeSynthRecording({ seed: 2 });
   rec.results.forEach((r, i) => { if (i % 5 === 0) for (let k = 6; k <= 10; k++) r[k] = null; });
   assert.doesNotThrow(() => replay(rec));
+});
+
+test("손 게임 녹화 분석: AI 속도·순간이동·멈춤을 알아냄", () => {
+  const frames = [], handResults = [];
+  for (let t = 0; t < 10000; t += 67) handResults.push([t, t % 2000 < 1800 ? [[[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]]] : []]);   // 초당 15번, 가끔 손 없음
+  let x = 100;
+  for (let t = 0; t < 10000; t += 16.7) { if (Math.abs(t - 5000) < 8) x += 400; else if (t > 7000 && t < 7300) { /* 멈춤 */ } else x += 6; frames.push([Math.round(t), [[0, Math.round(x), 300]]]); }
+  const rec = { script: [{ type: "slow", start: 0, end: 10, say: "x" }], handResults, frames, meta: { kind: "hand" } };
+  const h = analyzeHand(rec);
+  assert.ok(h.ai.rate > 14 && h.ai.rate < 16, `AI ${h.ai.rate}`);
+  assert.ok(h.ai.noHand > 0.05, "손 없는 결과 비율");
+  assert.equal(h.teleports.length, 1); assert.ok(Math.abs(h.teleports[0].t - 5) < 0.1);
+  assert.equal(h.segs.slow.stalls, 1); assert.ok(h.segs.slow.stallMs > 200 && h.segs.slow.stallMs < 400, "멈춘 시간");
 });
 
 let failed = 0;
