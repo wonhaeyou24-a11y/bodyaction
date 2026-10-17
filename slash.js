@@ -128,3 +128,75 @@ export function nextNotes(flow, rng, wave, hitTime) {
   flow.lastT = hitTime; flow.n++;
   return out;
 }
+
+// ---------- 곡 분석 기반 큐브 배치 (곡마다 항상 같은 "맵"이 나와서, 익히면 더 잘하게 돼요) ----------
+// 곡 분석(tools/music_map.py)에서 박자마다 뽑아 둔 특징으로 배치를 정해요:
+//   s 소리 세기(강한 박자) → 점이 아닌 화살표, 바깥쪽 줄, 센 박자에서는 양손 동시 큐브
+//   p 소리 높낮이        → 높은 소리는 위에서 아래로 내려 베기, 낮은 소리는 아래에서 위로 올려 베기 (멜로디가 오르내리면 팔도 같이 오르내려요)
+//   e 구간 에너지        → 잔잔한 구간은 점(●)과 세로 베기 위주, 클라이막스는 대각선·가로 베기와 폭탄 없음
+//   반복(같은 리듬이 또 나오면 같은 배치를 다시)  → 곡의 리듬을 몸이 기억해요
+//   손이 닿을 수 있는 거리만(같은 손의 연속 큐브는 너무 멀리 떨어지지 않게), 손은 번갈아·위↔아래 왕복(흐름)
+const PX = { lanes: [1280 * 0.18, 1280 * 0.38, 1280 * 0.62, 1280 * 0.82], rows: [720 * 0.28, 720 * 0.52, 720 * 0.74] };
+export const MAX_HAND_SPEED = 1500;   // 같은 손이 이어서 베는 큐브 사이를 오가는 데 필요한 속도 상한(px/s)
+
+function rng32(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+export function hashSeed(str) { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+/**
+ * @param times  박자 시각(초) 목록
+ * @param feats  [[s, p, e], ...]  박자마다 소리 세기·높낮이·구간 에너지 (0~1)
+ * @returns {{hand:0|1, dir:number|null, lane:number, row:number, bomb?:boolean}[][]}  박자마다 큐브 1~2개
+ */
+export function buildMap(times, feats, seed = 1) {
+  const rng = rng32(seed), out = [];
+  const st = { lastDir: [null, null], lastT: [-9, -9], lastRow: [1, 1], lastLane: [1, 2], lastHand: 1, memory: new Map() };
+  const posOf = (lane, row) => [PX.lanes[lane], PX.rows[row]];
+  for (let i = 0; i < times.length; i++) {
+    const t = times[i], [s, p, e] = feats[i] ?? [0.5, 0.5, 0.5], gap = i ? t - times[i - 1] : 9, gap2 = i > 1 ? times[i - 1] - times[i - 2] : 9;
+    const ramp = Math.min(1, t / 45);                                 // 곡 시작부터 45초에 걸쳐 점점 어려워져요
+    // 폭탄: 잔잔하고 약한 박자에서 가끔, 한 곡에 여러 개 정도
+    if (i % 11 === 7 && e < 0.5 && s < 0.55 && gap > 0.8) { out.push([{ hand: st.lastHand, dir: null, lane: 1 + (i % 2), row: 1, bomb: true }]); continue; }
+    // 1) 손: 번갈아. 한참 쉬었다 시작하는 새 구절은 낮은 소리면 왼손, 높은 소리면 오른손
+    let hand = 1 - st.lastHand;
+    if (gap > 1.4) hand = p < 0.5 ? 0 : 1;
+    // 2) 방향: 같은 손은 위↔아래 왕복. 손이 쉴 시간이 있으면(0.9초 이상) 소리 높낮이를 따라가요
+    const prev = st.lastDir[hand], pv = vertOf(prev), since = t - st.lastT[hand];
+    const pitchV = p > 0.6 ? 0 : p < 0.4 ? 1 : null;
+    let wantV = pv == null ? (pitchV ?? (rng() < 0.5 ? 0 : 1)) : (since < 0.9 ? 1 - pv : (pitchV ?? 1 - pv));
+    const dotP = (e < 0.35 ? 0.45 : e < 0.7 ? 0.2 : 0.08) * (s > 0.85 ? 0 : 1) * (1 - 0.5 * ramp * (e > 0.5 ? 1 : 0)), diagP = e > 0.55 ? 0.3 * ramp : 0, sideP = e > 0.75 ? 0.12 * ramp : 0;
+    const r = rng();
+    let dir;
+    if (r < dotP) dir = null;
+    else if (r < dotP + sideP && (prev == null || prev <= 1 || prev >= 4)) dir = hand === 0 ? 2 : 3;
+    else if (r < dotP + sideP + diagP) dir = diagOf(wantV, hand);
+    else dir = wantV;
+    // 3) 줄·칸: 아래로 베는 큐브는 위쪽에, 올려 베는 큐브는 아래쪽에 (팔이 끊김 없이 이어져요)
+    let row = dir === 0 || dir === 4 || dir === 5 ? (rng() < 0.75 ? 0 : 1) : dir === 1 || dir === 6 || dir === 7 ? (rng() < 0.75 ? 2 : 1) : dir == null ? (p > 0.66 ? 0 : p < 0.33 ? 2 : 1) : 1;
+    const outer = rng() < (s > 0.8 ? 0.5 : 0.25) || dir === 2 || dir === 3 ? 1 : 0;
+    let lane = hand === 0 ? (outer ? 0 : 1) : (outer ? 3 : 2);
+    // 4) 반복: 같은 리듬(앞 두 간격)이 비슷한 높낮이로 다시 나오면 앞에서 쓴 배치를 그대로 (방향 흐름이 맞을 때만)
+    const key = `${Math.round(gap * 8)}|${Math.round(gap2 * 8)}|${p > 0.66 ? "h" : p < 0.33 ? "l" : "m"}|${hand}`;
+    const mem = st.memory.get(key);
+    if (mem && rng() < 0.7 && (mem.dir == null || vertOf(mem.dir) == null || vertOf(mem.dir) === wantV || prev == null)) { dir = mem.dir; row = mem.row; lane = mem.lane; }
+    // 5) 손이 닿을 수 있는지: 같은 손의 앞 큐브에서 너무 빨리 멀리 가야 하면 그 자리 근처에 둬요
+    const [x0, y0] = posOf(st.lastLane[hand], st.lastRow[hand]);
+    let [x1, y1] = posOf(lane, row);
+    if (since > 0 && Math.hypot(x1 - x0, y1 - y0) / Math.max(0.05, since) > MAX_HAND_SPEED) { lane = st.lastLane[hand]; row = Math.max(0, Math.min(2, st.lastRow[hand] + (dir != null && (dir === 0 || dir === 4 || dir === 5) ? -1 : dir != null && (dir === 1 || dir === 6 || dir === 7) ? 1 : 0))); [x1, y1] = posOf(lane, row); }
+    const note = { hand, dir, lane, row };
+    const group = [note];
+    // 6) 센 박자(그리고 앞에서 시간이 있으면)에는 양손 동시 큐브: 같은 방향으로 함께 베어요
+    const other = 1 - hand;
+    const otherFlowOk = st.lastDir[other] == null || vertOf(st.lastDir[other]) == null || vertOf(dir) == null || vertOf(st.lastDir[other]) !== vertOf(dir) || t - st.lastT[other] >= 0.9;   // 다른 손도 위↔아래 왕복이 깨지지 않을 때만
+    if (s > 0.9 && gap > 0.55 && t - st.lastT[other] > 0.5 && dir != null && e > 0.3 && otherFlowOk && i - (st.lastDouble ?? -9) >= 4) {
+      st.lastDouble = i;
+      const olane = other === 0 ? (dir === 2 || dir === 3 ? 0 : 1) : (dir === 2 || dir === 3 ? 3 : 2);
+      group.push({ hand: other, dir, lane: olane, row });
+      st.lastDir[other] = dir; st.lastT[other] = t; st.lastRow[other] = row; st.lastLane[other] = olane;
+    }
+    if (dir != null) st.lastDir[hand] = dir;
+    st.lastT[hand] = t; st.lastRow[hand] = row; st.lastLane[hand] = lane; st.lastHand = hand;
+    st.memory.set(key, { dir, row, lane });
+    out.push(group);
+  }
+  return out;
+}

@@ -21,7 +21,7 @@ import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1500";
 import { newLaneState, stepLane } from "./lane.js?v=20261013_1500";
 import { Recorder, buildScript, downloadRecording } from "./recorder.js?v=20261017_2100";
 import { newSwingState, stepSwing } from "./swing.js?v=20261017_2200";
-import { SLASH, DIRS, newFlow, nextNotes, sweepBlade, tipDirection, judgeCut } from "./slash.js?v=20261018_0100";
+import { SLASH, DIRS, newFlow, nextNotes, buildMap, hashSeed, sweepBlade, tipDirection, judgeCut } from "./slash.js?v=20261018_0200";
 import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1500";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
@@ -5096,11 +5096,20 @@ games.beat = {
     this.currentTrack = track;
     BGM.beat = { ...this.currentTrack };
     // 곡 파일에서 실제로 뽑아 둔 박자(타격 순간) 목록. 있으면 큐브를 거기에 맞춰요 (없으면 예전처럼 BPM 격자)
-    this.beatMap = null; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
+    this.beatMap = null; this.maps = null; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
     if (track.audioFile) {
       const wantId = track.id;
       fetch(track.audioFile.replace(/\.\w+$/, ".beats.json")).then((r) => (r.ok ? r.json() : null)).then((m) => {
-        if (m && Array.isArray(m.notes) && this.currentTrack?.id === wantId) this.beatMap = m;
+        if (m && Array.isArray(m.notes) && this.currentTrack?.id === wantId) {
+          this.beatMap = m;
+          // 곡 분석 결과(소리 세기·높낮이·구간 에너지)로 큐브 배치(맵)를 미리 짜 둬요: 같은 곡은 항상 같은 맵이에요 (slash.js buildMap)
+          this.maps = null;
+          if (m.v === 2 && Array.isArray(m.f_notes) && m.f_notes.length === m.notes.length) {
+            try {
+              this.maps = { notes: buildMap(m.notes, m.f_notes, hashSeed(wantId + "notes")), dense: Array.isArray(m.dense) && Array.isArray(m.f_dense) && m.f_dense.length === m.dense.length ? buildMap(m.dense, m.f_dense, hashSeed(wantId + "dense")) : null };
+            } catch (e) { console.warn("맵 만들기 실패 → 규칙 배치로", e); this.maps = null; }
+          }
+        }
       }).catch(() => {});
     }
 
@@ -5187,12 +5196,13 @@ games.beat = {
 
     // 🎵 실제 노래에서 뽑은 박자가 있으면 그 순간에 큐브를 보내요 (피버에서는 더 촘촘한 목록)
     if (this.beatMap) {
-      const list = currentWave === 3 && this.beatMap.dense ? this.beatMap.dense : this.beatMap.notes;
+      const useDense = currentWave === 3 && this.beatMap.dense;
+      const list = useDense ? this.beatMap.dense : this.beatMap.notes, listKey = useDense ? "dense" : "notes";
       for (let i = 0; i < list.length && i < 4000; i++) {
         const t = list[i];
         if (t <= this.lastSpawnT) continue;
         if (t > horizonTime) break;
-        if (t >= songTime - 0.12) this.spawnNoteAt(t, approachTime);
+        if (t >= songTime - 0.12) this.spawnNoteAt(t, approachTime, listKey, i);
         this.lastSpawnT = t;
       }
       if (songTime + 3 >= this.wallAt) {
@@ -5236,15 +5246,16 @@ games.beat = {
     }
   },
 
-  spawnNoteAt(hitTime, approachTime) {
-    // 박자마다 나올 큐브(들)를 흐름 규칙으로 정해요: 손 번갈아, 같은 손은 위↔아래 왕복, 쉬었다 나오면 가끔 양손 동시 (slash.js)
-    for (const q of nextNotes(this.flow, rng, currentWave, hitTime)) this.spawnOne(q, hitTime, approachTime);
+  spawnNoteAt(hitTime, approachTime, listKey = null, idx = -1) {
+    // 곡 분석으로 미리 짠 맵이 있으면 그대로(곡의 세기·높낮이·구간을 따라 배치), 없으면(신스 곡 등) 흐름 규칙으로: 손 번갈아, 위↔아래 왕복, 가끔 양손 동시 (slash.js)
+    const fromMap = listKey && this.maps?.[listKey]?.[idx];
+    for (const q of fromMap || nextNotes(this.flow, rng, currentWave, hitTime)) this.spawnOne(q, hitTime, approachTime, !!fromMap);
   },
 
-  spawnOne(q, hitTime, approachTime) {
+  spawnOne(q, hitTime, approachTime, fromMap = false) {
     this.spawnCount++;
-    // 네온 스파이크 폭탄 (9개 큐브마다 1개 꼴로 출현)
-    const isBomb = this.spawnCount % 9 === 0 && rng() < 0.65;
+    // 네온 스파이크 폭탄: 맵에서는 곡이 잔잔한 곳에 정해 둔 자리, 규칙 배치에서는 9개 큐브마다 1개 꼴
+    const isBomb = fromMap ? !!q.bomb : (this.spawnCount % 9 === 0 && rng() < 0.65);
     const isLeft = q.hand === 0;
     const targetX = [W * 0.18, W * 0.38, W * 0.62, W * 0.82][q.lane];
     const targetY = [H * 0.28, H * 0.52, H * 0.74][q.row];

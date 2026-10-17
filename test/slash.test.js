@@ -4,7 +4,8 @@
 import assert from "node:assert/strict";
 import { AlphaBeta } from "../tracker.js";
 import { ArmVel } from "../armtrack.js";
-import { SLASH, DIRS, newFlow, nextNotes, sweepBlade, tipDirection, judgeCut, oppositeDir } from "../slash.js";
+import fs from "node:fs";
+import { SLASH, DIRS, newFlow, nextNotes, sweepBlade, tipDirection, judgeCut, oppositeDir, buildMap, hashSeed, MAX_HAND_SPEED } from "../slash.js";
 import { mulberry } from "./bots.js";
 
 const W = 1280, H = 720, APPROACH = 1.8, REACH = 35;
@@ -182,6 +183,61 @@ t("큐브 배치: 손이 번갈아 나오고, 같은 손은 위↔아래로 왕�
   ok(cmp > 20 && flip / cmp > 0.95, `위↔아래 왕복 ${flip}/${cmp}`);
   const dots = (wave) => { const r = mulberry(9), f = newFlow(); let d = 0, n = 0; for (let i = 0; i < 300; i++) for (const q of nextNotes(f, r, wave, i)) { n++; if (q.dir == null) d++; } return d / n; };
   ok(dots(1) > dots(2) && dots(2) > dots(3), `점 비율 ${dots(1).toFixed(2)} ${dots(2).toFixed(2)} ${dots(3).toFixed(2)}`);
+});
+
+
+// ---------- 곡 분석 기반 큐브 배치 (실제 10곡의 분석 결과로 시험) ----------
+const SONGS = ["radetzky", "virus", "turkish", "saints", "canon", "polka", "funkorama", "carefree", "runamok", "monkeys"];
+const loadSong = (id) => JSON.parse(fs.readFileSync(new URL(`../assets/music/${id}.beats.json`, import.meta.url), "utf8"));
+const mapFor = (id, key) => { const m = loadSong(id); return { m, times: m[key], map: buildMap(m[key], m["f_" + key], hashSeed(id + key)) }; };
+const vert = (d) => (d === 0 || d === 4 || d === 5 ? "down" : d === 1 || d === 6 || d === 7 ? "up" : null);
+const PXL = [1280 * 0.18, 1280 * 0.38, 1280 * 0.62, 1280 * 0.82], PXR = [720 * 0.28, 720 * 0.52, 720 * 0.74];
+
+t("곡 분석 파일에 박자별 특징(세기·높낮이·에너지)이 들어 있음 (10곡)", () => {
+  for (const id of SONGS) { const m = loadSong(id); ok(m.v === 2 && m.f_notes?.length === m.notes.length && m.f_dense?.length === m.dense.length, id); ok(m.f_notes.every((f) => f.length === 3 && f.every((x) => x >= 0 && x <= 1)), id + " 범위"); }
+});
+t("같은 곡은 항상 같은 맵(배치)이 나옴", () => { const a = mapFor("polka", "notes").map, b = mapFor("polka", "notes").map; assert.deepEqual(a, b); });
+for (const id of SONGS) {
+  t(`[${id}] 맵 품질: 손 번갈아·위아래 왕복·닿을 수 있는 거리·양손 사용`, () => {
+    const { times, map } = mapFor(id, "notes");
+    ok(map.length === times.length, "박자마다 큐브");
+    const last = [null, null], lastT = [-9, -9], lastPos = [null, null], cnt = [0, 0]; let altOk = 0, altN = 0, flipOk = 0, flipN = 0, reachOk = 0, reachN = 0, prevHand = null, prevT = -9;
+    map.forEach((grp, i) => {
+      for (const n of grp) {
+        if (n.bomb) continue;
+        cnt[n.hand]++;
+        if (grp[0] === n && prevHand != null && times[i] - prevT < 1.4) { altN++; if (n.hand !== prevHand) altOk++; }
+        const dtH = times[i] - lastT[n.hand];
+        if (n.dir != null && last[n.hand] != null && vert(n.dir) && vert(last[n.hand]) && dtH < 0.9) { flipN++; if (vert(n.dir) !== vert(last[n.hand])) flipOk++; }
+        if (lastPos[n.hand] && dtH > 0 && dtH < 3) { reachN++; const d = Math.hypot(PXL[n.lane] - lastPos[n.hand][0], PXR[n.row] - lastPos[n.hand][1]) / dtH; if (d <= MAX_HAND_SPEED * 1.05 || dtH > 1.5) reachOk++; }
+        if (n.dir != null) last[n.hand] = n.dir; lastT[n.hand] = times[i]; lastPos[n.hand] = [PXL[n.lane], PXR[n.row]];
+      }
+      prevHand = grp[0].hand; prevT = times[i];
+    });
+    if (report) console.log(`[${id}] 손 번갈아 ${altN ? (altOk / altN * 100).toFixed(0) : "-"}% · 위아래 왕복 ${flipN ? (flipOk / flipN * 100).toFixed(0) : "-"}% · 닿을 수 있는 거리 ${reachN ? (reachOk / reachN * 100).toFixed(0) : "-"}% · 왼손/오른손 ${cnt[0]}/${cnt[1]}`);
+    ok(altN === 0 || altOk / altN >= 0.9, `손 번갈아 ${altOk}/${altN}`);
+    ok(flipN === 0 || flipOk / flipN >= 0.95, `위아래 왕복 ${flipOk}/${flipN}`);
+    ok(reachN === 0 || reachOk / reachN >= 0.97, `닿을 수 있는 거리 ${reachOk}/${reachN}`);
+    ok(Math.min(cnt[0], cnt[1]) / (cnt[0] + cnt[1]) >= 0.3, `양손 ${cnt}`);
+  });
+}
+t("곡의 소리 높낮이를 따라감: 높은 소리는 내려 베기, 낮은 소리는 올려 베기가 더 많음 (10곡 합산)", () => {
+  let hiDown = 0, hiN = 0, loUp = 0, loN = 0;
+  for (const id of SONGS) { const { m, map } = mapFor(id, "notes"); map.forEach((g, i) => { const p = m.f_notes[i][1], n = g[0]; if (n.bomb || !vert(n.dir)) return; if (p > 0.66) { hiN++; if (vert(n.dir) === "down") hiDown++; } if (p < 0.33) { loN++; if (vert(n.dir) === "up") loUp++; } }); }
+  if (report) console.log(`소리 높낮이 따라가기: 높은 소리→내려 베기 ${(hiDown / hiN * 100).toFixed(0)}% · 낮은 소리→올려 베기 ${(loUp / loN * 100).toFixed(0)}% (무작위면 50%)`);
+  ok(hiDown / hiN > 0.55 && loUp / loN > 0.55, `높은 소리 내려 베기 ${(hiDown / hiN * 100).toFixed(0)}% / 낮은 소리 올려 베기 ${(loUp / loN * 100).toFixed(0)}%`);
+});
+t("잔잔한 구간은 점(●)이 많고 클라이막스는 대각선·가로 베기가 많음 (10곡 합산)", () => {
+  let lowDot = 0, lowN = 0, hiDot = 0, hiN = 0, hiFancy = 0, loFancy = 0;
+  for (const id of SONGS) { const { m, map } = mapFor(id, "notes"); map.forEach((g, i) => { const e = m.f_notes[i][2], n = g[0]; if (n.bomb) return; const fancy = n.dir != null && n.dir >= 2; if (e < 0.33) { lowN++; if (n.dir == null) lowDot++; if (fancy) loFancy++; } if (e > 0.67) { hiN++; if (n.dir == null) hiDot++; if (fancy) hiFancy++; } }); }
+  if (report) console.log(`점(●) 비율: 잔잔 ${(lowDot / lowN * 100).toFixed(0)}% / 클라이막스 ${(hiDot / hiN * 100).toFixed(0)}% · 대각선·가로: 클라이막스 ${(hiFancy / hiN * 100).toFixed(0)}% / 잔잔 ${(loFancy / lowN * 100).toFixed(0)}%`);
+  ok(lowDot / lowN > hiDot / hiN + 0.1 && hiFancy / hiN > loFancy / lowN, "구간별 차이");
+});
+t("양손 동시 큐브는 센 박자에서만, 폭탄은 드묾 (곡당 큐브의 10% 이하)", () => {
+  for (const id of SONGS) { const { m, map } = mapFor(id, "notes"); let bombs = 0, total = 0; map.forEach((g, i) => { total += g.length; if (g[0].bomb) bombs++; if (g.length === 2) ok(m.f_notes[i][0] > 0.9, id + " 약한 박자 동시 큐브"); }); ok(bombs / total <= 0.1, `${id} 폭탄 ${bombs}/${total}`); }
+});
+t("같은 리듬이 반복되면 같은 배치도 반복됨 (곡마다 10% 이상)", () => {
+  for (const id of SONGS) { const { map } = mapFor(id, "notes"); const seen = new Map(); let rep = 0; map.forEach((g) => { const k = g.map((n) => `${n.dir}${n.row}${n.lane}`).join("+"); if (seen.get(k)) rep++; seen.set(k, true); }); if (report) console.log(`[${id}] 반복 배치 ${(rep / map.length * 100).toFixed(0)}%`); ok(rep / map.length > 0.1, `${id} ${(rep / map.length * 100).toFixed(0)}%`); }
 });
 
 console.log(`\n${pass}/${pass + fail} 통과`);
