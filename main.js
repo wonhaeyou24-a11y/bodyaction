@@ -53,6 +53,16 @@ function resize() {
 }
 addEventListener("resize", resize); resize();
 
+// ---------- 오프라인 저장 (sw.js): 한 번 받은 게임·노래·AI 파일을 이 기기에 저장해 두어요 ----------
+// 내 컴퓨터에서 개발할 때(localhost)는 헷갈리지 않게 꺼 두고, 주소 끝에 ?sw 를 붙이면 켜져요. ?bench 시험 주소에서도 꺼져 있어요.
+try {
+  const dev = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !location.search.includes("bench") && (!dev || location.search.includes("sw"))) {
+    const reg = () => navigator.serviceWorker.register("sw.js").catch(() => {});
+    if (document.readyState === "complete") reg(); else addEventListener("load", reg);
+  }
+} catch {}
+
 // ---------- 소리 (효과음 · 배경음악 · 음성) ----------
 // ---------- 소리 (효과음 · 배경음악 · 음성) ----------
 let actx, master, bgmMaster, bgmBus, noiseBuf, soundOn = true, voiceOn = true;
