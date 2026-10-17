@@ -28,7 +28,7 @@
   <h1>🔬 인식 속도 진단</h1>
   <p>게임과 따로, 이 컴퓨터가 몸·손 인식을 얼마나 빨리 하는지 방법별로 재요. <b>카메라 앞에 서서 한 손을 들고(몸 전체가 보이게)</b> 시작을 누른 뒤 약 1분 동안 가만히 움직여 주세요. 영상은 저장하지 않아요.</p>
   <div class="card">
-    <button id="go">▶ 측정 시작</button>
+    <button id="go" onclick="if(!window.__diagReady){document.getElementById('state').textContent='⚠️ 페이지가 제대로 열리지 않았어요. 파일을 더블클릭해서 열면 안 돼요. 게임을 켠 주소 뒤에 /diag.html 을 붙여서 여세요 (예: http://localhost:8080/diag.html)';}">▶ 측정 시작</button>
     <span id="state" style="margin-left:10px;color:var(--muted)"></span>
     <div style="margin-top:10px"><video id="video" playsinline muted></video></div>
   </div>
@@ -43,6 +43,7 @@
 <script type="module">
 import { createVisionClient } from "./vision-client.js?v=20261018_0720";
 
+window.__diagReady = true;
 const $ = (id) => document.getElementById(id);
 const video = $("video"), log = (m) => { $("log").textContent += m + "\n"; };
 const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
@@ -63,7 +64,8 @@ const pct = (a, p) => { const b = [...a].sort((x, y) => x - y); return b[Math.mi
 function cpuScore() { const t0 = performance.now(); let x = 0; for (let i = 0; i < 20000000; i++) x += Math.sqrt(i); return Math.round(performance.now() - t0 + (x < 0 ? 1 : 0)); }
 
 $("go").onclick = async () => {
-  $("go").disabled = true; $("state").textContent = "카메라 연결 중…";
+  if (!navigator.mediaDevices?.getUserMedia) { $("state").textContent = "⚠️ 이 주소에서는 카메라를 쓸 수 없어요. http://localhost:8080 이나 https 주소로 열어 주세요."; return; }
+  $("go").disabled = true; $("state").textContent = "카메라 연결 중… (허용 창이 뜨면 허용을 눌러 주세요)";
   const rows = [], report = { when: new Date().toISOString(), ua: navigator.userAgent, hw: navigator.hardwareConcurrency, mem: navigator.deviceMemory ?? null, dpr: devicePixelRatio, cpuBefore: null, cpuAfter: null, results: [] };
   try {
     video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 30 }, facingMode: "user" } });
@@ -98,7 +100,7 @@ $("go").onclick = async () => {
     for (const r of report.results) { const tr = document.createElement("tr"); const best = bestBy[r.kind] === r; tr.innerHTML = `<td>${r.kind === "pose" ? "몸" : "손"}</td><td>${r.config}${best ? " ⭐" : ""}</td><td class="num">${r.rate}</td><td class="num ${r.inferAvg > 90 ? "slow" : r.inferAvg < 45 ? "fast" : ""}">${r.inferAvg}ms</td><td class="num">${r.inferP90}ms</td><td class="num">${r.latAvg}ms</td>`; tb.append(tr); }
     $("out").value = JSON.stringify(report); $("outCard").hidden = false;
     $("state").textContent = "끝! 아래 내용을 복사해서 보내 주세요."; $("copy").onclick = () => { $("out").select(); document.execCommand("copy"); $("copy").textContent = "복사했어요 ✔"; };
-  } catch (e) { $("state").textContent = "오류: " + (e && e.message || e); log("오류: " + (e && e.stack || e)); }
+  } catch (e) { const name = e && e.name; $("state").textContent = name === "NotAllowedError" ? "⚠️ 카메라 사용을 허용해 주세요 (주소창 왼쪽 자물쇠 → 카메라 허용)" : name === "NotFoundError" ? "⚠️ 카메라를 찾을 수 없어요" : name === "NotReadableError" ? "⚠️ 카메라를 다른 곳(다른 탭·프로그램)에서 쓰고 있어요. 닫고 다시 해 주세요" : "오류: " + (e && e.message || e); log("오류: " + (e && e.stack || e)); }
   $("go").disabled = false;
 };
 </script>
