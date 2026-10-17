@@ -20,6 +20,7 @@ import { CRUN, createRun, stepRun } from "./crun-core.js?v=20261013_1500";
 import { DUEL, createDuel, stepDuel } from "./duel-core.js?v=20261013_1500";
 import { newLaneState, stepLane } from "./lane.js?v=20261013_1500";
 import { Recorder, buildScript, downloadRecording } from "./recorder.js?v=20261017_2100";
+import { newSwingState, stepSwing } from "./swing.js?v=20261017_2200";
 import { drawCharacter, preloadPuppet } from "./character-art.js?v=20261013_1500";
 
 // 👨‍👩‍👧 가족 프로필 저장소(초기화 때 만들어요). 기록 이름(키)은 프로필마다 달라서 항상 recKey()를 거쳐요.
@@ -1167,7 +1168,7 @@ function updatePointers() {
 
     pointers.push({
       x: p.x, y: p.y, px: pr.x, py: pr.y,
-      speed: curSpeed,
+      speed: curSpeed / Math.max(0.25, frameDt * 60),   // 한 프레임 이동 px을 60fps 기준으로 환산 (30fps·144Hz 화면에서도 같은 기준)
       vps: ptrVps[s],
       vN: p.vN,                       // 어깨너비/초 단위 3차원 속도 (몸 인식일 때만; 샌드백 펀치 판정)
       dirN: p.dirN,                   // 그 움직임의 방향 (팔 거두기 구분용)
@@ -5105,6 +5106,7 @@ games.beat = {
       { base: { x: W * 0.65, y: H * 0.6 }, tip: { x: W * 0.7, y: H * 0.4 } }
     ];
     this.swingPower = [0, 0];
+    this.swingSt = [newSwingState(), newSwingState()]; this.swinging = [false, false];   // 어깨 기준 속도로 휘두름을 판정 (swing.js)
 
     this.energy = 50;
     this.multiplier = 1;
@@ -5307,7 +5309,7 @@ games.beat = {
             const prev = this.prevWrist[i] || { x: wPt.x, y: wPt.y };
             const vx = wPt.x - prev.x;
             const vy = wPt.y - prev.y;
-            const spd = Math.hypot(vx, vy);
+            const spd = Math.hypot(vx, vy) / Math.max(0.25, dt * 60);   // 한 프레임 이동 px을 60fps 기준으로 환산 (프레임 속도가 달라져도 같은 값)
 
             this.wristVel[i] = { x: vx, y: vy, spd };
             this.prevWrist[i] = { x: wPt.x, y: wPt.y };
@@ -5328,8 +5330,12 @@ games.beat = {
               tip: { x: wPt.x + nx * bladeLen, y: wPt.y + ny * bladeLen }
             };
 
-            // 비트세이버 유효 스윙 가속도(spd > 7.0) 감지
-            if (spd > 7.0 && now - this.lastSwingT[i] > 110) {
+            // 휘두름 판정: 어깨 기준 손목 속도(어깨너비/초)로 — 멀리/가까이 서도, 점프·기울이기만 해서는 안 걸려요. 팔 속도를 못 구할 때만 예전 방식(화면 px)
+            const av = armVel[1 - i];                                   // beat의 i=0은 왼손목(15) → armVel[1]
+            let swingNow;
+            if (now - av.t < 300) { const sr = stepSwing(this.swingSt[i], av.vN(now), now); swingNow = sr.swing; this.swinging[i] = sr.swinging; }
+            else { swingNow = spd > 7.0 && now - this.lastSwingT[i] > 110; this.swinging[i] = spd > 6.0; }
+            if (swingNow) {
               swing[i] = true;
               this.lastSwingT[i] = now;
               if (isReadyTime) {
@@ -5346,8 +5352,9 @@ games.beat = {
         if (!hasSkelHand[i] && pointers && pointers[i]) {
           const pt = pointers[i];
           const prev = this.prevWrist[i] || { x: pt.x, y: pt.y };
-          const vx = pt.x - prev.x, vy = pt.y - prev.y, spd = Math.hypot(vx, vy);
+          const vx = pt.x - prev.x, vy = pt.y - prev.y, spd = Math.hypot(vx, vy) / Math.max(0.25, dt * 60);
           this.wristVel[i] = { x: vx, y: vy, spd };
+          this.swinging[i] = spd > 6.0;
           this.prevWrist[i] = { x: pt.x, y: pt.y };
           const nx = i === 0 ? -0.4 : 0.4;
           const ny = -0.91;
@@ -5381,6 +5388,7 @@ games.beat = {
       this.sabers[1] = { base: { x: mx + 25, y: my + 20 }, tip: { x: mx + 70, y: my - 105 } };
 
       const isMouseSwing = (mouse.down && mSpd > 3) || mSpd > 10;
+      this.swinging = [isMouseSwing, isMouseSwing];
       if (isMouseSwing && now - this.lastSwingT[0] > 100) {
         swing[0] = true; swing[1] = true;
         this.lastSwingT[0] = now;
@@ -5458,7 +5466,7 @@ games.beat = {
 
         // 2. [스윙 액션] 가만히 대고 있는 것이 아닌, 실제로 칼을 휘두르는 가속도가 실렸는가?
         const wVel = (this.wristVel && this.wristVel[handIdx]) || { spd: 0 };
-        const isSwinging = Boolean(swing[handIdx] || wVel.spd > 6.0 || (useMouse && (swing[0] || swing[1])));
+        const isSwinging = Boolean(swing[handIdx] || this.swinging[handIdx] || (useMouse && (swing[0] || swing[1])));
 
         // 3. [모멘텀 쿨다운] 제자리 뱅글뱅글 비비기 방지
         const lastCut = (this.lastCutT && this.lastCutT[handIdx]) || 0;
