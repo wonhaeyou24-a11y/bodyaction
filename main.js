@@ -5,7 +5,7 @@ import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js?v=20261013_0900";
 import { initSetupGuide } from "./guide.js?v=20261013_0900";
-import { createVisionClient } from "./vision-client.js?v=20261018_0500";
+import { createVisionClient } from "./vision-client.js?v=20261018_0610";
 import { AlphaBeta, FAST_ARM_AB } from "./tracker.js?v=20261018_0300";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
@@ -6373,7 +6373,7 @@ function frame(now) {
   if (now - perfT0 >= 1000) {
     const secs = (now - perfT0) / 1000, st = visionAI.stats, el = $("hudFpsText");
     const aiTotal = st.results + mainInfers;
-    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
+    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
     perfFrames = 0; perfT0 = now; perfAi = aiTotal;
   } // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 
