@@ -80,11 +80,20 @@ export function createVisionClient({ video }) {
   }
 
   // ---------- 새 카메라 프레임마다 보내기 ----------
-  let lastRvfc = 0;
+  let lastRvfc = 0, lastTs = 0;
+  /**
+   * 이 영상이 카메라에서 "실제로 찍힌 시각". 영상을 작업자에 보내는 시각(찍힌 뒤 카메라·전송 지연만큼 늦음)이 아니라
+   * 찍힌 시각으로 표시해야, 추적기가 그 지연만큼 앞을 예측해서 화면 속 손이 진짜 손을 늦지 않게 따라가요.
+   * 브라우저가 알려 주지 않으면(또는 값이 이상하면) 예전처럼 지금 시각을 써요.
+   */
+  function captureStamp(meta) {
+    const now = performance.now(), c = meta && (meta.captureTime ?? meta.receiveTime);
+    return typeof c === "number" && now - c >= 0 && now - c < 400 ? c : now;
+  }
   function pump() {
     // 1순위: 카메라에 새 프레임이 그려질 때마다 알림 (requestVideoFrameCallback)
     if (typeof video.requestVideoFrameCallback === "function") {
-      const onFrame = () => { lastRvfc = performance.now(); send(); video.requestVideoFrameCallback(onFrame); };
+      const onFrame = (now, meta) => { lastRvfc = performance.now(); send(captureStamp(meta)); video.requestVideoFrameCallback(onFrame); };
       video.requestVideoFrameCallback(onFrame);
     }
     // 보조: 알림이 0.1초 넘게 안 오면(지원 안 함/브라우저가 멈춤) 영상 시간이 바뀌었는지 직접 확인
@@ -92,7 +101,7 @@ export function createVisionClient({ video }) {
       if (performance.now() - lastRvfc > 100 && video.currentTime !== lastFrameTime) { lastFrameTime = video.currentTime; send(); }
     }, 16);
   }
-  async function send() {
+  async function send(captureTs = null) {
     if (!active || !worker || !state[active].ready || video.readyState < 2) return;
     if (busy) {
       // 응답이 없으면 강제 잠금 해제 — 단, 느린 PC(인식 1회가 오래 걸림)에서는 기다려 줘요 (그렇지 않으면 작업자에 일이 쌓여 지연이 커져요)
@@ -100,7 +109,7 @@ export function createVisionClient({ video }) {
     }
     if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
     busy = true; busySince = performance.now();
-    const kind = active, ts = performance.now();
+    const kind = active, ts = (lastTs = Math.max(captureTs ?? performance.now(), lastTs + 0.01));
     try {
       const bitmap = await createImageBitmap(video);
       worker.postMessage({ type: "detect", kind, ts, bitmap }, [bitmap]);

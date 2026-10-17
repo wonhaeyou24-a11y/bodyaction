@@ -2,7 +2,7 @@
 // 가상의 사람이 실제와 같은 경로(AI 20Hz·잡음·지연 → 추적기 → 칼날 → 판정)로 큐브를 베거나, 아무 데나 휘두르거나, 반대로 베거나, 박자를 놓칠 때
 // "예전 판정(old)"과 "새 판정(new)"이 어떻게 달라지는지 비교해요.
 import assert from "node:assert/strict";
-import { AlphaBeta } from "../tracker.js";
+import { AlphaBeta, FAST_ARM_AB } from "../tracker.js";
 import { ArmVel } from "../armtrack.js";
 import fs from "node:fs";
 import { SLASH, DIRS, newFlow, nextNotes, sweepBlade, tipDirection, judgeCut, oppositeDir, buildMap, hashSeed, MAX_HAND_SPEED } from "../slash.js";
@@ -62,7 +62,7 @@ function simulate(notes, plan, { SW = 220, seed = 1, fps = 60, aiHz = 20, noise 
     return prevEnd ? [last[0] + (r0[0] - last[0]) * f, last[1] + (r0[1] - last[1]) * f] : r0;
   };
   const wristAt = (h, tt) => { const m = midAt(h, tt); return [m[0] - bladeDir[h][0] * BLADE / 2, m[1] - bladeDir[h][1] * BLADE / 2]; };   // 손목 = 칼 가운데에서 칼 방향 반대로 BLADE/2
-  const trk = [new AlphaBeta(BODY_AB), new AlphaBeta(BODY_AB)], av = [new ArmVel(), new ArmVel()];
+  const trk = [new AlphaBeta(FAST_ARM_AB), new AlphaBeta(FAST_ARM_AB)], av = [new ArmVel(), new ArmVel()];
   const hist = [[], []], prevSab = [null, null], lastWrist = [null, null];
   const res = notes.map(() => ({ old: null, neu: null }));
   const oldCool = [-1e9, -1e9], oldSwingT = [-1e9, -1e9], newCool = [-1e9, -1e9];
@@ -74,7 +74,7 @@ function simulate(notes, plan, { SW = 220, seed = 1, fps = 60, aiHz = 20, noise 
       aiNext = tt + (1 / aiHz) * (0.7 + rng() * 0.6);
       for (const h of [0, 1]) {
         const w = wristAt(h, tt - lat);
-        trk[h].update(w[0] + g() * noise, w[1] + g() * noise, now);
+        trk[h].update(w[0] + g() * noise, w[1] + g() * noise, now - lat * 1000);   // 영상이 찍힌 시각으로 표시 (게임과 같음)
         av[h].update(now, w[0] - shoulder[h][0] + g() * noise, w[1] - shoulder[h][1] + g() * noise, g() * 18, SW);
       }
     }

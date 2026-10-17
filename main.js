@@ -6,7 +6,7 @@ import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js?v=20261013_0900";
 import { initSetupGuide } from "./guide.js?v=20261013_0900";
 import { createVisionClient } from "./vision-client.js?v=20261013_0900";
-import { AlphaBeta } from "./tracker.js?v=20261013_1630";
+import { AlphaBeta, FAST_ARM_AB } from "./tracker.js?v=20261018_0300";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
 import { matchPose, hintFor, needsLegs, pickPose, levelFor, levelConfig, poseScore, anglesOf, lerpAngles, torsoLength, skeletonFromAngles, poseById } from "./poses.js?v=20261017_1400";
@@ -1042,6 +1042,9 @@ const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed:
 const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta(HAND_AB));
 const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
 let bodyTracks = [], bodyVis = [], bodyHave = false;
+const FAST_JOINTS = [13, 14, 15, 16];                 // 팔꿈치·손목: 광선검처럼 빠르게 휘두르는 게임(fastArms)에서는 이 "빠른 팔" 추적기 값을 써요 (늦음 ~100ms → ~50ms)
+const fastTracks = {};
+const resetFastTracks = () => { for (const k in fastTracks) fastTracks[k].reset(); };
 const ptrVps = [];       // 손별 초당 이동 속도(px/s) - 프레임 수와 상관없는 속도 (펀치 판정용)
 let lastHandsInferFresh = false; // 이번 프레임에서 새로 AI 추론이 되었는지 여부
 let lastPointerUpdateTime = 0, lastHandT0 = 0, lastPoseT0 = 0;   // 결과 간격(속도 단위 보정용)
@@ -1056,7 +1059,7 @@ function updatePointers() {
     body = null;
     euroFilters.forEach((ef) => { ef.x.reset(); ef.y.reset(); });
     lastHandsInferFresh = false;
-    bodyHave = false; bodyTracks.forEach((t) => t.reset()); handTracks.forEach((t) => t.reset()); ptrVps.length = 0; resetArmVel();
+    bodyHave = false; bodyTracks.forEach((t) => t.reset()); resetFastTracks(); handTracks.forEach((t) => t.reset()); ptrVps.length = 0; resetArmVel();
     return;
   }
 
@@ -1107,13 +1110,14 @@ function updatePointers() {
             r.landmarks[0].forEach((l, i) => {
               const p = videoToScreen(l);
               (bodyTracks[i] ??= new AlphaBeta(BODY_AB)).update(p.x, p.y, t0);
+              if (i >= 13 && i <= 16) (fastTracks[i] ??= new AlphaBeta(FAST_ARM_AB)).update(p.x, p.y, t0);
               bodyVis[i] = l.visibility ?? 1;
             });
             bodyTracks.length = r.landmarks[0].length;
             bodyHave = true;
           } else if (t0 - bodySeen > 600) {
             if (recorder.on) recorder.mark("lost");
-            body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset()); resetArmVel();
+            body = null; bodyVelocities = []; bodyHave = false; bodyTracks.forEach((t) => t.reset()); resetFastTracks(); resetArmVel();
           }
         } catch (err) {
           console.warn("포즈 인식 예외 (자동 복구):", err);
@@ -1128,12 +1132,13 @@ function updatePointers() {
       bodyHave = false;
       body = null;
       bodyVelocities = [];
-      bodyTracks.forEach((t) => t.reset());
+      bodyTracks.forEach((t) => t.reset()); resetFastTracks();
       resetArmVel();
     }
     // 매 화면 프레임: 추적기로 "지금 시각"의 관절 위치를 만들어요 (인식 결과 사이에도 부드럽게 이어짐)
     if (bodyHave) {
       body = bodyTracks.map((tr, i) => ({ ...tr.at(now), v: bodyVis[i] ?? 1 }));
+      if (mode && games[mode]?.fastArms) for (const i of FAST_JOINTS) if (fastTracks[i]?.ready) Object.assign(body[i], fastTracks[i].at(now));   // 광선검 등: 팔은 늦음이 적은 추적기로
       // ⚡ 포즈 모드 및 피팅룸에서도 손목(15, 16)을 pointers로 추출하여 손/주먹 상호작용 지원
       if (body && body[15] && body[16]) {
         pts = [
@@ -5040,6 +5045,7 @@ function drawSlashArrow(o) {
 }
 
 games.beat = {
+  fastArms: true,   // 팔꿈치·손목을 "빠른 팔" 추적기로 (그림자처럼 늦는 느낌을 줄여요)
   body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 오디오 타임스탬프 100% 동기화 엔진 가동
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
 
@@ -6360,7 +6366,7 @@ function frame(now) {
   if (now - perfT0 >= 1000) {
     const secs = (now - perfT0) / 1000, st = visionAI.stats, el = $("hudFpsText");
     const aiTotal = st.results + mainInfers;
-    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate : "메인"}`;
+    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
     perfFrames = 0; perfT0 = now; perfAi = aiTotal;
   } // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 

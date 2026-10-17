@@ -70,3 +70,11 @@ export class AlphaBeta {
     return out;
   }
 }
+
+/**
+ * 광선검처럼 팔을 빠르게 휘두르는 게임용 "빠른 팔" 설정 (손목·팔꿈치에만 써요).
+ * 기본 몸 설정(BODY_AB: alpha .55 · beta .18 · tau 60)은 떨림이 적은 대신 빠른 휘두름에서 화면 속 손이 진짜 손보다 약 100ms 늦게 따라와요(그림자처럼).
+ * 이 설정은 속도 반응을 빠르게(beta .6)·부드럽게 이어 주는 시간을 짧게(tau 12)·느린 움직임은 예측하지 않게(stillSpeed .16) 해서 늦음을 약 50ms로 줄여요 (앞을 예측하는 시간을 70ms로 제한해서, 휘두름이 끝나는 점에서 튀어나가는 정도는 예전과 비슷하게 유지).
+ * 대신 가만히 있을 때 떨림이 조금 늘어요(시험: node test/latency.test.js).
+ */
+export const FAST_ARM_AB = { alpha: 0.55, beta: 0.6, tau: 12, maxPredictMs: 70, stillSpeed: 0.16, jumpPx: 300 };
