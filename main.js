@@ -5,7 +5,7 @@ import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js?v=20261013_0900";
 import { initSetupGuide } from "./guide.js?v=20261013_0900";
-import { createVisionClient } from "./vision-client.js?v=20261018_0720";
+import { createVisionClient, CLASSIC_ENGINE } from "./vision-client.js?v=20261018_0900";
 import { AlphaBeta, FAST_ARM_AB } from "./tracker.js?v=20261018_0300";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
@@ -44,7 +44,7 @@ const video = $("video"), canvas = $("stage"), ctx = canvas.getContext("2d");
 // ⚡ 비동기 AI 엔진: 손/몸 인식을 작업자(Web Worker)에서 돌려 게임 화면이 인식 때문에 멈추지 않게 해요.
 // 주소에 ?noworker 를 붙이면 예전 방식(화면과 같은 곳에서 인식)으로 돌아가요. 작업자가 안 되면 자동으로 예전 방식.
 const USE_WORKER = !location.search.includes("noworker");
-const visionAI = createVisionClient({ video });
+const visionAI = createVisionClient({ video });   // 기본은 예전 방식(classic). 새 인식 개선은 ?engine=new
 let W = 0, H = 0;
 let renderScale = 1.0;   // 가벼운 화면 모드에서는 0.75 (아래 applyLite)
 function resize() {
@@ -993,7 +993,7 @@ function recTick() {
 function recStop(save) {
   clearInterval(recTimer); recTimer = 0;
   const rec = recorder.stop();
-  if (rec) { const st = visionAI.stats; rec.meta.stats = { lite: liteLevel, dpr: devicePixelRatio, delegate: st.delegate, scale: st.scale, tuning: st.tuning, tune: st.tune, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
+  if (rec) { const st = visionAI.stats; rec.meta.stats = { engine: CLASSIC_ENGINE ? "classic" : "new", lite: liteLevel, dpr: devicePixelRatio, delegate: st.delegate, scale: st.scale, tuning: st.tuning, tune: st.tune, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
   recUI?.remove(); recUI = null;
   if (save && rec && (rec.results.length || rec.handResults.length)) {
     const d = new Date(), pad = (n) => String(n).padStart(2, "0");
@@ -1041,7 +1041,7 @@ let handVelocities = Array.from({ length: MAX_HANDS }, () => ({ vx: 0, vy: 0 }))
 let bodyVelocities = []; // (예전 방식 호환용)
 // 📍 위치 추적기: 인식 결과가 들쭉날쭉한 간격으로 와도 손/관절이 튀지 않고 부드럽게 따라가게 해요 (tracker.js)
 // ⚡ 손 전용 튜닝: jumpPx를 900px로 상향하여 고속 스윙 시 리셋 순간이동 원천 차단, maxPredictMs 45ms로 미래 오버슈트 튐 차단!
-const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed: 0.05, jumpPx: 900, rateAdapt: true };   // rateAdapt: AI 인식이 느린 컴퓨터(초당 10~15번)에서 손이 딱딱 끊기고 순간이동하는 걸 줄여요
+const HAND_AB = { alpha: 0.55, beta: 0.2, tau: 45, maxPredictMs: 45, stillSpeed: 0.05, jumpPx: 900, rateAdapt: !CLASSIC_ENGINE };   // rateAdapt: AI 인식이 느린 컴퓨터(초당 10~15번)에서 손이 딱딱 끊기고 순간이동하는 걸 줄여요
 const handTracks = Array.from({ length: MAX_HANDS }, () => new AlphaBeta(HAND_AB));
 const BODY_AB = { alpha: 0.55, beta: 0.18, tau: 60, maxPredictMs: 120, stillSpeed: 0.04, jumpPx: 300 };
 let bodyTracks = [], bodyVis = [], bodyHave = false;
@@ -1141,7 +1141,7 @@ function updatePointers() {
     // 매 화면 프레임: 추적기로 "지금 시각"의 관절 위치를 만들어요 (인식 결과 사이에도 부드럽게 이어짐)
     if (bodyHave) {
       body = bodyTracks.map((tr, i) => ({ ...tr.at(now), v: bodyVis[i] ?? 1 }));
-      if (mode && games[mode]?.fastArms) for (const i of FAST_JOINTS) if (fastTracks[i]?.ready) Object.assign(body[i], fastTracks[i].at(now));   // 광선검 등: 팔은 늦음이 적은 추적기로
+      if (!CLASSIC_ENGINE && mode && games[mode]?.fastArms) for (const i of FAST_JOINTS) if (fastTracks[i]?.ready) Object.assign(body[i], fastTracks[i].at(now));   // 광선검 등: 팔은 늦음이 적은 추적기로
       // ⚡ 포즈 모드 및 피팅룸에서도 손목(15, 16)을 pointers로 추출하여 손/주먹 상호작용 지원
       if (body && body[15] && body[16]) {
         pts = [
@@ -6374,7 +6374,7 @@ function drawBackground(color, camAlpha = 0.20) {
 //   주소에 ?lite=1 / ?lite=2 로 강제, ?full 로 끄기(자동 판단도 끔)
 // ============================================================================
 const LITE_URL = (() => { const q = new URLSearchParams(location.search); if (q.has("full")) return 0; if (q.has("lite")) return Math.max(1, Math.min(2, Number(q.get("lite")) || 1)); return null; })();
-let liteLevel = 0, liteTick = false, liteSlow = 0, liteSince = 0, liteBase = 0, liteDone = LITE_URL !== null, liteLastCheck = 0;
+let liteLevel = 0, liteTick = false, liteSlow = 0, liteSince = 0, liteBase = 0, liteDone = LITE_URL !== null || CLASSIC_ENGINE, liteLastCheck = 0;   // classic 에서는 자동 판단을 끄고 ?lite 로 직접 켤 때만
 function applyLite(level) {
   liteLevel = level; liteTick = false;
   document.documentElement.classList.toggle("lite", level >= 1);
@@ -6382,7 +6382,7 @@ function applyLite(level) {
   else delete ctx.shadowBlur;
   renderScale = level >= 1 ? 0.75 : 1.0; resize();
 }
-try { if (location.search.includes("retune")) localStorage.removeItem("kk_lite_level"); const saved = Number(localStorage.getItem("kk_lite_level")) || 0; if (LITE_URL !== null) applyLite(LITE_URL); else if (saved >= 1 && saved <= 2) { applyLite(saved); liteDone = true; } } catch { /* 무시 */ }
+try { if (location.search.includes("retune") || CLASSIC_ENGINE) localStorage.removeItem("kk_lite_level"); const saved = Number(localStorage.getItem("kk_lite_level")) || 0; if (LITE_URL !== null) applyLite(LITE_URL); else if (saved >= 1 && saved <= 2) { applyLite(saved); liteDone = true; } } catch { /* 무시 */ }
 /** 1초마다 불러요: 인식이 계속 느린지 보고 단계를 올리거나 되돌려요 */
 function liteGovernor(now, st) {
   if (liteDone || !playing || !mode || !st.delegate || st.tuning) { liteSlow = 0; return; }
@@ -6406,7 +6406,7 @@ function frame(now) {
     const secs = (now - perfT0) / 1000, st = visionAI.stats, el = $("hudFpsText");
     const aiTotal = st.results + mainInfers;
     try { liteGovernor(now, st); } catch (e) { console.warn("가벼운 화면 판단 오류(무시)", e); }
-    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.path === "data" ? " 픽셀방식" : "") + (liteLevel ? " · 가벼운 화면 " + liteLevel + "단계" : "") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
+    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.path === "data" ? " 픽셀방식" : "") + (liteLevel ? " · 가벼운 화면 " + liteLevel + "단계" : "") + (CLASSIC_ENGINE ? "" : " · 새 엔진") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
     perfFrames = 0; perfT0 = now; perfAi = aiTotal;
   } // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 

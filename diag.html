@@ -41,7 +41,7 @@
   <div class="card" id="outCard" hidden><b>이 내용을 복사해서 보내 주세요</b><textarea id="out" readonly></textarea><div style="margin-top:8px"><button id="copy">복사</button></div></div>
 </main>
 <script type="module">
-import { createVisionClient } from "./vision-client.js?v=20261018_0720";
+import { createVisionClient } from "./vision-client.js?v=20261018_0900";
 
 window.__diagReady = true;
 const $ = (id) => document.getElementById(id);
@@ -73,7 +73,7 @@ $("go").onclick = async () => {
     const trk = video.srcObject.getVideoTracks()[0]; const set = trk.getSettings(); report.camera = { w: set.width, h: set.height, fps: set.frameRate, label: trk.label };
     log(`카메라: ${trk.label} ${set.width}x${set.height} @${set.frameRate}fps`);
     report.cpuBefore = cpuScore(); $("cpuCard").hidden = false; $("cpu").textContent = `· 계산 시험 ${report.cpuBefore}ms (작을수록 빠름)`;
-    const client = createVisionClient({ video });
+    const client = createVisionClient({ video, classic: false });   // 진단은 새 엔진 기능(크기·방식 바꾸기)을 직접 써요
     let cur = null;
     client.onResult = (kind, m) => { if (cur && cur.kind === kind) { cur.infer.push(m.inferMs || 0); cur.lat.push(performance.now() - m.ts); if (m.landmarks && m.landmarks.length) cur.target++; } };
     for (const kind of ["pose", "hand"]) {

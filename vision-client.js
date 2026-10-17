@@ -19,7 +19,11 @@ const prefKey = (kind) => "kk_tune_" + kind;
 const readPref = (kind) => { try { if (typeof location !== "undefined" && location.search.includes("retune")) return null; const v = JSON.parse(localStorage.getItem(prefKey(kind)) || "null"); return v && typeof v.cpu === "boolean" && v.s > 0 && v.s <= 1 ? { cpu: v.cpu, s: v.s, p: v.p === "data" ? "data" : "bitmap" } : null; } catch { return null; } };
 const writePref = (kind, c) => { try { localStorage.setItem(prefKey(kind), JSON.stringify({ cpu: c.cpu, s: c.s, p: c.p })); } catch { /* 무시 */ } };
 
-export function createVisionClient({ video }) {
+// 🛡️ 엔진 선택: 기본은 "예전 방식(classic)" — 오늘 저녁 새로 넣은 인식 개선(영상 찍힌 시각 사용·즉시 재전송·속도 자동 선택·영상 크기 줄이기 등)을 모두 끄고
+// 그 전에 잘 되던 방식 그대로 돌려요. 새 방식은 주소에 ?engine=new 를 붙였을 때만 켜져요 (사용자 컴퓨터에서 새 방식이 더 느려졌다는 보고가 있어서).
+export const CLASSIC_ENGINE = !(typeof location !== "undefined" && new URLSearchParams(location.search).get("engine") === "new");
+
+export function createVisionClient({ video, classic = CLASSIC_ENGINE }) {
   let worker = null, broken = false;
   let active = null;              // 지금 인식할 종류: "hand" | "pose" | null(멈춤)
   let busy = false, busySince = 0, grab = null, grabCtx = null;   // grab: 픽셀 복사 방식용 작은 캔버스
@@ -77,7 +81,7 @@ export function createVisionClient({ video }) {
     if (broken) return null;
     if (!worker) {
       try {
-        worker = new Worker(new URL("./vision-worker.js?v=20261018_0720", import.meta.url));   // 일반(classic) 작업자
+        worker = new Worker(new URL("./vision-worker.js?v=20261018_0900", import.meta.url));   // 일반(classic) 작업자
         worker.onmessage = onMessage;
         worker.onerror = (e) => { console.warn("AI 작업자 오류 - 예전 방식으로 전환:", e.message); fail("작업자 오류"); };
       } catch (e) { console.warn("AI 작업자를 만들 수 없어요:", e); broken = true; return null; }
@@ -100,7 +104,7 @@ export function createVisionClient({ video }) {
       const t = tune[m.kind];
       if (m.replaced) { t.switching = false; t.skip = 0; t.n = 0; t.sum = 0; }                        // CPU/GPU 바꾼 뒤: 새 방법으로 다시 재기 시작
       else if (t.phase === "wait") {
-        const pref = readPref(m.kind);
+        const pref = classic ? { cpu: false, s: 1, p: "bitmap" } : readPref(m.kind);   // classic: 자동 선택 없이 처음부터 "끝"
         cur[m.kind] = { cpu: m.delegate === "CPU", s: scale[m.kind], p: path[m.kind] };
         t.skip = 0; t.i = 0;
         t.phase = pref || m.delegate !== "GPU" ? "done" : "measure";                                  // 이미 재 본 기기(기억해 둠)이거나 처음부터 CPU면 재지 않아요
@@ -112,7 +116,7 @@ export function createVisionClient({ video }) {
     } else if (m.type === "result") {
       busy = false;
       // 인식이 끝난 순간, 그 사이에 새 카메라 프레임이 이미 와 있으면 다음 프레임을 기다리지 않고 바로 보내요 (예전엔 최대 16ms를 놀았어요)
-      if (frameSeq > sentSeq) queueMicrotask(() => send(latestCapture));
+      if (!classic && frameSeq > sentSeq) queueMicrotask(() => send(latestCapture));
       if (m.error) {
         errStreak++;
         if (errStreak >= 4) {
@@ -136,7 +140,7 @@ export function createVisionClient({ video }) {
   /** 작업자에서 모델 준비. 성공하면 true, 안 되면 false (그때는 예전 방식을 쓰면 돼요) */
   function ensure(kind, { model, options = {}, cpu = false, timeoutMs = 45000 } = {}) {
     initArgs[kind] = { model, options };
-    const pref = readPref(kind);
+    const pref = classic ? null : readPref(kind);
     if (pref) { if (pref.cpu) cpu = true; scale[kind] = pref.s; path[kind] = pref.p; }       // 이 기기에서 재 둔 가장 빠른 방법으로 시작
     if (state[kind].ready) return Promise.resolve(true);
     const w = getWorker();
@@ -158,7 +162,7 @@ export function createVisionClient({ video }) {
    * 브라우저가 알려 주지 않으면(또는 값이 이상하면) 예전처럼 지금 시각을 써요.
    */
   function captureStamp(meta) {
-    const now = performance.now(), c = meta && (meta.captureTime ?? meta.receiveTime);
+    const now = performance.now(), c = !classic && meta && (meta.captureTime ?? meta.receiveTime);   // classic: 예전처럼 영상을 보내는 시각을 써요
     return typeof c === "number" && now - c >= 0 && now - c < 400 ? c : now;
   }
   function pump() {
