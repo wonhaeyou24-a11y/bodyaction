@@ -4975,15 +4975,21 @@ games.beat = {
       track = BEAT_TRACKS.find((t) => t.id === this.chosenTrackId);
     }
     if (!track) {
-      // 랜덤: 직전에 한 곡은 피해요. 이번 접속의 직전 곡이 없으면 저장해 둔 지난 접속의 마지막 곡을 피해서, 처음 시작해도 매번 다른 곡이 나와요
-      let last = lastBeatTrackIdx;
-      if (last < 0) { try { last = BEAT_TRACKS.findIndex((t) => t.id === localStorage.getItem("kk_last_beat_track")); } catch { last = -1; } }
-      // 컴퓨터가 만든 소리(신스) 곡은 빼고 진짜 연주 음원만 랜덤으로 골라요
-      const pool = BEAT_TRACKS.map((t, i) => (t.audioFile ? i : -1)).filter((i) => i >= 0);
-      let trackIdx = pool[Math.floor(Math.random() * pool.length)];
-      if (trackIdx === last && pool.length > 1) trackIdx = pool[(pool.indexOf(trackIdx) + 1) % pool.length];
-      lastBeatTrackIdx = trackIdx;
-      track = BEAT_TRACKS[trackIdx];
+      // 랜덤: "섞은 곡 주머니"에서 하나씩 꺼내요. 주머니가 비기 전에는 같은 곡이 다시 안 나와서 모든 곡을 한 번씩 다 듣고, 다 쓰면 새로 섞어요
+      // (예전엔 매번 주사위를 굴려서 우연히 같은 3~4곡만 반복되기도 했어요). 접속을 껐다 켜도 이어져요.
+      const poolIds = BEAT_TRACKS.filter((t) => t.audioFile).map((t) => t.id);   // 진짜 연주 음원만
+      let bag = [];
+      try { bag = JSON.parse(localStorage.getItem("kk_beat_bag") || "[]").filter((id) => poolIds.includes(id)); } catch { bag = []; }
+      if (!bag.length) {
+        bag = poolIds.slice();
+        for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+        let lastId = null; try { lastId = localStorage.getItem("kk_last_beat_track"); } catch {}
+        if (bag.length > 1 && bag[bag.length - 1] === lastId) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];   // 새 주머니의 첫 곡이 직전 곡이면 바꿔요
+      }
+      const pickedId = bag.pop();
+      try { localStorage.setItem("kk_beat_bag", JSON.stringify(bag)); } catch {}
+      track = BEAT_TRACKS.find((t) => t.id === pickedId) || BEAT_TRACKS[0];
+      lastBeatTrackIdx = BEAT_TRACKS.indexOf(track);
     }
     try { localStorage.setItem("kk_last_beat_track", track.id); } catch {}
     this.currentTrack = track;
