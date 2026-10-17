@@ -5,7 +5,7 @@ import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js?v=20261013_0900";
 import { initSetupGuide } from "./guide.js?v=20261013_0900";
-import { createVisionClient } from "./vision-client.js?v=20261018_0610";
+import { createVisionClient } from "./vision-client.js?v=20261018_0710";
 import { AlphaBeta, FAST_ARM_AB } from "./tracker.js?v=20261018_0300";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
@@ -992,7 +992,7 @@ function recTick() {
 function recStop(save) {
   clearInterval(recTimer); recTimer = 0;
   const rec = recorder.stop();
-  if (rec) { const st = visionAI.stats; rec.meta.stats = { delegate: st.delegate, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
+  if (rec) { const st = visionAI.stats; rec.meta.stats = { delegate: st.delegate, scale: st.scale, tuning: st.tuning, tune: st.tune, inferMs: Math.round(st.inferMs), latencyMs: Math.round(st.latencyMs), workerResults: st.results, mainInfers, detectMs: Math.round(detectMs), fps: Math.round(perfFrames) }; }   // 인식 속도 진단용
   recUI?.remove(); recUI = null;
   if (save && rec && (rec.results.length || rec.handResults.length)) {
     const d = new Date(), pad = (n) => String(n).padStart(2, "0");
@@ -1254,7 +1254,7 @@ function detectHandsNow() {
     const childBonus = (playerSettings?.heightMode === "child" ? 14 : 0);
     reach = Math.max(10, (palm ? 32 : 12) + reachBonus + childBonus);
 
-    if (recorder.on) recorder.handResult(t0, r.landmarks || []);
+    if (recorder.on) recorder.handResult(t0, r.landmarks || [], wr ? wr.inferMs : performance.now() - inferStart);
     if (r.landmarks && r.landmarks.length > 0) {
       lastSeen = t0; lastSeenAt = performance.now();
       lastHandT0 = t0;
@@ -6373,7 +6373,7 @@ function frame(now) {
   if (now - perfT0 >= 1000) {
     const secs = (now - perfT0) / 1000, st = visionAI.stats, el = $("hudFpsText");
     const aiTotal = st.results + mainInfers;
-    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
+    if (el && perfT0) el.textContent = `화면 ${Math.round(perfFrames / secs)}fps · AI ${Math.round((aiTotal - perfAi) / secs)}회/초 · ${Math.round(st.delegate ? st.inferMs : detectMs)}ms ${st.delegate ? "작업자 " + st.delegate + (st.scale < 1 ? " " + st.scale + "배 크기" : "") + (st.path === "data" ? " 픽셀방식" : "") + (st.tuning ? " (속도 재는 중)" : "") + " · 찍힌 뒤 도착까지 " + Math.round(st.latencyMs) + "ms" : "메인"}`;
     perfFrames = 0; perfT0 = now; perfAi = aiTotal;
   } // 실제 시간과 게임 물리 시간 100% 동기화 (슬로우 모션 방지)
 

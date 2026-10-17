@@ -65,9 +65,9 @@ export class Recorder {
     this.rec.results.push(row);
   }
   /** 손 인식 결과 한 번: hands = 손마다 랜드마크 21개 → 핵심 6점만 [x,y] 저장 */
-  handResult(tMs, hands) {
+  handResult(tMs, hands, inferMs = 0) {
     if (!this.on || !hands) return;
-    this.rec.handResults.push([Math.round(tMs - this.start0), hands.map((h) => HAND_POINTS.map((i) => [r(h[i].x, 4), r(h[i].y, 4)]))]);
+    this.rec.handResults.push([Math.round(tMs - this.start0), hands.map((h) => HAND_POINTS.map((i) => [r(h[i].x, 4), r(h[i].y, 4)])), Math.round(inferMs)]);   // 3번째 값: 이 인식 1번에 걸린 시간(ms)
   }
   /** 화면에 실제로 그려진 손 위치(추적기를 거친 값) 한 프레임: 순간이동·끊김을 직접 볼 수 있어요 */
   frame(tMs, ptrs) {

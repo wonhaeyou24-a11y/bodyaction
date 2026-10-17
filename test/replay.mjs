@@ -10,6 +10,7 @@ if (rec.meta?.kind === "hand" || (rec.handResults?.length && !rec.results?.lengt
   const h = analyzeHand(rec), NAME = { setup: "준비", hold: "가만히", slow: "천천히", fast: "빠르게", circle: "원 그리기", two: "두 손", hide: "손 내리기", show: "손 올리기", fist: "주먹", done: "끝", other: "기타" };
   if (rec.meta?.stats) console.log("인식 상태:", JSON.stringify(rec.meta.stats));
   if (h.ai) console.log(`AI 인식: 초당 ${h.ai.rate.toFixed(1)}번 · 결과 간격 중간 ${h.ai.gapP50}ms / 느린 10% ${h.ai.gapP90}ms / 최대 ${h.ai.gapMax}ms · 손이 안 잡힌 결과 ${(h.ai.noHand * 100).toFixed(0)}%`);
+  if (h.infer) console.log(`인식 1번 시간: 중간 ${h.infer.p50}ms / 느린 10% ${h.infer.p90}ms / 최대 ${h.infer.max}ms`);
   console.log("\n구간별 화면 속 손 (실제로 그려진 위치)");
   for (const [k, v] of Object.entries(h.segs)) { if (v.frames < 5) continue; console.log(`  ${NAME[k] ?? k}`.padEnd(14), `프레임 ${String(v.frames).padStart(4)} · 순간이동 ${v.tele}번 · 굳었다 튀기 ${v.stalls || 0}번${v.stalls ? `(평균 ${Math.round(v.stallMs / v.stalls)}ms)` : ""} · 최고속도 ${Math.round(v.maxSpeed)}px/초 · 손 없음 ${(v.lost / v.frames * 100).toFixed(0)}%`); }
   console.log("\n순간이동(한 프레임에 200px 넘게 이동):", h.teleports.length ? h.teleports.slice(0, 12).map((x) => `${x.t.toFixed(1)}초 ${x.px}px(${NAME[x.seg] ?? x.seg})`).join(", ") : "없음 ✅");

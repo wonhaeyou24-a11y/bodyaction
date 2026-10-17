@@ -128,6 +128,8 @@ export function analyzeHand(rec) {
     const gaps = []; for (let i = 1; i < hr.length; i++) gaps.push(hr[i][0] - hr[i - 1][0]);
     gaps.sort((a, b) => a - b);
     const dur = (hr[hr.length - 1][0] - hr[0][0]) / 1000;
+    const inf = hr.map((h) => h[2]).filter((x) => x > 0).sort((a, b) => a - b);
+    out.infer = inf.length ? { p50: inf[Math.floor(inf.length * 0.5)], p90: inf[Math.floor(inf.length * 0.9)], max: inf[inf.length - 1] } : null;
     out.ai = { rate: hr.length / dur, gapP50: gaps[Math.floor(gaps.length * 0.5)], gapP90: gaps[Math.floor(gaps.length * 0.9)], gapMax: gaps[gaps.length - 1], noHand: hr.filter((h) => !h[1].length).length / hr.length, results: hr.length };
   }
   const by = {};            // 구간 → 통계
