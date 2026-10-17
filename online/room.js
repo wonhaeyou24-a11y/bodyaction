@@ -68,12 +68,19 @@ export class Room {
   }
 
   // ---------- 방 만들기 / 참가 ----------
-  async create(mode = ONLINE_MODES[0], trackId = null) {
+  /** @param fixedCode 가족방처럼 정해 둔 코드로 열고 싶을 때(KABOOM-XXXXXX). 없으면 새 코드를 만들어요 */
+  async create(mode = ONLINE_MODES[0], trackId = null, fixedCode = null) {
     if (this.active) throw new RoomError("busy", "이미 방에 들어와 있어요");
     if (!ONLINE_MODES.includes(mode)) throw new RoomError("bad_mode", "온라인 대결을 지원하지 않는 게임이에요");
+    if (fixedCode != null && !ROOM_CODE_RE.test(normalizeCode(fixedCode))) throw new RoomError("bad_code", "가족방 코드가 올바르지 않아요");
     this.isHost = true; this.hostId = this.id; this.mode = mode; this.trackId = trackId;
-    this.code = makeInviteCode();
-    await this.transport.open(this.code, { isHost: true });
+    this.code = fixedCode ? normalizeCode(fixedCode) : makeInviteCode();
+    try { await this.transport.open(this.code, { isHost: true }); }
+    catch (e) {
+      this.transport.close(); this.reset();
+      if (e?.code === "code_in_use") throw new RoomError("code_in_use", "이 코드로 열린 방이 이미 있어요. 다른 기기에서 방을 열어 두었거나, 방금 닫은 방이 정리되는 중이에요(최대 1분). 잠시 뒤 다시 눌러 주세요");
+      throw e;
+    }
     this._attach();
     this._addPlayer(this.id, this.self.name, this.self.avatar);
     this.phase = "lobby";

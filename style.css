@@ -3146,3 +3146,11 @@ button.party-chip:hover { transform: translateY(-2px) scale(1.05); }
 
 @media (max-height: 800px) { .character-card p { display: none; } .character-card { padding-bottom: 10px; } }
 @media (max-height: 800px) { .character-modal-card .beat-modal-desc { display: none; } .character-foot { padding: 8px 20px 10px; } }
+
+/* 온라인 대결: QR 초대 / 우리 가족방 */
+.online-qr { display: flex; flex-direction: column; align-items: center; text-align: center; margin: 10px 0 6px; }
+.online-qr canvas { width: 180px; height: 180px; image-rendering: pixelated; border-radius: 10px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.35); }
+.online-qr p { margin: 6px 0 0; font-size: .85rem; opacity: .85; line-height: 1.35; }
+.online-family { border: 1px solid rgba(125,249,255,.35); }
+.online-family .online-label small { font-weight: 500; opacity: .75; }
+.family-code { font-size: 1.15rem; letter-spacing: .06em; color: #7df9ff; }

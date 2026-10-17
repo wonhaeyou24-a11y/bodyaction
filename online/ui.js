@@ -8,7 +8,9 @@
 import { bus } from "./bus.js";
 import { Room } from "./room.js";
 import { createTransport, LocalTransport } from "./transport.js";
-import { ONLINE_MODES } from "./protocol.js";
+import { ONLINE_MODES, ROOM_CODE_RE } from "./protocol.js";
+import { drawQr } from "./qr.js";
+import { makeInviteCode, normalizeCode } from "./rng.js";
 
 const $ = (id) => document.getElementById(id);
 const MODE_LABEL = { runner: "🦘 점프 달리기 (몸 인식)", beat: "🎵 네온 노트 슬래시" };
@@ -55,20 +57,21 @@ export function initOnline(hooks) {
     return r;
   }
 
-  async function createRoom() {
+  async function createRoom(fixedCode = null) {
     setError("");
     const mode = $("onlineMode").value;
     if (mode === "beat" && !$("onlineTrack").value) { setError("곡을 골라 주세요"); return; }
     room = makeRoom();
+    if (fixedCode) setError("가족방을 여는 중이에요…");
     try {
-      await room.create(mode, mode === "beat" ? ($("onlineTrack").value || null) : null);
-      showStep("lobby"); renderLobby();
+      await room.create(mode, mode === "beat" ? ($("onlineTrack").value || null) : null, fixedCode);
+      setError(""); showStep("lobby"); renderLobby();
     } catch (e) { setError(e.message); dropRoom(); }
   }
 
-  async function joinRoom() {
+  async function joinRoom(codeArg = null) {
     setError("");
-    const code = $("onlineCodeInput").value;
+    const code = typeof codeArg === "string" ? codeArg : $("onlineCodeInput").value;
     if (!code.trim()) { setError("초대 코드를 입력해 주세요"); return; }
     room = makeRoom();
     $("onlineJoin").disabled = true;
@@ -80,11 +83,26 @@ export function initOnline(hooks) {
 
   function dropRoom() { offs.forEach((f) => f()); offs = []; room = null; bus.onlineActive = false; setText("roomPinText", "—"); }
 
+  // ---------- 초대 링크 / QR ----------
+  const inviteUrl = (code) => `${location.origin}${location.pathname}?room=${encodeURIComponent(code)}`;
+  let qrFor = null;
+  function renderQr() {
+    const box = $("onlineQrBox");
+    if (!box) return;
+    if (!(room?.isHost && room.phase === "lobby" && room.players.size < 2)) { show(box, false); return; }   // 방장이고 아직 친구를 기다리는 동안만
+    if (qrFor !== room.code) {
+      try { drawQr($("onlineQr"), inviteUrl(room.code), 200); qrFor = room.code; }
+      catch { show(box, false); return; }                                                                      // 주소가 너무 길면 QR은 건너뛰어요(코드·링크 복사는 그대로)
+    }
+    show(box, true);
+  }
+
   // ---------- 로비 ----------
   function renderLobby() {
     if (!room?.active) return;
     setText("onlineCode", room.code);
     setText("roomPinText", room.code);
+    renderQr();
     const ul = $("onlinePlayers"); ul.textContent = "";
     for (const p of room.players.values()) {
       const li = document.createElement("li");
@@ -196,9 +214,7 @@ export function initOnline(hooks) {
   $("onlineCopyLink")?.addEventListener("click", async () => {
     if (!room?.code) return;
     try {
-      const url = new URL(window.location.href);
-      url.searchParams.set("room", room.code);
-      await navigator.clipboard.writeText(url.toString());
+      await navigator.clipboard.writeText(inviteUrl(room.code));
       toast("🔗 초대 링크를 복사했어요! 친구에게 보내보세요");
     } catch {
       toast("코드를 알려 주세요: " + room.code);
@@ -213,13 +229,34 @@ export function initOnline(hooks) {
       setTimeout(() => {
         openModal();
         const codeInput = $("onlineCodeInput");
-        if (codeInput) {
-          codeInput.value = roomFromUrl.trim().toUpperCase();
-          toast("초대 코드가 자동으로 입력되었어요. [참가]를 눌러주세요!");
-        }
+        const code = roomFromUrl.trim().toUpperCase();
+        if (codeInput) codeInput.value = code;
+        try { const u = new URL(location.href); u.searchParams.delete("room"); history.replaceState(null, "", u.toString()); } catch {}   // 새로고침해도 또 참가하지 않게 주소에서 지워요
+        toast("초대 링크로 들어왔어요. 방에 자동으로 참가하는 중…");
+        joinRoom(code);                                                                                                                   // QR·링크로 들어오면 코드를 다시 누르지 않아도 바로 참가해요
       }, 400);
     }
   } catch {}
+
+  // ---------- 우리 가족방: 한 번 정해 두면 "열기 / 들어가기" 한 번으로 끝 ----------
+  const FAMILY_KEY = "kk_family_room";
+  const getFamily = () => { try { const c = normalizeCode(localStorage.getItem(FAMILY_KEY) || ""); return ROOM_CODE_RE.test(c) ? c : null; } catch { return null; } };
+  function renderFamily() {
+    const code = getFamily();
+    show($("onlineFamilyNone"), !code); show($("onlineFamilySet"), !!code);
+    if (code) setText("onlineFamilyCode", code);
+  }
+  $("onlineFamilySave")?.addEventListener("click", () => {
+    const raw = $("onlineFamilyInput").value.trim();
+    const code = raw ? normalizeCode(raw) : makeInviteCode();
+    if (!ROOM_CODE_RE.test(code)) { setError("가족 코드는 영어 대문자와 숫자 6글자예요 (0, 1, I, L, O는 헷갈려서 빼요)"); return; }
+    try { localStorage.setItem(FAMILY_KEY, code); } catch {}
+    setError(""); $("onlineFamilyInput").value = ""; renderFamily(); toast("가족방 코드를 저장했어요: " + code);
+  });
+  $("onlineFamilyChange")?.addEventListener("click", () => { try { localStorage.removeItem(FAMILY_KEY); } catch {} renderFamily(); });
+  $("onlineFamilyOpen")?.addEventListener("click", () => { const c = getFamily(); if (c) createRoom(c); });
+  $("onlineFamilyJoin")?.addEventListener("click", () => { const c = getFamily(); if (c) joinRoom(c); });
+  renderFamily();
 
   // 모드 선택 목록 채우기
   const modeSel = $("onlineMode");

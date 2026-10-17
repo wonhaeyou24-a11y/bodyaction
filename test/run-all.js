@@ -24,6 +24,7 @@ const suites = [
   ["test/guide.test.js", "카메라 세팅 판정"],
   ["online/test/room.test.js", "온라인 대결 방 규칙"],
   ["online/test/remote.test.js", "원격 연결(메시지 보관·중복 방지)"],
+  ["online/test/qr.test.js", "초대 QR 코드 만들기(표준값·다시 읽기)"],
   ["online/test/crypto.test.js", "온라인 E2EE 암호화(AES-256-GCM)"],
   ["test/diagnostic.test.js", "종합 진단(속도·모션·인식·복구)"],
 ];

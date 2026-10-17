@@ -933,6 +933,28 @@
     <p class="online-note">🌐 <b>멀리 있는 친구와 인터넷을 통해 실시간 1:1 대결</b>을 즐겨보세요! 초대 코드나 링크를 보내면 다른 컴퓨터나 스마트폰에서도 바로 연결돼요 (AES-256 E2EE 종단간 암호화 적용).</p>
 
     <div id="onlineStepStart">
+      <div class="online-box online-family" id="onlineFamilyBox">
+        <label class="online-label">👨‍👩‍👧 우리 가족방 <small>(한 번 정해 두면 코드를 다시 안 쳐도 돼요)</small></label>
+        <div id="onlineFamilyNone">
+          <div class="online-row">
+            <input id="onlineFamilyInput" type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="가족 코드 6글자 (비우면 자동)">
+            <button id="onlineFamilySave" class="online-btn">정하기</button>
+          </div>
+          <p class="online-info">가족 모두의 기기에 <b>같은 코드</b>를 한 번씩만 정해 주세요. (처음 한 번은 방장이 만든 초대 링크나 QR로 들어와도 돼요)</p>
+        </div>
+        <div id="onlineFamilySet" class="hidden">
+          <div class="online-row" style="align-items:center;gap:8px">
+            <b id="onlineFamilyCode" class="family-code">KABOOM-------</b>
+            <button id="onlineFamilyChange" class="online-btn small" title="가족방 코드 바꾸기">바꾸기</button>
+          </div>
+          <div class="online-row" style="margin-top:8px">
+            <button id="onlineFamilyOpen" class="online-btn primary">🏠 가족방 열기 (내가 방장)</button>
+            <button id="onlineFamilyJoin" class="online-btn">🚪 가족방 들어가기</button>
+          </div>
+          <p class="online-info">방장이 먼저 "열기"를 누른 뒤, 다른 사람이 "들어가기"를 누르면 돼요. 아래에서 고른 게임으로 열려요.</p>
+        </div>
+      </div>
+      <div class="online-or">또는</div>
       <div class="online-box">
         <label class="online-label" for="onlineMode">게임 고르기</label>
         <select id="onlineMode"></select>
@@ -955,6 +977,10 @@
         <b id="onlineCode">KABOOM-------</b>
         <button id="onlineCopy" class="online-btn small" title="코드만 복사">코드 복사</button>
         <button id="onlineCopyLink" class="online-btn small" style="background:#0284c7; color:#fff;" title="친구에게 보낼 바로접속 링크 복사">🔗 링크 복사</button>
+      </div>
+      <div id="onlineQrBox" class="online-qr hidden">
+        <canvas id="onlineQr" width="200" height="200" aria-label="초대 QR 코드"></canvas>
+        <p>📱 같은 와이파이의 휴대폰 카메라로 비추면<br>바로 참가해요</p>
       </div>
       <ul id="onlinePlayers" class="online-players"></ul>
       <p id="onlineModeInfo" class="online-info"></p>
@@ -1096,6 +1122,6 @@
   <canvas id="costumeHandOverlay" class="costume-hand-overlay" style="pointer-events: none;"></canvas>
 </div>
 
-<script type="module" src="main.js?v=20261017_2330"></script>
+<script type="module" src="main.js?v=20261017_2340"></script>
 </body>
 </html>

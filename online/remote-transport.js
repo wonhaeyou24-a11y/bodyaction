@@ -73,6 +73,15 @@ export class RemoteTransport extends Transport {
     // 3. WebRTC P2P 원격 연결 (브라우저 환경)
     if (typeof window !== "undefined") {
       await this._initWebRTC();
+      // 방장: 중개 서버에 이 방 코드(고정 코드면 특히)가 이미 쓰이고 있는지 확인해요. 서버에 못 닿으면 6초 뒤 그냥 진행(같은 컴퓨터끼리는 됨)
+      if (this.isHost && this.peer) {
+        const state = await new Promise((res) => {
+          const t = setTimeout(() => res("timeout"), 6000);
+          this._hostOpenCb = (st) => { clearTimeout(t); res(st); };
+          if (this.brokerOpen) { clearTimeout(t); res("open"); }
+        });
+        if (state === "in-use") { const err = new Error("code in use"); err.code = "code_in_use"; this.close(); throw err; }
+      }
     }
   }
 
@@ -106,7 +115,7 @@ export class RemoteTransport extends Transport {
           }
         });
 
-        this.peer.on("open", () => { this.brokerOpen = true; });
+        this.peer.on("open", () => { this.brokerOpen = true; this._hostOpenCb?.("open"); });
         this.peer.on("connection", (conn) => {
           this._setupConnection(conn);
         });
@@ -135,6 +144,7 @@ export class RemoteTransport extends Transport {
         // 방이 없거나 중복 생성 등 정상 흐름 내 피어 오류 조용히 격리.
         // 손님이 방장보다 먼저 연결을 시도했거나 연결이 잠깐 안 됐을 때(peer-unavailable)는 잠시 뒤 다시 시도해요
         console.warn("피어 네트워크 알림:", err?.type || err?.message);
+        if (this.isHost && err?.type === "unavailable-id") this._hostOpenCb?.("in-use");
         if (!this.isHost && err?.type === "peer-unavailable") {
           if (this.issue !== "p2p") this.issue = "nohost"; this.noHostAt = Date.now();
           if (this.connectTries++ < 12) setTimeout(() => this._connectToHost?.(), 1200);
