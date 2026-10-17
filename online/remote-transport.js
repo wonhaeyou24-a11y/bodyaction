@@ -22,6 +22,10 @@ export class RemoteTransport extends Transport {
     this.senderId = "p_" + Math.random().toString(36).slice(2, 9);
     this.isHost = false;
     this.isDestroyed = false;
+    this.outbox = [];            // 손님: 방장과 연결이 열리기 전에 보낸 메시지를 잠깐 모아 뒀다가 연결되면 보내요 (참가 요청이 사라지지 않게)
+    this.seq = 0;                // 보낸 메시지 번호: 같은 메시지가 탭 연결·인터넷 연결로 두 번 와도 한 번만 처리
+    this.seen = new Map();       // 보낸 사람 → 마지막으로 처리한 번호들
+    this.connectTries = 0;
   }
 
   /**
@@ -104,16 +108,21 @@ export class RemoteTransport extends Transport {
           }
         });
 
-        this.peer.on("open", () => {
-          if (this.isDestroyed) return;
-          const conn = this.peer.connect(hostPeerId, { reliable: true });
-          this._setupConnection(conn);
-        });
+        const connectToHost = () => {
+          if (this.isDestroyed || !this.peer || this.connections.size) return;
+          this._setupConnection(this.peer.connect(hostPeerId, { reliable: true }));
+        };
+        this._connectToHost = connectToHost;
+        this.peer.on("open", connectToHost);
       }
 
       this.peer.on("error", (err) => {
-        // 방이 없거나 중복 생성 등 정상 흐름 내 피어 오류 조용히 격리
+        // 방이 없거나 중복 생성 등 정상 흐름 내 피어 오류 조용히 격리.
+        // 손님이 방장보다 먼저 연결을 시도했거나 연결이 잠깐 안 됐을 때(peer-unavailable)는 잠시 뒤 다시 시도해요
         console.warn("피어 네트워크 알림:", err?.type || err?.message);
+        if (!this.isHost && err?.type === "peer-unavailable" && this.connectTries++ < 12) {
+          setTimeout(() => this._connectToHost?.(), 1200);
+        }
       });
     } catch (err) {
       console.warn("WebRTC 초기화 예외 보호:", err);
@@ -125,6 +134,8 @@ export class RemoteTransport extends Transport {
 
     conn.on("open", () => {
       this.connections.add(conn);
+      const queued = this.outbox.splice(0);                     // 연결이 열리기 전에 모아 둔 메시지 보내기
+      for (const pkt of queued) { try { conn.send(pkt); } catch {} }
     });
 
     conn.on("data", async (data) => {
@@ -147,7 +158,8 @@ export class RemoteTransport extends Transport {
     if (!rawPacket || this.isDestroyed) return;
 
     let payload = null;
-    // 패킷 래퍼 구조: { s: senderId, enc: "Base64암호문" }
+    if (typeof rawPacket === "object" && this._isDuplicate(rawPacket)) return;
+    // 패킷 래퍼 구조: { s: senderId, n: 번호, enc: "Base64암호문" }
     if (typeof rawPacket === "object" && rawPacket.enc) {
       if (rawPacket.s === this.senderId) return; // 내가 보낸 패킷 반사 방지
       if (this.cryptoKey) {
@@ -164,6 +176,18 @@ export class RemoteTransport extends Transport {
     }
   }
 
+  /** 같은 사람이 같은 번호로 보낸 메시지를 이미 처리했으면 true (탭끼리 연결과 인터넷 연결로 두 번 도착하는 경우) */
+  _isDuplicate(pkt) {
+    const from = pkt.s ?? pkt._senderId, n = pkt.n ?? pkt._n;
+    if (from === undefined || n === undefined) return false;
+    let set = this.seen.get(from);
+    if (!set) this.seen.set(from, (set = new Set()));
+    if (set.has(n)) return true;
+    set.add(n);
+    if (set.size > 300) set.delete(set.values().next().value);
+    return false;
+  }
+
   /**
    * 같은 방의 다른 사람들에게 데이터 전송 (E2EE 암호화 후 WebRTC + Local 양방향 브로드캐스트)
    */
@@ -176,20 +200,25 @@ export class RemoteTransport extends Transport {
     if (this.cryptoKey) {
       try {
         const encryptedBase64 = await encryptPayload(obj, this.cryptoKey);
-        packetToSend = { s: this.senderId, enc: encryptedBase64 };
+        packetToSend = { s: this.senderId, n: ++this.seq, enc: encryptedBase64 };
       } catch (err) {
         console.warn("패킷 암호화 실패, 기본 전송:", err);
-        packetToSend = { ...obj, _senderId: this.senderId };
+        packetToSend = { ...obj, _senderId: this.senderId, _n: ++this.seq };
       }
     } else {
-      packetToSend = { ...obj, _senderId: this.senderId };
+      packetToSend = { ...obj, _senderId: this.senderId, _n: ++this.seq };
     }
 
     // 1. WebRTC 피어 데이터 채널로 전송
+    let sentRemote = false;
     for (const conn of this.connections) {
       try {
-        if (conn.open) conn.send(packetToSend);
+        if (conn.open) { conn.send(packetToSend); sentRemote = true; }
       } catch {}
+    }
+    if (!sentRemote && !this.isHost && this.peer) {            // 손님: 아직 방장과 연결 전이면 모아 뒀다가 연결되면 보내요
+      this.outbox.push(packetToSend);
+      if (this.outbox.length > 40) this.outbox.shift();
     }
 
     // 2. 같은 브라우저 탭 간 BroadcastChannel로도 동시 전송

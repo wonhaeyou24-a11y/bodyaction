@@ -93,10 +93,12 @@ export class Room {
       this._joinWait = { resolve, reject };
       this._joinTimer = setTimeout(() => reject(new RoomError("not_found", "방을 찾을 수 없어요. 코드를 다시 확인해 주세요")), this.joinTimeoutMs);
     });
-    this._send({ type: MSG.JOIN, code, name: this.self.name, avatar: this.self.avatar });
+    const sendJoin = () => this._send({ type: MSG.JOIN, code, name: this.self.name, avatar: this.self.avatar });
+    sendJoin();
+    this._joinResend = setInterval(sendJoin, 1000);       // 연결이 늦게 열려도 답이 올 때까지 참가 요청을 1초마다 다시 보내요 (방장은 같은 요청을 여러 번 받아도 한 번만 처리)
     try { await reply; }
     catch (e) { this._detach(); this.transport.close(); this.reset(); throw e; }
-    finally { clearTimeout(this._joinTimer); this._joinWait = null; }
+    finally { clearTimeout(this._joinTimer); clearInterval(this._joinResend); this._joinWait = null; }
     this._startTimers();
     return code;
   }

@@ -42,7 +42,7 @@ export function initOnline(hooks) {
 
   // ---------- 방 만들기 / 참가 ----------
   function makeRoom() {
-    const r = new Room({ transport: createTransport("remote"), self: hooks.getProfile() });
+    const r = new Room({ transport: createTransport("remote"), self: hooks.getProfile(), joinTimeoutMs: 15000 });
     offs = [
       r.on("lobby", renderLobby),
       r.on("start", onStart),
@@ -72,7 +72,8 @@ export function initOnline(hooks) {
     if (!code.trim()) { setError("초대 코드를 입력해 주세요"); return; }
     room = makeRoom();
     $("onlineJoin").disabled = true;
-    try { await room.join(code); showStep("lobby"); renderLobby(); }
+    setError("방에 연결하는 중이에요… (멀리 있는 친구와는 몇 초 걸려요)");
+    try { await room.join(code); setError(""); showStep("lobby"); renderLobby(); }
     catch (e) { setError(e.message); dropRoom(); }
     finally { $("onlineJoin").disabled = false; }
   }
