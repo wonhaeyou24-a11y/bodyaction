@@ -20,7 +20,7 @@ self.onmessage = async (e) => {
   const m = e.data;
   if (m.type === "init") {
     try {
-      if (tasks[m.kind]) { self.postMessage({ type: "ready", kind: m.kind, delegate: tasks[m.kind].__delegate }); return; }
+      if (tasks[m.kind] && !m.replace) { self.postMessage({ type: "ready", kind: m.kind, delegate: tasks[m.kind].__delegate }); return; }
       lib ??= await import(BUNDLE);
       fileset ??= await lib.FilesetResolver.forVisionTasks(WASM);
       const Cls = m.kind === "pose" ? lib.PoseLandmarker : lib.HandLandmarker;
@@ -29,8 +29,11 @@ self.onmessage = async (e) => {
       try { task = await Cls.createFromOptions(fileset, opts(delegate)); }
       catch { delegate = "CPU"; task = await Cls.createFromOptions(fileset, opts("CPU")); }   // GPU가 안 되면 CPU로
       task.__delegate = delegate;
-      tasks[m.kind] = task;
-      self.postMessage({ type: "ready", kind: m.kind, delegate });
+      const old = tasks[m.kind];
+      tasks[m.kind] = task;                    // replace(속도 자동 선택으로 GPU↔CPU 바꿀 때): 새 모델로 바꾼 뒤 옛 모델은 닫아요
+      lastTs[m.kind] = 0;
+      if (old && m.replace) { try { old.close(); } catch { /* 무시 */ } }
+      self.postMessage({ type: "ready", kind: m.kind, delegate, replaced: !!m.replace });
     } catch (err) {
       self.postMessage({ type: "error", kind: m.kind, msg: String(err?.message || err) });
     }

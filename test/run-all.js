@@ -17,6 +17,7 @@ const suites = [
   ["test/crun.test.js", "캐릭터 러너 규칙·공정함·봇 시뮬레이션"],
   ["test/duel.test.js", "검&방패 배틀 규칙·패링·봇 시뮬레이션"],
   ["test/charpipeline.test.js", "캐릭터 게임 입력 파이프라인 시뮬레이션"],
+  ["test/timeline.test.js", "시간선 섞임 방지(손을 계속 놓치던 사고 재발 방지)"],
   ["test/smooth.test.js", "손이 끊기고 순간이동하는 정도(AI가 느릴 때)"],
   ["test/latency.test.js", "손이 그림자처럼 늦는 정도(카메라·인식 지연 보정)"],
   ["test/slash.test.js", "비트세이버식 슬래시(방향·쓸고 지나감·박자·막 휘두르기 방지)"],

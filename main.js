@@ -5,7 +5,7 @@ import { mulberry32 } from "./online/rng.js";
 import { initOnline } from "./online/ui.js";
 import { ProfileStore } from "./profiles.js?v=20261013_0900";
 import { initSetupGuide } from "./guide.js?v=20261013_0900";
-import { createVisionClient } from "./vision-client.js?v=20261013_0900";
+import { createVisionClient } from "./vision-client.js?v=20261018_0500";
 import { AlphaBeta, FAST_ARM_AB } from "./tracker.js?v=20261018_0300";
 import { newPunchState, stepPunch, stepPunchN, KICK_N } from "./punch.js?v=20261013_0900";
 import { ArmVel } from "./armtrack.js?v=20261013_0900";
@@ -1011,8 +1011,8 @@ function videoToScreen(lm) {
   return { x: isMirror ? (W - rawX) : rawX, y: lm.y * vh * s + oy };
 }
 
-let lastFist = [], fistCount = [], lastSeen = 0, sizeHist = [], lastPunch = [];
-let body = null, bodySeen = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
+let lastFist = [], fistCount = [], lastSeen = 0, lastSeenAt = 0, sizeHist = [], lastPunch = [], lastPunchAt = [];   // lastSeen: 마지막 인식이 "찍힌" 시각(영상 시간선) / lastSeenAt: 그 결과가 "도착한" 시각(지금 시계). 손을 놓쳤는지는 반드시 도착 시각으로 재야 해요 (카메라 지연이 길면 찍힌 시각은 항상 옛날이라 손을 계속 놓친 걸로 오판해요)
+let body = null, bodySeen = 0, bodySeenAt = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 // 팔/다리 움직임 추적 (armtrack.js): armVel[0]=오른손목(어깨 12 기준), [1]=왼손목(어깨 11 기준) — pointers 순서와 같아요. legVel[0]=왼발목(엉덩이 23), [1]=오른발목(24)
 const armVel = [new ArmVel(), new ArmVel()], legVel = [new ArmVel(), new ArmVel()];
 const ARM_JOINTS = [[16, 12], [15, 11]], LEG_JOINTS = [[27, 23], [28, 24]];
@@ -1106,7 +1106,7 @@ function updatePointers() {
           const kP = 33 / Math.max(16, Math.min(150, t0 - (lastPoseT0 || t0 - 33)));
           lastPoseT0 = t0;
           if (r && r.landmarks && r.landmarks.length) {
-            bodySeen = t0;
+            bodySeen = t0; bodySeenAt = performance.now();
             feedArmVel(r.landmarks[0], t0);
             if (recorder.on) recorder.result(t0, r.landmarks[0]);
             r.landmarks[0].forEach((l, i) => {
@@ -1130,7 +1130,7 @@ function updatePointers() {
       }
     }
     // 🛡️ 화면 밖으로 나갔을 때 모션 해제 (워커 지연 및 점프 중 랜드마크 순간 누락에 안전하게 700ms 버퍼 적용)
-    if (now - bodySeen > 700) {
+    if (now - bodySeenAt > 700) {
       bodyHave = false;
       body = null;
       bodyVelocities = [];
@@ -1154,7 +1154,7 @@ function updatePointers() {
   } else if ((handLandmarker || visionAI.ready("hand")) && video.readyState >= 2) {
     try { detectHandsNow(); } catch (e) { console.warn("손 인식 오류", e); }
     // 🛡️ 화면 밖으로 손이 나갔을 때 모션 해제 (NotebookLM 350ms Grace Window 적용)
-    if (now - lastSeen > 350) {
+    if (now - lastSeenAt > 350) {
       lastHands = [null, null];
       pts = [];
       handTracks.forEach((t) => t.reset());
@@ -1192,7 +1192,7 @@ function updatePointers() {
       dirN: p.dirN,                   // 그 움직임의 방향 (팔 거두기 구분용)
       fist: useMouse ? !mouse.down : !!lastFist[s],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
-      punch: useMouse ? mouse.down : (performance.now() - (lastPunch[s] || -1e9) < 240 && ptrVps[s] > Math.min(W, H) * 0.55),
+      punch: useMouse ? mouse.down : (performance.now() - (lastPunchAt[s] || -1e9) < 240 && ptrVps[s] > Math.min(W, H) * 0.55),
       punchId: useMouse ? mouse.p : lastPunch[s],
       slot: s
     });
@@ -1256,7 +1256,7 @@ function detectHandsNow() {
 
     if (recorder.on) recorder.handResult(t0, r.landmarks || []);
     if (r.landmarks && r.landmarks.length > 0) {
-      lastSeen = t0;
+      lastSeen = t0; lastSeenAt = performance.now();
       lastHandT0 = t0;
       lastHandsInferFresh = true; // 이번 프레임에서 신선한 AI 데이터 수신됨
       const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
@@ -1276,7 +1276,7 @@ function detectHandsNow() {
         while (h.length && t0 - h[0].t > 380) h.shift();
         const old = h.find((e) => t0 - e.t >= 80 && t0 - e.t <= 260);
         if (old && scale / old.s > 1.25 && t0 - (lastPunch[i] || 0) > 260) {
-          lastPunch[i] = t0;
+          lastPunch[i] = t0; lastPunchAt[i] = performance.now();
         }
 
         if (!palm) {
@@ -6524,7 +6524,7 @@ function startGame(m, opts = {}) {
   currentGameTotalSeconds = (m === "beat") ? 90 : GAME_SECONDS;
   mode = m; score = 0; timeLeft = currentGameTotalSeconds; spawnTimer = 0.3;
   objs = []; halves = []; particles = []; popups = []; playing = true; body = null; shield = SHIELD_MAX; flash = 0;
-  lastSeen = performance.now(); lastHandT0 = performance.now(); bodySeen = performance.now();
+  lastSeen = performance.now(); lastSeenAt = performance.now(); lastHandT0 = performance.now(); bodySeen = performance.now(); bodySeenAt = performance.now();
   combo = 0; comboTimer = 0; maxCombo = 0;
   currentWave = 1; isFeverTime = false;
   games[m].init?.();
@@ -11162,5 +11162,5 @@ GAME_HUD_META.cduel = { theme: "space", badge: "SWORD & SHIELD", title: "PARRY B
 
 // 개발용 측정 훅: 주소에 ?bench 가 있을 때만 열려요 (커스튬 그리기 속도 비교용, 게임에는 영향 없음)
 if (/[?&]bench\b/.test(location.search)) {
-  window.__kk = { recorder, setForcedBody: (fn) => { forcedBody = fn; }, games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
+  window.__kk = { visionAI, getPointers: () => pointers, recorder, setForcedBody: (fn) => { forcedBody = fn; }, games, feedArmVel, armVel, legVel, dbg: () => ({ mainInfers, poseMain: !!poseLandmarker, handMain: !!handLandmarker, st: { ...visionAI.stats } }), drawEquippedCostumesOnBody, COSTUME_ITEMS, setEquip: (o) => { equippedCostume = { ...equippedCostume, ...o }; } };
 }

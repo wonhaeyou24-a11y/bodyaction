@@ -5,6 +5,14 @@
 //  - 같은 카메라 프레임을 두 번 인식하지 않아요.
 // 게임 쪽은 take(kind)로 "새로 도착한 결과"만 꺼내 쓰고, 새 결과가 없으면 기존 외삽(관성 예측)으로 이어가요.
 
+// ⚡ 속도 자동 선택: 어떤 컴퓨터는 GPU로 인식하면 오히려 느려요(이번 사용자: 손 인식 1번에 133ms → 초당 10번 → 손이 끊기고 늦음).
+// 처음 24번의 인식 시간을 재서 70ms보다 느리면 CPU로 바꿔 24번 더 재 보고, CPU가 25% 이상 빠르면 CPU를 쓰고 아니면 GPU로 되돌려요.
+// 결과는 이 기기에 기억해서(다음부터는 재지 않고 바로 빠른 쪽으로 시작) 주소에 ?retune 을 붙이면 다시 재요. 모델과 결과(정확도)는 같아요.
+const TUNE_N = 24, TUNE_WARM = 3, TUNE_SLOW = (typeof location !== "undefined" && location.search.includes("tune")) ? 0 : 70;
+const prefKey = (kind) => "kk_delegate_" + kind;
+const readPref = (kind) => { try { return (typeof location !== "undefined" && location.search.includes("retune")) ? null : localStorage.getItem(prefKey(kind)); } catch { return null; } };
+const writePref = (kind, v) => { try { localStorage.setItem(prefKey(kind), v); } catch { /* 무시 */ } };
+
 export function createVisionClient({ video }) {
   let worker = null, broken = false;
   let active = null;              // 지금 인식할 종류: "hand" | "pose" | null(멈춤)
@@ -16,12 +24,32 @@ export function createVisionClient({ video }) {
   };
   const waiters = { hand: [], pose: [] };
   const stats = { inferMs: 0, latencyMs: 0, results: 0, startedAt: 0 };
+  const initArgs = {};            // kind -> ensure()에 받은 모델/옵션 (자동 선택에서 다시 만들 때 써요)
+  const tune = { hand: { phase: "wait", n: 0, sum: 0, gpuAvg: 0, cpuAvg: 0 }, pose: { phase: "wait", n: 0, sum: 0, gpuAvg: 0, cpuAvg: 0 } };
+  function tuneResult(kind, inferMs) {
+    const t = tune[kind];
+    if (!inferMs || t.phase === "done" || t.phase === "switching" || t.phase === "wait") return;
+    if (++t.skip <= TUNE_WARM) return;                        // 처음 몇 번은 준비운동이라 제외
+    t.n++; t.sum += inferMs;
+    if (t.n < TUNE_N) return;
+    const avg = t.sum / t.n; t.n = 0; t.sum = 0;
+    if (t.phase === "gpu") {
+      t.gpuAvg = avg;
+      if (avg <= TUNE_SLOW || !initArgs[kind]) { t.phase = "done"; writePref(kind, "GPU"); return; }
+      t.phase = "switching"; t.skip = 0;
+      worker?.postMessage({ type: "init", kind, ...initArgs[kind], cpu: true, replace: true });
+    } else if (t.phase === "cpu") {
+      t.cpuAvg = avg;
+      if (t.cpuAvg < t.gpuAvg * 0.75) { t.phase = "done"; writePref(kind, "CPU"); console.info(`[속도 자동 선택] ${kind}: CPU ${t.cpuAvg.toFixed(0)}ms < GPU ${t.gpuAvg.toFixed(0)}ms → CPU 사용`); }
+      else { t.phase = "switching"; t.skip = 0; t.back = true; worker?.postMessage({ type: "init", kind, ...initArgs[kind], cpu: false, replace: true }); console.info(`[속도 자동 선택] ${kind}: CPU ${t.cpuAvg.toFixed(0)}ms 이 GPU ${t.gpuAvg.toFixed(0)}ms 보다 빠르지 않아 GPU로 되돌려요`); }
+    }
+  }
 
   function getWorker() {
     if (broken) return null;
     if (!worker) {
       try {
-        worker = new Worker(new URL("./vision-worker.js", import.meta.url));   // 일반(classic) 작업자
+        worker = new Worker(new URL("./vision-worker.js?v=20261018_0500", import.meta.url));   // 일반(classic) 작업자
         worker.onmessage = onMessage;
         worker.onerror = (e) => { console.warn("AI 작업자 오류 - 예전 방식으로 전환:", e.message); fail("작업자 오류"); };
       } catch (e) { console.warn("AI 작업자를 만들 수 없어요:", e); broken = true; return null; }
@@ -41,6 +69,9 @@ export function createVisionClient({ video }) {
     const m = e.data;
     if (m.type === "ready") {
       state[m.kind].ready = true; state[m.kind].delegate = m.delegate;
+      const t = tune[m.kind];
+      if (m.replaced) { t.skip = 0; t.n = 0; t.sum = 0; if (t.back) { t.phase = "done"; t.back = false; writePref(m.kind, "GPU"); } else if (t.phase === "switching") t.phase = "cpu"; }   // CPU로 바꾼 뒤 측정 시작 / GPU로 되돌렸으면 끝
+      else if (t.phase === "wait") { t.skip = 0; t.phase = m.delegate === "GPU" && readPref(m.kind) !== "GPU" ? "gpu" : "done"; }                      // 이미 재 본 기기(기억해 둠)나 CPU로 시작했으면 재지 않아요
       waiters[m.kind].splice(0).forEach((w) => w.resolve(true));
     } else if (m.type === "error") {
       console.warn(`AI 작업자 모델 준비 실패(${m.kind}):`, m.msg);
@@ -59,6 +90,7 @@ export function createVisionClient({ video }) {
         errStreak = 0;
         const s = state[m.kind];
         s.latest = { ts: m.ts, result: { landmarks: m.landmarks || [] }, inferMs: m.inferMs || 0 };
+        tuneResult(m.kind, m.inferMs);
         s.fresh = true;
         stats.results++;
         if (m.inferMs) stats.inferMs = stats.inferMs ? stats.inferMs * 0.85 + m.inferMs * 0.15 : m.inferMs;
@@ -69,6 +101,8 @@ export function createVisionClient({ video }) {
 
   /** 작업자에서 모델 준비. 성공하면 true, 안 되면 false (그때는 예전 방식을 쓰면 돼요) */
   function ensure(kind, { model, options = {}, cpu = false, timeoutMs = 45000 } = {}) {
+    initArgs[kind] = { model, options };
+    if (readPref(kind) === "CPU") cpu = true;                // 이 기기에서 CPU가 더 빨랐다고 기억해 둔 경우
     if (state[kind].ready) return Promise.resolve(true);
     const w = getWorker();
     if (!w) return Promise.resolve(false);
