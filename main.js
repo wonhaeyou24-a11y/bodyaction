@@ -5495,19 +5495,20 @@ games.beat = {
     }
     this.walls = this.walls.filter((w) => !w.dead);
 
-    // 🎵 3. 큐브 노트: 실제 노래 재생 시간(songTime)에 100% 종속되어 전진 & 칼박 판정!
+    // 🎵 3. 큐브 노트: 노트북LM Audio-Visual-Input Tri-Sync (하드웨어 오디오 버퍼 45ms 보정)
+    // 브라우저 사운드 출력 지연을 보정하여 귀에 비트가 들리는 순간 정확히 큐브가 칼날 앞에 도달
+    const AUDIO_LATENCY_OFFSET = 0.045;
+    const perceivedSongTime = songTime - AUDIO_LATENCY_OFFSET;
     const originX = W * 0.5, originY = H * 0.42;
     for (const o of objs) {
-      const timeRemaining = o.hitTime - songTime;
-      // 🎵 노래 오디오 시간과 수학적으로 0.001초 오차 없이 100% 일치하는 Z 좌표!
-      // timeRemaining === 0 (즉 음악에서 쿵! 소리가 울리는 순간) => o.z === 1.0 (정확히 판정선 통과)
+      const timeRemaining = o.hitTime - perceivedSongTime;
       o.z = 1.0 - (timeRemaining / o.approachTime);
       o.x = originX + (o.targetX - originX) * o.z;
       o.y = originY + (o.targetY - originY) * o.z;
       o.r = Math.max(12, 16 + o.z * 52);
 
       // 베기 판정 (비트세이버 방식): 박자 앞뒤 SLASH.WINDOW(0.22초) 안에, 칼날이 큐브를 "쓸고 지나가며" 충분히 빠르게 휘둘렀을 때
-      if (!o.dead && !o.cut && Math.abs(timeRemaining) <= SLASH.WINDOW && o.z >= 0.6) {
+      if (!o.dead && !o.cut && Math.abs(timeRemaining) <= SLASH.WINDOW && o.z >= 0.55) {
         const handIdx = o.isLeft ? 0 : 1;
         const hands = useMouse || o.isBomb ? [0, 1] : [handIdx];       // 마우스는 아무 칼, 폭탄은 어느 칼이든 닿으면
         for (const hI of hands) {

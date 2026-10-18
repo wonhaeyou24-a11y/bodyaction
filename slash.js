@@ -56,7 +56,7 @@ export function tipDirection(hist, now) {
   if (!hist || hist.length < 2) return null;
   const cur = hist[hist.length - 1];
   let old = null;
-  for (let i = hist.length - 2; i >= 0; i--) { if (now - hist[i].t >= 40) { old = hist[i]; break; } if (now - hist[i].t > SLASH.TIP_MS) break; old = hist[i]; }
+  for (let i = hist.length - 2; i >= 0; i--) { if (now - hist[i].t >= 24) { old = hist[i]; break; } if (now - hist[i].t > SLASH.TIP_MS) break; old = hist[i]; }
   if (!old) return null;
   const dx = cur.x - old.x, dy = cur.y - old.y, l = Math.hypot(dx, dy);
   return l < 14 ? null : [dx / l, dy / l];

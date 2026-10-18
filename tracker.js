@@ -83,4 +83,4 @@ export class AlphaBeta {
  * 이 설정은 속도 반응을 빠르게(beta .6)·부드럽게 이어 주는 시간을 짧게(tau 12)·느린 움직임은 예측하지 않게(stillSpeed .16) 해서 늦음을 약 50ms로 줄여요 (앞을 예측하는 시간을 70ms로 제한해서, 휘두름이 끝나는 점에서 튀어나가는 정도는 예전과 비슷하게 유지).
  * 대신 가만히 있을 때 떨림이 조금 늘어요(시험: node test/latency.test.js).
  */
-export const FAST_ARM_AB = { alpha: 0.55, beta: 0.6, tau: 12, maxPredictMs: 70, stillSpeed: 0.16, jumpPx: 300, rateAdapt: 0.5 };   // rateAdapt: 인식이 느리면 새 결과가 올 때 한 번에 튀지 않게 이어 줘요(결과 간격의 0.5배 시간 동안) — 늦음은 조금 늘고 끊김은 줄어요
+export const FAST_ARM_AB = { alpha: 0.58, beta: 0.62, tau: 12, maxPredictMs: 85, stillSpeed: 0.18, jumpPx: 300, rateAdapt: 0.5 };   // 오버슈트 억제하면서 반응 지연 최소화
