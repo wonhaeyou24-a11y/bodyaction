@@ -1266,9 +1266,13 @@ function detectHandsNow() {
         // 손가락 3D 기하 분석 (주먹/검지/펀치 가속도 판정)
         const wrist = l[0];
         const d3 = (a, b) => Math.hypot((a.x - b.x) * vw, (a.y - b.y) * vh, (a.z - b.z) * vw * 1.3);
+        // 검지(8), 중지(12), 약지(16), 새끼(20) 손가락 접힘 여부 정밀 분석
+        const isIndexFolded = d3(l[8], wrist) < d3(l[5], wrist) * 0.94;
         const foldedCount = [[8, 5], [12, 9], [16, 13], [20, 17]].filter(([tip, mcp]) => d3(l[tip], wrist) < d3(l[mcp], wrist) * 0.94).length;
         
-        lastFist[i] = foldedCount >= 3;
+        // ⚡ 제스처 판정 수정: 검지가 펴져 있으면(!isIndexFolded) 그리기/포인팅 자세이므로 절대 주먹이 아님!
+        // 검지까지 확실히 쥐어지고 3개 이상의 손가락이 접혔을 때만 주먹(fist)으로 판정
+        lastFist[i] = isIndexFolded && (foldedCount >= 3);
 
         // 펀치 가속도 충격량(Forward Impulse) 감지: 손바닥 크기가 카메라 쪽으로 급격히 커지는 순간
         const scale = d3(l[9], wrist);
