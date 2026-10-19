@@ -593,6 +593,69 @@ const INTRO = {
 // 🎵 네온 노트 슬래시 전용 고음질 실제 실연 음원(MP3/OGG) & 대중 명곡 라인업
 const BEAT_TRACKS = [
   {
+    id: "kpop_idol",
+    title: "🔥 K-POP 아이돌 나이트 (Idol Night Fever)",
+    genre: "K-POP ELECTRO DANCE",
+    bpm: 132,
+    firstBeat: 0.28,
+    approachTime: 1.7,
+    root: 261.63, // C4
+    melody: [
+      0, 0, 3, 5,   7, null, 7, 5,   7, 7, 10, 7,   5, null, 3, null,
+      0, 0, 3, 5,   7, null, 7, 5,   12, 10, 7, 5,   7, null, null, null,
+      7, 7, 10, 12,   12, 10, 12, null,   10, 7, 5, 3,   5, null, 7, null,
+      3, 3, 5, 7,   5, 3, 0, null,   3, 5, 3, 2,   0, null, null, null
+    ],
+    bassSeq: [0, 0, 5, 5, 7, 7, 5, 0],
+    wave: "sawtooth",
+    drums: "edm",
+    vol: 0.92,
+    noteSpeed: 1.15,
+    tagColor: "#ff007f"
+  },
+  {
+    id: "kpop_hurricane",
+    title: "🐎 신바람 K-댄스 허리케인 (K-Dance Bounce)",
+    genre: "K-DANCE BOUNCE",
+    bpm: 138,
+    firstBeat: 0.22,
+    approachTime: 1.6,
+    root: 220, // A3
+    melody: [
+      7, 7, 5, 7,   null, 7, 10, 12,   10, 7, 5, 3,   5, null, 7, null,
+      7, 7, 5, 7,   null, 7, 10, 12,   14, 12, 10, 12,   14, null, null, null,
+      12, 12, 10, 7,   10, 7, 5, 3,   5, 5, 7, 10,   7, null, 5, null,
+      3, 3, 0, 3,   5, 3, 0, -2,   0, 3, 5, 7,   0, null, null, null
+    ],
+    bassSeq: [0, 0, 7, 7, 5, 5, 7, 0],
+    wave: "square",
+    drums: "edm",
+    vol: 0.94,
+    noteSpeed: 1.20,
+    tagColor: "#ff9900"
+  },
+  {
+    id: "kpop_candy",
+    title: "✨ 캔디 팝 드림 (Candy Pop Euphoria)",
+    genre: "K-POP RETRO DISCO",
+    bpm: 126,
+    firstBeat: 0.32,
+    approachTime: 1.8,
+    root: 293.66, // D4
+    melody: [
+      4, null, 2, 0,   4, null, 7, null,   9, 7, 9, 11,   9, null, 7, null,
+      4, null, 2, 0,   4, null, 7, null,   12, 11, 9, 7,   9, null, null, null,
+      7, 7, 9, 11,   12, 11, 9, 7,   4, 4, 7, 9,   7, null, 4, null,
+      2, 2, 4, 7,   4, 2, 0, -1,   0, 2, 4, 7,   0, null, null, null
+    ],
+    bassSeq: [0, 0, 4, 4, 5, 5, 7, 7],
+    wave: "sawtooth",
+    drums: "edm",
+    vol: 0.90,
+    noteSpeed: 1.10,
+    tagColor: "#00f0ff"
+  },
+  {
     id: "radetzky",
     title: "🎺 라데츠키 행진곡 (Radetzky March)",
     genre: "USMC ORCHESTRA MARCH",
