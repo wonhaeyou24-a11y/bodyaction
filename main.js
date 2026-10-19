@@ -746,46 +746,53 @@ let bgmNext = 0, bgmStep = 0;
 let bgmAudio = null;
 function prepareRealTrackAudio(fileUrl, loop = true) {
   try {
+    if (!fileUrl) { stopRealTrackAudio(); return; }
+    // ⚡ 이미 동일한 음원이 준비되어 있다면 불필요하게 파괴/재로드하지 않고 보존
+    if (bgmAudio && bgmAudio._trackUrl === fileUrl) return;
     stopRealTrackAudio();
-    if (!fileUrl) return;
     bgmAudio = new Audio(fileUrl + "?v=20261017_2000");
+    bgmAudio._trackUrl = fileUrl;
     bgmAudio.loop = loop;
     bgmAudio.preload = "auto";
-    // ⚡ iOS / iPadOS Safari 자동재생 언락: 사용자가 카드를 터치한 바로 이 순간에 무음 play()를 시작하여
-    // 5초 레디타임 종료 후 비동기 호출 시 NotAllowedError 차단 방지
+    // ⚡ iOS / iPadOS Safari 자동재생 언락: 유저 인터랙션 시점에 무음으로 미리 언락
     bgmAudio.volume = 0;
     const p = bgmAudio.play();
     if (p && typeof p.catch === "function") {
       p.catch(() => {});
     }
     bgmAudio.addEventListener("error", (e) => {
-      console.warn("오디오 파일 로드 에러 감지 -> 신스 엔진으로 즉각 폴백:", e);
-      if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
+      console.warn("오디오 파일 로드 에러 감지 (신스 보조 활성화):", e);
     });
   } catch (err) {
-    console.warn("오디오 사전 로드 예외 -> 신스 폴백:", err);
-    if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
+    console.warn("오디오 사전 로드 예외:", err);
   }
 }
 
 function playRealTrackAudio(fileUrl, loop = true) {
   try {
-    if (!bgmAudio || bgmAudio.src !== fileUrl) {
+    if (!fileUrl) return;
+    if (!bgmAudio || bgmAudio._trackUrl !== fileUrl) {
       prepareRealTrackAudio(fileUrl, loop);
     }
     if (!bgmAudio) return;
-    bgmAudio.currentTime = 0;
-    const p = bgmAudio.play();
-    if (p && typeof p.catch === "function") {
-      p.catch((e) => {
-        console.warn("오디오 재생 정책/로딩 지연 -> 신스 자동 서포트:", e);
-      });
+    // ⚡ 볼륨 복원: 0으로 잠겨있던 무음을 실제 플레이어 설정 볼륨으로 즉시 복원
+    bgmAudio.volume = soundOn ? songVol() : 0;
+    if (bgmAudio.readyState >= 1) {
+      try { bgmAudio.currentTime = 0; } catch {}
+    }
+    if (bgmAudio.paused) {
+      const p = bgmAudio.play();
+      if (p && typeof p.catch === "function") {
+        p.catch((e) => {
+          console.warn("오디오 재생 정책/로딩 지연 -> 신스 자동 서포트:", e);
+        });
+      }
     }
   } catch (err) {
-    console.warn("실제 오디오 음원 재생 실패, 신스 폴백 가동:", err);
-    if (mode === "beat" && BGM.beat) BGM.beat.audioFile = null;
+    console.warn("실제 오디오 음원 재생 처리 예외:", err);
   }
 }
+
 
 function stopRealTrackAudio() {
   if (bgmAudio) {
@@ -5185,10 +5192,11 @@ games.beat = {
     objs = []; // 레디타임 잔여물 리셋
     if (bgmAudio) {
       try {
-        bgmAudio.currentTime = 0;
         bgmAudio.volume = soundOn ? songVol() : 0;
-        const p = bgmAudio.play();
-        if (p && typeof p.catch === "function") p.catch(() => {});
+        if (bgmAudio.paused) {
+          const p = bgmAudio.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        }
       } catch (err) {
         console.warn("오디오 재생 호출 예외 -> 신스/자체 시계 엔진 유지:", err);
       }
@@ -6569,18 +6577,20 @@ function startGame(m, opts = {}) {
   combo = 0; comboTimer = 0; maxCombo = 0;
   currentWave = 1; isFeverTime = false;
   games[m].init?.();
-  bgmStart(); // 🎵 게임 시작 직후 5초 레디 동안 인트로 비트부터 흘러나오도록 가동
-  $("menu").classList.add("hidden"); $("result").classList.add("hidden"); $("hud").classList.remove("hidden");
-  $("feverBorder")?.classList.add("hidden");
-  const stageWave = $("stageWave");
-  if (stageWave) { stageWave.textContent = "WAVE 1"; stageWave.classList.remove("fever"); }
-  document.body.classList.add("playing");
 
   // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 가동
   isReadyTime = true;
   readyStartTime = performance.now();
   readyTimeLeft = READY_SECONDS;
   lastReadyCount = READY_SECONDS;
+
+  bgmStart(); // 🎵 게임 시작 직후 5초 레디 동안 인트로 비트부터 흘러나오도록 가동 (beat 모드는 음원 사전 버퍼링)
+  $("menu").classList.add("hidden"); $("result").classList.add("hidden"); $("hud").classList.remove("hidden");
+  $("feverBorder")?.classList.add("hidden");
+  const stageWave = $("stageWave");
+  if (stageWave) { stageWave.textContent = "WAVE 1"; stageWave.classList.remove("fever"); }
+  document.body.classList.add("playing");
+
   sfx.countdown(false); // 첫 카운트다운 톤
   speak(INTRO[m], true); // 게임 설명/안내 음성 발화
   warned10 = false;
