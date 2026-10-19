@@ -5263,9 +5263,8 @@ games.beat = {
       track = BEAT_TRACKS.find((t) => t.id === this.chosenTrackId);
     }
     if (!track) {
-      // 랜덤: "섞은 곡 주머니"에서 하나씩 꺼내요. 주머니가 비기 전에는 같은 곡이 다시 안 나와서 모든 곡을 한 번씩 다 듣고, 다 쓰면 새로 섞어요
-      // (예전엔 매번 주사위를 굴려서 우연히 같은 3~4곡만 반복되기도 했어요). 접속을 껐다 켜도 이어져요.
-      const poolIds = BEAT_TRACKS.filter((t) => t.audioFile).map((t) => t.id);   // 진짜 연주 음원만
+      // 랜덤: 15곡 전곡(K-POP 포함)이 담긴 "섞은 곡 주머니"에서 하나씩 꺼내요. 주머니가 비기 전에는 같은 곡이 다시 안 나와서 모든 곡을 골고루 듣고, 다 쓰면 새로 섞어요.
+      const poolIds = BEAT_TRACKS.map((t) => t.id);   // 15곡 전곡 공평 랜덤 셔플
       let bag = [];
       try { bag = JSON.parse(localStorage.getItem("kk_beat_bag") || "[]").filter((id) => poolIds.includes(id)); } catch { bag = []; }
       if (!bag.length) {
@@ -7322,6 +7321,28 @@ function updateBeatSelectedInfo(track) {
   if (bpmEl) bpmEl.textContent = `${track.bpm} BPM`;
 }
 
+function getBeatTrackEmblem(t) {
+  if (!t) return "🎲";
+  const id = t.id || "";
+  if (id === "kpop_idol") return "🎤";
+  if (id === "kpop_hurricane") return "🌪️";
+  if (id === "kpop_candy") return "🍭";
+  if (id === "radetzky") return "🎺";
+  if (id === "virus") return "⚡";
+  if (id === "turkish") return "⚜️";
+  if (id === "saints") return "🥁";
+  if (id === "canon") return "🎻";
+  if (id === "overdrive") return "🚀";
+  if (id === "tokyo") return "🌌";
+  if (id === "polka") return "🎈";
+  if (id === "funkorama") return "🕺";
+  if (id === "carefree") return "🌈";
+  if (id === "runamok") return "🏃";
+  if (id === "monkeys") return "🐒";
+  if (id === "random") return "🎲";
+  return "🎵";
+}
+
 function openBeatTrackSelector() {
   const modal = $("beatTrackModal");
   const listEl = $("beatTrackList");
@@ -7330,42 +7351,48 @@ function openBeatTrackSelector() {
     return;
   }
 
-  // 트랙 목록 HTML 렌더링
+  // 트랙 목록 HTML 렌더링 (대형 펌프 스타일 아트워크 카드, 카드 박스 자체가 버튼)
   let html = `
     <!-- 🎲 랜덤 플레이 카드 -->
-    <div class="beat-track-card ${selectedBeatTrackId === "random" ? "active" : ""}" data-track-id="random" style="border-left: 4px solid #a855f7;">
+    <div class="beat-track-card ${selectedBeatTrackId === "random" ? "active" : ""}" data-track-id="random" style="--card-glow: #a855f7; border-color: #a855f7;">
       <div class="track-card-top">
-        <div class="track-card-badge-row">
-          <span class="track-genre-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">SHUFFLE</span>
-          <span style="font-size: 11px; color: #cbd5e1; font-weight: 700;">추천</span>
-        </div>
-        <div class="track-card-title">🎲 랜덤 셔플 플레이</div>
+        <span class="track-genre-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #a855f7;">SHUFFLE</span>
+        <span class="track-bpm-tag" style="color: #c084fc; border-color: #a855f7;">RANDOM</span>
       </div>
-      <div class="track-card-meta">
-        <span class="track-bpm-tag" style="color: #c084fc;">⚡ 매판 다른 명곡 자동 재생</span>
+      <div class="track-card-artwork">
+        <span class="track-artwork-icon">🎲</span>
+      </div>
+      <div class="track-card-bottom">
+        <div class="track-card-title">🎲 랜덤 셔플 플레이</div>
+        <div class="track-card-action-hint">
+          ${selectedBeatTrackId === "random" ? "⚡ 한 번 더 누르면 바로 시작!" : "▶ 터치하여 선택 & 시작"}
+        </div>
       </div>
     </div>
   `;
 
   BEAT_TRACKS.forEach((track) => {
     const isAct = selectedBeatTrackId === track.id;
-    const isRealAudio = Boolean(track.audioFile);
+    const emblem = getBeatTrackEmblem(track);
+    const glowCol = track.tagColor || "#00d2ff";
     html += `
-      <div class="beat-track-card ${isAct ? "active" : ""}" data-track-id="${track.id}" style="border-left: 4px solid ${track.tagColor};">
+      <div class="beat-track-card ${isAct ? "active" : ""}" data-track-id="${track.id}" style="--card-glow: ${glowCol}; border-color: ${isAct ? glowCol : glowCol + '4d'};">
         <div class="track-card-top">
-          <div class="track-card-badge-row">
-            <span class="track-genre-badge" style="background: ${track.tagColor}26; color: ${track.tagColor}; border: 1px solid ${track.tagColor}4d;">
-              ${escapeHtml(track.genre)}
-            </span>
-            ${isRealAudio ? `<span style="font-size: 10px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 6px;">🎧 실제 음원</span>` : ""}
-          </div>
-          <div class="track-card-title">${escapeHtml(track.title)}</div>
+          <span class="track-genre-badge" style="background: ${glowCol}26; color: ${glowCol}; border: 1px solid ${glowCol}4d;">
+            ${escapeHtml(track.genre)}
+          </span>
+          <span class="track-bpm-tag" style="color: ${glowCol}; border-color: ${glowCol}66;">
+            🎵 ${track.bpm} BPM
+          </span>
         </div>
-        <div class="track-card-meta">
-          <span class="track-bpm-tag">🎵 ${track.bpm} BPM</span>
-          <button id="previewBtn_${track.id}" class="track-preview-btn" data-preview-id="${track.id}">
-            ▶ 미리듣기
-          </button>
+        <div class="track-card-artwork">
+          <span class="track-artwork-icon">${emblem}</span>
+        </div>
+        <div class="track-card-bottom">
+          <div class="track-card-title">${escapeHtml(track.title)}</div>
+          <div class="track-card-action-hint">
+            ${isAct ? "⚡ 한 번 더 누르면 바로 시작!" : "▶ 터치하여 미리듣기"}
+          </div>
         </div>
       </div>
     `;
@@ -7373,34 +7400,80 @@ function openBeatTrackSelector() {
 
   listEl.innerHTML = html;
 
-  // 카드 클릭 이벤트
+  // 🎵 카드 클릭 인터랙션: 1번 터치 = 미리듣기 & 사전 준비, 2번 터치 = 게임 시작!
   listEl.querySelectorAll(".beat-track-card").forEach((card) => {
-    card.addEventListener("click", (e) => {
-      if (e.target.closest(".track-preview-btn")) return;
+    card.addEventListener("click", () => {
       const tid = card.dataset.trackId;
+      if (selectedBeatTrackId === tid) {
+        // ⚡ 같은 카드를 한 번 더 누르면 즉시 게임 시작!
+        sfx.start?.();
+        closeBeatTrackSelector();
+        games.beat.chosenTrackId = tid;
+        startGame("beat");
+        return;
+      }
+
+      // 1번 터치: 선택 및 즉시 미리듣기 재생
       selectedBeatTrackId = tid;
-      listEl.querySelectorAll(".beat-track-card").forEach((c) => c.classList.remove("active"));
+      listEl.querySelectorAll(".beat-track-card").forEach((c) => {
+        c.classList.remove("active");
+        const hint = c.querySelector(".track-card-action-hint");
+        if (hint) hint.textContent = "▶ 터치하여 미리듣기";
+        const cid = c.dataset.trackId;
+        const cTrack = BEAT_TRACKS.find((t) => t.id === cid);
+        if (cTrack) c.style.borderColor = (cTrack.tagColor || "#00d2ff") + "4d";
+      });
+
       card.classList.add("active");
       const track = BEAT_TRACKS.find((t) => t.id === tid);
+      if (track) card.style.borderColor = track.tagColor || "#00d2ff";
+
+      const hint = card.querySelector(".track-card-action-hint");
+      if (hint) hint.textContent = "⚡ 한 번 더 누르면 바로 시작!";
+
       updateBeatSelectedInfo(track);
       sfx.tick?.();
+
+      // 미리듣기 자동 재생 & 백그라운드 사전 로드(사전 준비)
+      if (track) {
+        playTrackPreview(track);
+        // 백그라운드 사전 로딩: 실제 음원 디코딩 버퍼 확보 & 채보 비트맵 메모리 사전 파싱
+        if (track.audioFile) {
+          prepareRealTrackAudio(track.audioFile, true);
+          fetch(track.audioFile.replace(/\.\w+$/, ".beats.json"))
+            .then((r) => r.ok ? r.json() : null)
+            .then((m) => { if (m && Array.isArray(m.notes)) track._preloadedMap = m; })
+            .catch(() => {});
+        }
+      } else if (tid === "random") {
+        stopTrackPreview();
+      }
+
+      // 펌프 휠 효과: 선택한 카드가 화면 정중앙으로 부드럽게 스크롤
+      card.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     });
   });
 
-  // 미리듣기 버튼 이벤트
-  listEl.querySelectorAll(".track-preview-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const tid = btn.dataset.previewId;
-      const track = BEAT_TRACKS.find((t) => t.id === tid);
-      if (track) playTrackPreview(track);
-    });
+  // 좌우 넘김 네비게이션 버튼
+  $("beatTrackPrev")?.addEventListener("click", () => {
+    listEl.scrollBy({ left: -272, behavior: "smooth" });
+    sfx.tick?.();
+  });
+  $("beatTrackNext")?.addEventListener("click", () => {
+    listEl.scrollBy({ left: 272, behavior: "smooth" });
+    sfx.tick?.();
   });
 
   const curTrack = BEAT_TRACKS.find((t) => t.id === selectedBeatTrackId);
   updateBeatSelectedInfo(curTrack);
 
   modal.classList.remove("hidden");
+
+  // 모달 열릴 때 현재 선택된 카드로 포커스 스크롤
+  setTimeout(() => {
+    const actCard = listEl.querySelector(".beat-track-card.active");
+    if (actCard) actCard.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, 100);
 }
 
 function closeBeatTrackSelector() {

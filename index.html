@@ -703,14 +703,14 @@
   </div>
 </div>
 
-<!-- 🎵 펌프 잇 업 스타일 아케이드 뮤직 셀렉터 (Neon Track Wheel) -->
+<!-- 🎵 펌프 잇 업 스타일 아케이드 뮤직 셀렉터 (Pump Track Wheel Carousel) -->
 <div id="beatTrackModal" class="beat-modal-backdrop hidden">
   <div class="beat-modal-card">
     <div class="beat-modal-header">
       <div class="beat-modal-title-group">
-        <span class="beat-modal-badge">ARCADE MUSIC SELECT</span>
+        <span class="beat-modal-badge">PUMP ARCADE MUSIC SELECT</span>
         <h2 class="beat-modal-title">🎵 네온 노트 슬래시 • 트랙 선택</h2>
-        <p class="beat-modal-desc">원하는 명곡을 선택하거나, 내 컴퓨터의 MP3 노래를 불러와서 비트세이버처럼 플레이하세요!</p>
+        <p class="beat-modal-desc">카드를 누르면 신나는 미리듣기! 같은 카드를 한 번 더 누르면 바로 시작!</p>
       </div>
       <div class="beat-header-actions">
         <input type="file" id="customAudioInput" accept="audio/*" style="display: none;">
@@ -721,9 +721,13 @@
       </div>
     </div>
 
-    <!-- 곡 리스트 그리드 -->
-    <div id="beatTrackList" class="beat-track-list">
-      <!-- main.js에서 동적 생성 -->
+    <!-- 펌프 스타일 좌우 트랙 휠 캐러셀 -->
+    <div class="beat-carousel-wrap">
+      <button id="beatTrackPrev" class="beat-carousel-nav btn-prev" title="이전 곡" type="button">‹</button>
+      <div id="beatTrackList" class="beat-track-list">
+        <!-- main.js에서 대형 카드 동적 생성 -->
+      </div>
+      <button id="beatTrackNext" class="beat-carousel-nav btn-next" title="다음 곡" type="button">›</button>
     </div>
 
     <!-- 모달 하단 액션 바 -->
@@ -733,12 +737,12 @@
         <span id="beatSelectedTitle" class="track-selected-name">🎺 라데츠키 행진곡</span>
         <span id="beatSelectedBpm" class="track-bpm-pill">140 BPM</span>
       </div>
+      <div class="beat-modal-guide-text">
+        <span class="pulse-dot"></span>
+        <span id="beatGuideMsg">카드를 1번 누르면 미리듣기 &amp; 사전 준비 • 2번 누르면 게임 시작!</span>
+      </div>
       <div class="beat-modal-buttons">
-        <button id="beatModalCancel" class="btn-modal-cancel">취소</button>
-        <button id="beatModalStart" class="btn-modal-start">
-          <span class="btn-icon">⚡</span>
-          <span class="btn-text">이 곡으로 시작하기 (START)</span>
-        </button>
+        <button id="beatModalCancel" class="btn-modal-cancel" type="button">닫기</button>
       </div>
     </div>
   </div>

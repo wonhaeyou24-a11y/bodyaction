@@ -1483,132 +1483,195 @@ body.tv-fullscreen-mode .hub {
   transform: rotate(90deg);
 }
 
+/* 펌프 스타일 좌우 휠 캐러셀 래퍼 */
+.beat-carousel-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 12px;
+  overflow: hidden;
+}
+.beat-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 72px;
+  z-index: 10;
+  background: rgba(8, 6, 20, 0.82);
+  border: 1.5px solid rgba(0, 210, 255, 0.4);
+  color: #00d2ff;
+  font-size: 32px;
+  font-weight: 900;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+}
+.beat-carousel-nav:hover {
+  background: rgba(0, 210, 255, 0.25);
+  border-color: #00d2ff;
+  color: #fff;
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 0 28px rgba(0, 210, 255, 0.5);
+}
+.beat-carousel-nav.btn-prev { left: 16px; }
+.beat-carousel-nav.btn-next { right: 16px; }
+
 .beat-track-list {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px 28px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 30px 48px;
+  display: flex;
+  flex-direction: row;
+  gap: 22px;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 .beat-track-list::-webkit-scrollbar {
-  width: 6px;
+  height: 8px;
+}
+.beat-track-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
 }
 .beat-track-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 210, 255, 0.3);
-  border-radius: 3px;
+  background: linear-gradient(90deg, #ff007f, #00d2ff);
+  border-radius: 4px;
 }
 
+/* 🎵 펌프 스타일 대형 노래 카드 (박스 자체가 버튼) */
 .beat-track-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1.5px solid rgba(255, 255, 255, 0.09);
-  border-radius: 18px;
-  padding: 16px;
+  min-width: 250px;
+  width: 250px;
+  height: 350px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 20px 18px 16px;
   cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
+  overflow: hidden;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
 }
 .beat-track-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(0, 210, 255, 0.5);
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 210, 255, 0.25);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
 }
 .beat-track-card.active {
-  background: linear-gradient(145deg, rgba(0, 210, 255, 0.18), rgba(255, 51, 119, 0.15));
-  border-color: #00d2ff;
-  box-shadow: 0 0 30px rgba(0, 210, 255, 0.4), inset 0 0 16px rgba(0, 210, 255, 0.15);
-  transform: translateY(-2px);
+  background: linear-gradient(155deg, rgba(0, 210, 255, 0.22), rgba(255, 0, 127, 0.20));
+  border-width: 3px;
+  transform: translateY(-10px) scale(1.05);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8), 0 0 36px var(--card-glow, rgba(0, 210, 255, 0.6));
 }
-.beat-track-card.active::before {
-  content: '선택됨';
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 800;
-  color: #000;
-  background: #00d2ff;
-  border-radius: 10px;
-  box-shadow: 0 0 10px #00d2ff;
+
+/* 대형 아트워크 엠블럼 중앙 영역 */
+.track-card-artwork {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 12px 0;
+}
+.track-artwork-icon {
+  font-size: 68px;
+  filter: drop-shadow(0 0 20px var(--card-glow, rgba(0, 210, 255, 0.6)));
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.beat-track-card.active .track-artwork-icon {
+  transform: scale(1.15);
+  animation: beatIconBounce 0.6s infinite alternate ease-in-out;
+}
+@keyframes beatIconBounce {
+  from { transform: scale(1.12); }
+  to { transform: scale(1.22); }
 }
 
 .track-card-top {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.track-card-badge-row {
-  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 .track-genre-badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 8px;
-  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
 }
-.track-card-title {
-  font-size: 16px;
-  font-weight: 800;
-  color: #ffffff;
-  line-height: 1.35;
-}
-.track-card-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 4px;
-  font-size: 12px;
-  color: #94a3b8;
-}
 .track-bpm-tag {
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   color: #38bdf8;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.track-preview-btn {
-  padding: 5px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #f1f5f9;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.track-preview-btn:hover {
-  background: rgba(0, 210, 255, 0.25);
-  border-color: #00d2ff;
-  color: #ffffff;
-}
-.track-preview-btn.playing {
-  background: #ff3377;
-  border-color: #ff3377;
-  color: #fff;
-  box-shadow: 0 0 12px #ff3377;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 3px 8px;
+  border-radius: 8px;
 }
 
+.track-card-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.track-card-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.3;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.track-card-action-hint {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  padding: 6px 10px;
+  border-radius: 12px;
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s;
+}
+.beat-track-card.active .track-card-action-hint {
+  color: #ffffff;
+  background: linear-gradient(90deg, #ff007f, #00d2ff);
+  border-color: transparent;
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.5);
+  font-weight: 900;
+}
+
+/* 모달 하단 */
 .beat-modal-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 28px;
-  background: rgba(0, 0, 0, 0.35);
+  padding: 16px 28px;
+  background: rgba(0, 0, 0, 0.45);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   gap: 16px;
   flex-wrap: wrap;
@@ -1640,6 +1703,27 @@ body.tv-fullscreen-mode .hub {
   background: rgba(56, 189, 248, 0.15);
   border: 1px solid rgba(56, 189, 248, 0.3);
   color: #38bdf8;
+}
+
+.beat-modal-guide-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00d2ff;
+  box-shadow: 0 0 10px #00d2ff;
+  animation: pulseDot 1s infinite alternate;
+}
+@keyframes pulseDot {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
 }
 
 .beat-modal-buttons {
