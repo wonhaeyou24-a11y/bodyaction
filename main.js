@@ -933,11 +933,18 @@ let handLandmarker = null;
 const pointers = [];            // 현재 프레임의 포인터: {x, y, px, py, speed}
 const MAX_HANDS = 2; // 1인 플레이어 2손 초고속 추적 최적화 (연산량 50% 절감 & 60 FPS 즉각 반응)
 const trails = Array.from({ length: MAX_HANDS }, () => []);
-const mouse = { x: -100, y: -100, down: false, p: -1e9 };
+const mouse = { x: -100, y: -100, down: false, right: false, p: -1e9 };
 
 addEventListener("pointermove", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
-addEventListener("pointerdown", (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.down = true; mouse.p = performance.now(); });
-addEventListener("pointerup", () => { mouse.down = false; });
+addEventListener("pointerdown", (e) => {
+  mouse.x = e.clientX; mouse.y = e.clientY; mouse.down = true; mouse.p = performance.now();
+  mouse.right = e.button === 2;
+});
+addEventListener("pointerup", (e) => {
+  mouse.down = false;
+  if (e.button === 2) mouse.right = false;
+});
+addEventListener("contextmenu", (e) => { if (mode === "draw") e.preventDefault(); });
 
 // ============================================================================
 // 🧠 SOTA 모션 인식 코어: 1유로 필터 (One Euro Filter - CHI 2012 국제 표준)
@@ -1042,7 +1049,7 @@ function videoToScreen(lm) {
   return { x: isMirror ? (W - rawX) : rawX, y: lm.y * vh * s + oy };
 }
 
-let lastFist = [], fistCount = [], lastSeen = 0, lastSeenAt = 0, sizeHist = [], lastPunch = [], lastPunchAt = [];   // lastSeen: 마지막 인식이 "찍힌" 시각(영상 시간선) / lastSeenAt: 그 결과가 "도착한" 시각(지금 시계). 손을 놓쳤는지는 반드시 도착 시각으로 재야 해요 (카메라 지연이 길면 찍힌 시각은 항상 옛날이라 손을 계속 놓친 걸로 오판해요)
+let lastFist = [], lastOpenPalm = [], fistCount = [], lastSeen = 0, lastSeenAt = 0, sizeHist = [], lastPunch = [], lastPunchAt = [];   // lastSeen: 마지막 인식이 "찍힌" 시각(영상 시간선) / lastSeenAt: 그 결과가 "도착한" 시각(지금 시계). 손을 놓쳤는지는 반드시 도착 시각으로 재야 해요 (카메라 지연이 길면 찍힌 시각은 항상 옛날이라 손을 계속 놓친 걸로 오판해요)
 let body = null, bodySeen = 0, bodySeenAt = 0, lastBodyTime = -1, camOk = false, poseLandmarker = null;
 // 팔/다리 움직임 추적 (armtrack.js): armVel[0]=오른손목(어깨 12 기준), [1]=왼손목(어깨 11 기준) — pointers 순서와 같아요. legVel[0]=왼발목(엉덩이 23), [1]=오른발목(24)
 const armVel = [new ArmVel(), new ArmVel()], legVel = [new ArmVel(), new ArmVel()];
@@ -1221,7 +1228,8 @@ function updatePointers() {
       vps: ptrVps[s],
       vN: p.vN,                       // 어깨너비/초 단위 3차원 속도 (몸 인식일 때만; 샌드백 펀치 판정)
       dirN: p.dirN,                   // 그 움직임의 방향 (팔 거두기 구분용)
-      fist: useMouse ? !mouse.down : !!lastFist[s],
+      fist: useMouse ? (!mouse.down || mouse.right) : !!lastFist[s],
+      openPalm: useMouse ? (mouse.down && mouse.right) : !!lastOpenPalm[s],
       // 손을 앞으로 내지르는 동적 펀치 임펄스: 280ms 이내의 펀치 이벤트이면서 속도가 살아있을 때만
       punch: useMouse ? mouse.down : (performance.now() - (lastPunchAt[s] || -1e9) < 240 && ptrVps[s] > Math.min(W, H) * 0.55),
       punchId: useMouse ? mouse.p : lastPunch[s],
@@ -1300,9 +1308,11 @@ function detectHandsNow() {
         const isIndexFolded = d3(l[8], wrist) < d3(l[5], wrist) * 0.94;
         const foldedCount = [[8, 5], [12, 9], [16, 13], [20, 17]].filter(([tip, mcp]) => d3(l[tip], wrist) < d3(l[mcp], wrist) * 0.94).length;
         
-        // ⚡ 제스처 판정 수정: 검지가 펴져 있으면(!isIndexFolded) 그리기/포인팅 자세이므로 절대 주먹이 아님!
-        // 검지까지 확실히 쥐어지고 3개 이상의 손가락이 접혔을 때만 주먹(fist)으로 판정
+        // ⚡ 제스처 판정: 검지가 펴져 있으면(!isIndexFolded) 그리기/포인팅 자세
+        // 1. 주먹: 검지까지 확실히 쥐어지고 3개 이상의 손가락이 접혔을 때
         lastFist[i] = isIndexFolded && (foldedCount >= 3);
+        // 2. ✋ 손을 쫙 폄 (Open Palm): 4개 손가락 모두 활짝 펼쳐짐 (지우개 제스처)
+        lastOpenPalm[i] = (foldedCount === 0) && !isIndexFolded;
 
         // 펀치 가속도 충격량(Forward Impulse) 감지: 손바닥 크기가 카메라 쪽으로 급격히 커지는 순간
         const scale = d3(l[9], wrist);
@@ -1886,6 +1896,23 @@ const GAME_HUD_META = {
       { label: "STREAK", val: `${combo}x` },
       { label: "BURST", val: "MAX" }
     ]
+  },
+  draw: {
+    theme: "draw",
+    badge: "CANVAS",
+    title: "MAGIC DRAW",
+    sub: "60 FPS",
+    guideIcon: "🎨",
+    guideMain: "DRAW WITH FINGERS & ERASE WITH OPEN PALM!",
+    guideSub: "손가락으로 자유롭게 그리고, 손을 쫙 펴서 지우세요!",
+    leftName: "HAND P1",
+    rightName: "HAND P2",
+    leftUnit: "PT",
+    rightUnit: "PT",
+    leftDesc: "BRUSH",
+    rightDesc: "BRUSH",
+    odTitle: "🎨 FREE CANVAS",
+    getMetrics: () => [{ label: "MODE", val: "DRAW" }, { label: "PALM", val: "ERASE" }]
   }
 };
 
@@ -3343,8 +3370,8 @@ games.draw = {
   },
   exit() { try { this.syn.g.gain.value = 0; this.syn.o.stop(); } catch {} },
   rects() {
-    const n = this.items.length, s = Math.min(64, (W - 24) / (n + 0.5)), gap = s * 0.1;
-    return { s, gap, y: 76, x0: (W - (n * (s + gap) - gap)) / 2 };
+    const n = this.items.length, s = Math.min(58, (W - 24) / (n + 0.6)), gap = Math.max(6, s * 0.12);
+    return { s, gap, y: 26, x0: (W - (n * (s + gap) - gap)) / 2 };
   },
   pick(i) {
     const it = this.items[i], t = ac().currentTime;
@@ -3366,17 +3393,18 @@ games.draw = {
       const old = this.layer; this.layer = document.createElement("canvas"); this.layer.width = W; this.layer.height = H;
       this.lctx = this.layer.getContext("2d"); this.lctx.drawImage(old, 0, 0, W, H);
     }
-    const { s, gap, y, x0 } = this.rects(), uiBottom = y + s + 14;
-    // 메뉴: 손을 올려 두면 선택
+    const { s, gap, y, x0 } = this.rects(), uiBottom = y + s + 10;
+    // 메뉴: 손을 올려 두면 선택 (선택 감도 넉넉하게 보장)
     this.items.forEach((_, i) => {
-      const bx = x0 + i * (s + gap), m = 6 + reach * 0.3;
+      const bx = x0 + i * (s + gap), m = 12 + reach * 0.35;
       const on = pointers.some((p) => p.x > bx - m && p.x < bx + s + m && p.y > y - m && p.y < y + s + m);
       if (on) { this.dwell[i] = (this.dwell[i] || 0) + dt; if (this.dwell[i] >= 0.6 && !this.fired[i]) { this.fired[i] = true; this.pick(i); } }
       else { this.dwell[i] = 0; this.fired[i] = false; }
     });
-    // 그리기
+    // 그리기 및 지우기
     const size = PEN_SIZES[this.sizeI], c = this.lctx;
     pointers.forEach((p, i) => {
+      const isEraserMotion = this.eraser || !!p.openPalm;
       const pen = !p.fist && p.y > uiBottom;                       // 주먹이거나 메뉴 위면 안 그림
       if (pen) {
         // 펜이 잠깐(0.2초) 떨어졌다 다시 닿으면 이전 점에서 이어 그림 → 순간 끊김 방지
@@ -3385,8 +3413,12 @@ games.draw = {
         const from = this.down[i] ? { x: p.px, y: p.py } : join ? lp : { x: p.x, y: p.y };
         const speed = join ? Math.hypot(p.x - lp.x, p.y - lp.y) : p.speed;
         c.lineCap = "round"; c.lineJoin = "round";
-        if (this.eraser) { c.globalCompositeOperation = "destination-out"; c.shadowBlur = 0; c.lineWidth = size * 2.5; c.strokeStyle = "#000"; }
-        else {
+        if (isEraserMotion) {
+          c.globalCompositeOperation = "destination-out";
+          c.shadowBlur = 0;
+          c.lineWidth = size * 3.8;                                // 손 쫙 펴기 지우개: 시원하고 넉넉한 지우개 반경
+          c.strokeStyle = "#000";
+        } else {
           let col = this.color;
           if (col === "rainbow") { this.hue = (this.hue + speed * 0.5 + 0.5) % 360; col = `hsl(${this.hue}, 100%, 60%)`; }
           this.lastCol = col; c.strokeStyle = col; c.shadowColor = col; c.shadowBlur = size * 1.2;
@@ -3394,7 +3426,7 @@ games.draw = {
         }
         c.beginPath(); c.moveTo(from.x, from.y); c.lineTo(p.x + 0.01, p.y); c.stroke();
         c.shadowBlur = 0; c.globalCompositeOperation = "source-over";
-        if (!this.eraser && speed > 3 && Math.random() < 0.35) burst(p.x, p.y, this.lastCol, 2);
+        if (!isEraserMotion && speed > 3 && Math.random() < 0.35) burst(p.x, p.y, this.lastCol, 2);
       }
       if (pen) { this.lastPt[i] = { x: p.x, y: p.y }; this.upT[i] = 0; } else this.upT[i] += dt;
       this.down[i] = pen;
@@ -3406,7 +3438,8 @@ games.draw = {
       const semi = [0, 2, 4, 7, 9][idx % 5] + 12 * Math.floor(idx / 5);
       this.syn.o.frequency.setTargetAtTime(261.63 * 2 ** (semi / 12), now, 0.03);
       this.syn.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, panOf(lead.x))), now, 0.03);
-      this.syn.g.gain.setTargetAtTime(this.eraser ? 0.02 : Math.min(0.14, 0.05 + lead.speed * 0.004), now, 0.05);
+      const isLeadEraser = this.eraser || !!lead.openPalm;
+      this.syn.g.gain.setTargetAtTime(isLeadEraser ? 0.02 : Math.min(0.14, 0.05 + lead.speed * 0.004), now, 0.05);
     } else this.syn.g.gain.setTargetAtTime(0, now, 0.08);
   },
   draw() {
@@ -3416,7 +3449,7 @@ games.draw = {
     this.items.forEach((it, i) => {
       const bx = x0 + i * (s + gap), cx = bx + s / 2, cy = y + s / 2;
       const sel = (it.k === "color" && !this.eraser && it.c === this.color) || (it.k === "eraser" && this.eraser);
-      ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.beginPath(); ctx.roundRect(bx, y, s, s, 12); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.beginPath(); ctx.roundRect(bx, y, s, s, 12); ctx.fill();
       ctx.lineWidth = sel ? 4 : 2; ctx.strokeStyle = sel ? "#ffd166" : "rgba(255,255,255,.35)"; ctx.stroke();
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${s * 0.55}px serif`; ctx.fillStyle = "#fff";
       if (it.k === "color") {
@@ -3429,18 +3462,31 @@ games.draw = {
       const d = this.dwell[i] || 0;                                  // 선택 진행 표시
       if (d > 0 && !this.fired[i]) { ctx.strokeStyle = "#7df9ff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(cx, cy, s * 0.46, -Math.PI / 2, -Math.PI / 2 + (d / 0.6) * Math.PI * 2); ctx.stroke(); }
     });
-    // 펜 커서: 그리는 중이면 색 점, 주먹(펜 멈춤)이면 빈 동그라미
+    // 펜/지우개 커서 렌더링
     pointers.forEach((p, i) => {
-      const r = this.eraser ? PEN_SIZES[this.sizeI] * 1.25 : PEN_SIZES[this.sizeI] * 0.6 + 4;
+      const isEraserMotion = this.eraser || !!p.openPalm;
+      const r = isEraserMotion ? PEN_SIZES[this.sizeI] * 1.9 : (p.fist ? PEN_SIZES[this.sizeI] * 0.55 : PEN_SIZES[this.sizeI] * 0.75 + 4);
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7);
-      if (this.down[i] && !this.eraser) { ctx.fillStyle = this.lastCol; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke(); }
-      else { ctx.setLineDash([6, 6]); ctx.strokeStyle = this.eraser ? "#fff" : "rgba(255,255,255,.8)"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]); }
+      if (isEraserMotion) {
+        // 손을 쫙 폈을 때 지우개 원형 가이드 & 🧽 아이콘 표시
+        ctx.setLineDash([6, 4]); ctx.strokeStyle = "#ff5d73"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = "rgba(255, 93, 115, 0.16)"; ctx.fill();
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = `${Math.max(16, r * 0.85)}px serif`;
+        ctx.fillText("🧽", p.x, p.y);
+      } else if (p.fist) {
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+      } else if (this.down[i]) {
+        ctx.fillStyle = this.lastCol; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+      } else {
+        ctx.setLineDash([6, 6]); ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
+      }
     });
     if (this.t < 9) {
-      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `800 ${Math.max(13, Math.min(W * 0.03, H * 0.045))}px sans-serif`;
-      ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.fillStyle = "#ffd166";
-      const t = "손가락으로 그려 보세요! ✊ 주먹을 쥐면 펜이 멈춰요";
-      ctx.strokeText(t, W / 2, H * 0.3); ctx.fillText(t, W / 2, H * 0.3);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `800 ${Math.max(14, Math.min(W * 0.032, H * 0.045))}px sans-serif`;
+      ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.fillStyle = "#ffd166";
+      const t = "☝️ 검지 손가락: 그리기 | ✋ 손 쫙 펴기: 지우개 | ✊ 주먹: 펜 멈춤";
+      ctx.strokeText(t, W / 2, H * 0.22); ctx.fillText(t, W / 2, H * 0.22);
     }
   },
 };

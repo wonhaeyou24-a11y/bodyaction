@@ -1339,6 +1339,30 @@ body.tv-fullscreen-mode .hub {
   text-shadow: 0 0 20px rgba(251, 113, 133, 0.8);
 }
 
+/* 8. 🎨 허공에 그림 그리기 테마 (Clean Canvas Draw Theme) */
+/* 화면을 가리는 불필요한 콤보 링, 타이머/에너지바, 하단 텔레메트리 바를 깔끔하게 숨겨 100% 와이드 캔버스 확보 */
+.stitch-hud[data-theme="draw"] .hud-center-cluster,
+.stitch-hud[data-theme="draw"] .hud-time-row,
+.stitch-hud[data-theme="draw"] .hud-energy-wrap,
+.stitch-hud[data-theme="draw"] .hud-cam-pill,
+.stitch-hud[data-theme="draw"] .stitch-hud-bottom {
+  display: none !important;
+}
+.stitch-hud[data-theme="draw"] .hud-left-card {
+  border-color: rgba(255, 93, 115, 0.4);
+  background: rgba(16, 19, 31, 0.55);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.stitch-hud[data-theme="draw"] .hud-badge-pill {
+  background: linear-gradient(135deg, #ff5d73, #ffd166);
+  color: #0b0d14;
+}
+.stitch-hud[data-theme="draw"] .hud-score-num {
+  color: #ffd166;
+  text-shadow: 0 0 16px rgba(255, 209, 102, 0.6);
+}
+
 
 
 
