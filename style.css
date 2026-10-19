@@ -1532,7 +1532,6 @@ body.tv-fullscreen-mode .hub {
   flex-direction: row;
   gap: 22px;
   scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 .beat-track-list::-webkit-scrollbar {

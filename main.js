@@ -7210,16 +7210,23 @@ let previewStopTimer = null;
 let isPreviewing = false;
 let currentPreviewTrackId = null;
 let previewAudio = null;
+let previewSessionToken = 0; // 🎵 노래 중복 재생을 100% 원천 차단하는 세션 토큰
 
 const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function stopTrackPreview() {
+  previewSessionToken++; // 이전 모든 미리듣기 비동기 요청 즉시 무효화
   if (previewStopTimer) {
     clearTimeout(previewStopTimer);
     previewStopTimer = null;
   }
   if (previewAudio) {
-    try { previewAudio.pause(); previewAudio.currentTime = 0; } catch {}
+    try {
+      previewAudio.pause();
+      previewAudio.currentTime = 0;
+      previewAudio.src = "";
+      previewAudio.load();
+    } catch (e) {}
     previewAudio = null;
   }
   stopRealTrackAudio();
@@ -7234,11 +7241,10 @@ function stopTrackPreview() {
 function playTrackPreview(track) {
   try {
     ac();
-    if (isPreviewing && currentPreviewTrackId === track.id) {
-      stopTrackPreview();
-      return;
-    }
+    // 무조건 이전 소리를 완벽히 종료
     stopTrackPreview();
+
+    const myToken = ++previewSessionToken;
     isPreviewing = true;
     currentPreviewTrackId = track.id;
 
@@ -7248,17 +7254,26 @@ function playTrackPreview(track) {
       activeBtn.textContent = "⏹ 정지";
     }
 
-    // 🎵 실제 고음질 MP3/오디오 실연 음원이 있으면 스튜디오 음질로 선택할 때까지 무한 반복 루프 재생!
+    // 🎵 실제 고음질 MP3 음원이 있으면 단일 오디오로 무한 루프 재생!
     if (track.audioFile) {
-      previewAudio = new Audio(track.audioFile);
-      previewAudio.loop = true; // 🎵 다른 곡을 선택하거나 게임을 시작할 때까지 계속 무한 재생!
-      previewAudio.volume = soundOn ? 0.95 : 0;
-      previewAudio.play().catch((e) => console.warn("미리듣기 재생 권한:", e));
+      const audio = new Audio(track.audioFile);
+      audio.loop = true;
+      audio.volume = soundOn ? 0.95 : 0;
+      previewAudio = audio;
+
+      audio.play().then(() => {
+        // 재생 시작된 시점에 이미 사용자가 다른 곡을 골랐거나 껐으면 즉시 멈춤
+        if (myToken !== previewSessionToken) {
+          try { audio.pause(); audio.src = ""; } catch {}
+        }
+      }).catch(() => {
+        // 빠른 화면 전환이나 브라우저 자동재생 정책 관련 예외는 안전하게 무시
+      });
       return;
     }
 
-    // 실제 오디오 파일이 없는 트랙도 선택을 바꿀 때까지 8마디 신스 멜로디 무한 반복 재생!
-    playSynthPreviewLoop(track);
+    // 실제 오디오 파일이 없는 트랙은 8마디 신스 멜로디 무한 반복 재생!
+    playSynthPreviewLoop(track, myToken);
   } catch (err) {
     console.warn("미리듣기 재생 오류:", err);
     stopTrackPreview();
@@ -7266,8 +7281,8 @@ function playTrackPreview(track) {
 }
 
 // 🎵 신스 트랙 미리듣기 무한 루프 플레이어
-function playSynthPreviewLoop(track) {
-  if (!isPreviewing || currentPreviewTrackId !== track.id) return;
+function playSynthPreviewLoop(track, token) {
+  if (!isPreviewing || currentPreviewTrackId !== track.id || token !== previewSessionToken) return;
   const t0 = actx.currentTime + 0.05;
   const bpm = track.bpm || 132;
   const stepDur = 60 / bpm / 2;
@@ -7300,8 +7315,8 @@ function playSynthPreviewLoop(track) {
 
   // 🎵 타이머로 종료하지 않고 다음 루프를 이어서 무한 반복 연주!
   previewStopTimer = setTimeout(() => {
-    if (isPreviewing && currentPreviewTrackId === track.id) {
-      playSynthPreviewLoop(track);
+    if (token === previewSessionToken && isPreviewing && currentPreviewTrackId === track.id) {
+      playSynthPreviewLoop(track, token);
     }
   }, totalSteps * stepDur * 1000);
 }
@@ -7407,8 +7422,8 @@ function openBeatTrackSelector() {
     return;
   }
 
-  // 🎵 360도 무한 루프 순환 휠(Infinite Track Wheel):
-  // [세트 0, 세트 1(중앙), 세트 2] 총 3벌 배치하여 오른쪽이든 왼쪽이든 끝없이 연속 순환!
+  // 🎵 360도 무한 루프 순환 휠:
+  // [세트 0, 세트 1(중앙), 세트 2] 총 3벌 배치하여 끝없이 양방향 순환
   const rawItems = [
     { id: "random", title: "🎲 랜덤 셔플 플레이", genre: "SHUFFLE", bpm: "RANDOM" },
     ...BEAT_TRACKS
@@ -7424,11 +7439,11 @@ function openBeatTrackSelector() {
 
   listEl.innerHTML = html;
 
-  // 🎵 카드 클릭 인터랙션 핸들러
+  // 🎵 사용자가 직접 카드를 탭/클릭했을 때만 선택 및 재생!
   const handleCardClick = (card) => {
     const tid = card.dataset.trackId;
     if (selectedBeatTrackId === tid) {
-      // ⚡ 같은 카드를 한 번 더 누르면 즉시 게임 시작!
+      // ⚡ 이미 선택된 카드를 한 번 더 누르면 즉시 게임 시작!
       sfx.start?.();
       closeBeatTrackSelector();
       games.beat.chosenTrackId = tid;
@@ -7436,7 +7451,7 @@ function openBeatTrackSelector() {
       return;
     }
 
-    // 1번 터치: 선택 및 즉시 무한 미리듣기 시작!
+    // 1번 터치: 선택 및 즉시 무한 미리듣기 시작
     selectedBeatTrackId = tid;
     const curTrack = BEAT_TRACKS.find((t) => t.id === tid);
 
@@ -7463,10 +7478,9 @@ function openBeatTrackSelector() {
     updateBeatSelectedInfo(curTrack);
     sfx.tick?.();
 
-    // 🎵 미리듣기 자동 재생 (선택할 때까지 무한 반복)
+    // 🎵 미리듣기 자동 재생
     if (curTrack) {
       playTrackPreview(curTrack);
-      // 백그라운드 사전 로딩: 실제 음원 디코딩 버퍼 확보 & 채보 비트맵 메모리 사전 파싱
       if (curTrack.audioFile) {
         prepareRealTrackAudio(curTrack.audioFile, true);
         fetch(curTrack.audioFile.replace(/\.\w+$/, ".beats.json"))
@@ -7478,7 +7492,7 @@ function openBeatTrackSelector() {
       stopTrackPreview();
     }
 
-    // 클릭한 카드를 화면 중앙으로 부드럽게 스크롤
+    // 선택한 카드를 화면 중앙으로 부드럽게 스크롤
     card.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   };
 
@@ -7486,56 +7500,46 @@ function openBeatTrackSelector() {
     card.addEventListener("click", () => handleCardClick(card));
   });
 
-  // 🎵 360도 무한 스크롤 심리스 워프 (Seamless Infinite Scroll Warp)
-  let isWarping = false;
-  listEl.onscroll = () => {
-    if (isWarping) return;
-    const totalW = listEl.scrollWidth;
-    const singleSetW = totalW / 3;
+  // 🎵 안전한 360도 스크롤 워프:
+  // 사용자가 스크롤하는 도중에는 절대 간섭하지 않고,
+  // 스크롤이 멈췄을 때(idle 120ms) 끝부분에 도달했으면 스냅 충돌 없이 조용히 중앙 세트로 위치 리셋!
+  let scrollIdleTimer = null;
+  const checkInfiniteWarp = () => {
+    const singleSetW = listEl.scrollWidth / 3;
     if (singleSetW <= 100) return;
 
-    // 왼쪽 세트(세트 0)의 30% 지점 안쪽으로 스크롤되면 가운데 세트로 순간 워프
-    if (listEl.scrollLeft < singleSetW * 0.3) {
-      isWarping = true;
+    // 왼쪽 세트(세트 0) 영역에 있으면 중앙 세트로 순간 워프
+    if (listEl.scrollLeft < singleSetW * 0.4) {
+      listEl.style.scrollSnapType = "none";
       listEl.scrollLeft += singleSetW;
-      setTimeout(() => { isWarping = false; }, 30);
+      requestAnimationFrame(() => {
+        listEl.style.scrollSnapType = "x mandatory";
+      });
     }
-    // 오른쪽 세트(세트 2)의 70% 지점 바깥으로 스크롤되면 가운데 세트로 순간 워프
-    else if (listEl.scrollLeft > singleSetW * 1.7) {
-      isWarping = true;
+    // 오른쪽 세트(세트 2) 영역에 있으면 중앙 세트로 순간 워프
+    else if (listEl.scrollLeft > singleSetW * 1.6) {
+      listEl.style.scrollSnapType = "none";
       listEl.scrollLeft -= singleSetW;
-      setTimeout(() => { isWarping = false; }, 30);
+      requestAnimationFrame(() => {
+        listEl.style.scrollSnapType = "x mandatory";
+      });
     }
   };
 
-  // 🎵 좌우 넘김 버튼: 오른쪽/왼쪽으로 끝없이 계속 넘겨도 다음 노래를 끊김없이 탐색!
-  const stepCard = (dir) => {
-    const cards = Array.from(listEl.querySelectorAll(".beat-track-card"));
-    if (cards.length === 0) return;
-    const listRect = listEl.getBoundingClientRect();
-    const listCenter = listRect.left + listRect.width / 2;
+  listEl.onscroll = () => {
+    if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
+    scrollIdleTimer = setTimeout(() => {
+      checkInfiniteWarp();
+    }, 120);
+  };
 
-    let closestCard = cards[0];
-    let minDiff = Infinity;
-    cards.forEach((card) => {
-      const r = card.getBoundingClientRect();
-      const center = r.left + r.width / 2;
-      const diff = Math.abs(center - listCenter);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestCard = card;
-      }
-    });
-
-    const curIdx = cards.indexOf(closestCard);
-    let targetIdx = curIdx + dir;
-    if (targetIdx < 0) targetIdx = 0;
-    if (targetIdx >= cards.length) targetIdx = cards.length - 1;
-
-    const targetCard = cards[targetIdx];
-    if (targetCard) {
-      handleCardClick(targetCard);
-    }
+  // 🎵 좌우 넘김 버튼:
+  // 카드를 멋대로 선택하지 않고, 단순히 좌우로 부드럽게 1장씩 넘겨서 구경할 수 있도록만 동작!
+  const scrollCardBy = (dir) => {
+    const cardW = 272; // 카드 폭(250) + 간격(22)
+    listEl.scrollBy({ left: dir * cardW, behavior: "smooth" });
+    sfx.tick?.();
+    setTimeout(checkInfiniteWarp, 350);
   };
 
   const prevBtn = $("beatTrackPrev");
@@ -7543,13 +7547,13 @@ function openBeatTrackSelector() {
   if (prevBtn) {
     prevBtn.onclick = (e) => {
       e.stopPropagation();
-      stepCard(-1);
+      scrollCardBy(-1);
     };
   }
   if (nextBtn) {
     nextBtn.onclick = (e) => {
       e.stopPropagation();
-      stepCard(1);
+      scrollCardBy(1);
     };
   }
 
@@ -7558,15 +7562,16 @@ function openBeatTrackSelector() {
 
   modal.classList.remove("hidden");
 
-  // 모달 오픈 시 중앙 세트(set-idx="1")의 활성 카드로 즉각 정렬
+  // 모달 오픈 시 중앙 세트(set-idx="1")의 현재 곡 카드로 부드럽게 정렬
   setTimeout(() => {
     const centerActCard = listEl.querySelector(`.beat-track-card[data-set-idx="1"][data-track-id="${selectedBeatTrackId}"]`) ||
                           listEl.querySelector(".beat-track-card.active");
     if (centerActCard) {
       centerActCard.scrollIntoView({ behavior: "auto", inline: "center", block: "nearest" });
     }
-  }, 60);
+  }, 50);
 }
+
 
 function closeBeatTrackSelector() {
   stopTrackPreview();
