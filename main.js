@@ -5089,13 +5089,30 @@ games.beat = {
   body: true, bg: "#060312", camAlpha: 0.38, manual: true, // 🎵 오디오 타임스탬프 100% 동기화 엔진 가동
   trail: (p) => (p.x < W / 2 ? "#00d2ff" : "#ff3377"),
 
-  // 🎵 [초정밀 듀얼 클록 (Dual-Clock Audio Sync)]
-  // 아이패드 Safari 자동재생 차단 또는 Web Audio suspended 상태에서도 큐브가 절대 멈추지 않는 무중단 하이브리드 엔진
+  // 🎵 [초정밀 스무스 오디오 클록 (Smooth Interpolated Audio Clock)]
+  // 브라우저 Audio.currentTime의 계단식 툭툭 끊김을 나노초 고해상도 타이머(performance.now)로 1ms 단위 매끄럽게 보간
   getSongTime() {
-    // 1. 실제 오디오가 정상 재생 중이고 시간이 흐르고 있다면 오디오 시각 우선 (오디오 100% 칼박 일치)
+    const nowPerf = performance.now();
+    // 1. 실제 MP3 오디오 정상 재생 중: 고해상도 타이머로 프레임 사이를 1ms 단위로 부드럽게 전진
     if (bgmAudio && !bgmAudio.paused && !isNaN(bgmAudio.currentTime) && bgmAudio.currentTime > 0) {
-      this.simSongTime = bgmAudio.currentTime;
-      return bgmAudio.currentTime;
+      const curAudio = bgmAudio.currentTime;
+      if (this._lastAudioTime !== curAudio) {
+        // 브라우저 오디오 틱이 새 값으로 갱신된 순간 앵커 포인트 동기화
+        this._lastAudioTime = curAudio;
+        this._audioAnchorPerf = nowPerf;
+        this._audioAnchorTime = curAudio;
+      }
+      // 앵커 시각 이후 실제로 흐른 고해상도 시간(초)을 더해 물 흐르듯 60fps/120fps 완벽 보간
+      const elapsedSinceTick = this._audioAnchorPerf ? (nowPerf - this._audioAnchorPerf) / 1000 : 0;
+      let smoothTime = (this._audioAnchorTime ?? curAudio) + Math.min(0.18, Math.max(0, elapsedSinceTick));
+      // 만약 브라우저 오디오 시각과 0.12초 이상 드리프트 발생 시 부드럽게 앵커로 수렴
+      if (Math.abs(smoothTime - curAudio) > 0.12) {
+        smoothTime = curAudio;
+        this._audioAnchorTime = curAudio;
+        this._audioAnchorPerf = nowPerf;
+      }
+      this.simSongTime = smoothTime;
+      return smoothTime;
     }
     // 2. Web Audio Context가 실행 중이고 시간이 실제로 전진할 때
     if (this.songStartTime > 0 && actx && actx.state === "running") {
@@ -5108,7 +5125,7 @@ games.beat = {
     // 3. 🛡️ [iOS / 아이패드 절대 정지 방지 폴백]
     // 오디오가 Safari 정책으로 멈췄거나 actx가 suspended여도 자체 시계(simSongTime)로 100% 무중단 전진!
     if (this.realStartTime > 0) {
-      const wallElapsed = (performance.now() - this.realStartTime) / 1000;
+      const wallElapsed = (nowPerf - this.realStartTime) / 1000;
       this.simSongTime = Math.max(this.simSongTime || 0, wallElapsed);
       return this.simSongTime;
     }
@@ -5143,6 +5160,12 @@ games.beat = {
     BGM.beat = { ...this.currentTrack };
     // 곡 파일에서 실제로 뽑아 둔 박자(타격 순간) 목록. 있으면 큐브를 거기에 맞춰요 (없으면 예전처럼 BPM 격자)
     this.beatMap = null; this.maps = null; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0;
+    this.beatPulse = 0; // 🎵 비트세이버 바닥 & 소실점 레이저 비트 펄스 조명
+    this.beatMapLoaded = !track.audioFile; // 신스 곡은 즉시 로드 완료
+    this._lastAudioTime = -1;
+    this._audioAnchorPerf = 0;
+    this._audioAnchorTime = 0;
+
     if (track.audioFile) {
       const wantId = track.id;
       fetch(track.audioFile.replace(/\.\w+$/, ".beats.json")).then((r) => (r.ok ? r.json() : null)).then((m) => {
@@ -5156,7 +5179,10 @@ games.beat = {
             } catch (e) { console.warn("맵 만들기 실패 → 규칙 배치로", e); this.maps = null; }
           }
         }
-      }).catch(() => {});
+        this.beatMapLoaded = true;
+      }).catch(() => {
+        this.beatMapLoaded = true;
+      });
     }
 
     // 곡 시작 네온 배너 알림
@@ -5208,6 +5234,10 @@ games.beat = {
   onGameRealStart() {
     this.realStartTime = performance.now();
     this.simSongTime = 0;
+    this._lastAudioTime = -1;
+    this._audioAnchorPerf = performance.now();
+    this._audioAnchorTime = 0;
+    this.beatPulse = 0;
     this.songStartTime = (actx && actx.state === "running") ? actx.currentTime : 0;
     this.nextBeatIdx = 0; this.nextHit = null;
     this.nextWallBeat = 16; this.lastSpawnT = -1; this.wallAt = 12; this.flashNote = 0; this.flow = newFlow();
@@ -5331,6 +5361,7 @@ games.beat = {
     const swing = [false, false];
     this.screenShake = Math.max(0, this.screenShake - dt * 3);
     this.beatFlash = Math.max(0, this.beatFlash - dt * 2.8);
+    this.beatPulse = Math.max(0, (this.beatPulse || 0) - dt * 3.8); // 🎵 바닥 비트 펄스 부드러운 감쇠
     this.laserAngle += dt * 0.95;
     this.prevSabers = this.sabers.map((sb) => (sb && sb.base && sb.tip ? { bx: sb.base.x, by: sb.base.y, tx: sb.tip.x, ty: sb.tip.y } : null));   // 이전 프레임 칼 모양 (칼날이 쓸고 간 곳 계산용)
 
@@ -5342,14 +5373,26 @@ games.beat = {
     // 🎵 1. 오디오 단일 기준 시간(songTime)을 기준으로 비트 스케줄러 가동
     const songTime = this.getSongTime();
     this.scheduleNotes(songTime);
-    // 진짜 노래의 박자에 맞춘 화면 번쩍임 (드럼 소리 대신)
+    // 진짜 노래의 박자에 맞춘 화면 번쩍임 및 무대 네온 비트 펄스 (드럼 비트 싱크)
     if (!isReadyTime && this.beatMap) {
       const nl = this.beatMap.notes; let fi = this.flashNote || 0;
-      while (fi < nl.length && nl[fi] <= songTime) { if (nl[fi] > songTime - 0.15) this.beatFlash = Math.max(this.beatFlash, 0.6); fi++; }
+      while (fi < nl.length && nl[fi] <= songTime) {
+        if (nl[fi] > songTime - 0.15) {
+          this.beatFlash = Math.max(this.beatFlash, 0.6);
+          this.beatPulse = 1.0; // 🎵 비트 펄스 점등!
+        }
+        fi++;
+      }
       this.flashNote = fi;
-    } else if (!isReadyTime && this.currentTrack?.audioFile) {
+    } else if (!isReadyTime && this.currentTrack) {
       const bs = Math.max(0.1, 60 / (this.currentTrack.bpm || 120)), bi = Math.floor((songTime - (this.currentTrack.firstBeat ?? 0.4)) / bs);
-      if (bi !== this.flashIdx) { if (this.flashIdx != null && bi > this.flashIdx) this.beatFlash = Math.max(this.beatFlash, 0.7); this.flashIdx = bi; }
+      if (bi !== this.flashIdx) {
+        if (this.flashIdx != null && bi > this.flashIdx) {
+          this.beatFlash = Math.max(this.beatFlash, 0.7);
+          this.beatPulse = 1.0; // 🎵 비트 펄스 점등!
+        }
+        this.flashIdx = bi;
+      }
     }
 
     // 콤보 배수 계산
@@ -6376,12 +6419,23 @@ function drawBackground(color, camAlpha = 0.20) {
       ctx.beginPath(); ctx.moveTo(W * 0.05, y); ctx.lineTo(W * 0.95, y); ctx.stroke();
     }
   } else if (mode === "beat") {
-    // 🕺 비트세이버 소실점 레이저 터널
+    // 🕺 비트세이버 소실점 레이저 터널 (음악 비트에 맞춰 바닥 네온 라인이 심장처럼 쿵! 쿵! 박동)
     const horizonY = H * 0.52;
     const cx = W / 2;
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.22)"; ctx.lineWidth = 2;
+    const pulse = games.beat?.beatPulse || 0;
+    ctx.strokeStyle = `rgba(0, 210, 255, ${0.20 + pulse * 0.50})`;
+    ctx.lineWidth = 2 + pulse * 3;
     for (let k = -4; k <= 4; k++) {
       ctx.beginPath(); ctx.moveTo(cx + k * 12, horizonY); ctx.lineTo(cx + k * (W * 0.14), H); ctx.stroke();
+    }
+    // 바닥 비트 펄스 가로선 (원근감 비트 웨이브)
+    if (pulse > 0.05) {
+      ctx.strokeStyle = `rgba(255, 51, 119, ${pulse * 0.40})`;
+      ctx.lineWidth = 1.5 + pulse * 2;
+      for (let i = 1; i <= 3; i++) {
+        const y = horizonY + Math.pow(i / 3, 1.6) * (H - horizonY);
+        ctx.beginPath(); ctx.moveTo(cx - (W * 0.5) * (i / 3), y); ctx.lineTo(cx + (W * 0.5) * (i / 3), y); ctx.stroke();
+      }
     }
   } else {
     // 기본 사이버 그리드 바닥
@@ -6486,12 +6540,14 @@ function frame(now) {
           sfx.countdown(false); // 1초마다 통통 튀는 카운트다운 비프음
         }
 
-        // 🛡️ 음원 준비 상태 가드 (Audio Ready Guard):
-        // beat 모드에서 실제 음원 파일이 설정되어 있을 경우, 오디오가 실제로 재생 가능한 상태(readyState >= 2)인지 확인.
+        // 🛡️ 음원 및 비트맵 준비 상태 가드 (Audio & BeatMap Ready Guard):
+        // beat 모드에서 실제 음원 파일이 설정되어 있을 경우,
+        // 오디오 버퍼(readyState >= 2) 및 비트맵 JSON(beatMapLoaded) 로딩이 완료되었는지 확인.
         // 네트워크 지연으로 로딩이 덜 끝났다면 10초가 지나도 "준비 중..." 상태로 최대 3.5초 안전 대기 후 완벽한 상태로 진입.
         const isAudioReady = (mode !== "beat") || !BGM.beat?.audioFile || (bgmAudio && bgmAudio.readyState >= 2);
+        const isMapReady = (mode !== "beat") || !BGM.beat?.audioFile || (g && g.beatMapLoaded !== false);
         const maxWaitOver = elapsedReady >= (READY_SECONDS + 3.5);
-        const isWaitingAudio = readyTimeLeft <= 0 && !isAudioReady && !maxWaitOver;
+        const isWaitingAudio = readyTimeLeft <= 0 && (!isAudioReady || !isMapReady) && !maxWaitOver;
 
         // 준비 시간에도 움직임을 즐길 수 있게: 광선검이 움직이고(슬래시), 캐릭터가 점프·앉기를 해요(러너). 점수·장애물은 없어요
         try { g.warmup?.(dt); } catch (warmErr) { console.warn("Ready warmup guard:", warmErr); }
@@ -6507,7 +6563,7 @@ function frame(now) {
         try { updateLiveHud(); } catch {}
 
         // 카운트다운 종료 및 음원 준비 완료 시 본격적인 게임 시작
-        if (readyTimeLeft <= 0 && (isAudioReady || maxWaitOver)) {
+        if (readyTimeLeft <= 0 && ((isAudioReady && isMapReady) || maxWaitOver)) {
           isReadyTime = false;
           sfx.countdown(true); // 팡파르 시작음
           triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
