@@ -5204,22 +5204,26 @@ games.versus = {
 // ============================================================================
 // 1. 🎵 네온 노트 슬래시 (beat): 비트세이버 정통 게임플레이 디자인 (Body Motion & Parity Flow)
 // ============================================================================
-/** 큐브 앞면에 "베는 방향 화살표"(●이면 아무 방향)를 그려요 */
+/** 큐브 앞면에 중앙 네온 비트 코어(화살표 없이 어떤 방향으로든 베는 자유 비트 노트)를 그려요 */
 function drawSlashArrow(o) {
   const r = o.r;
   if (r < 14) return;
   ctx.save();
   ctx.translate(o.x, o.y);
-  if (o.dir == null) {
-    ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = Math.max(1.5, r * 0.04);
-    ctx.beginPath(); ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  } else {
-    const v = DIRS[o.dir], s = r * 0.62;
-    ctx.rotate(Math.atan2(v[1], v[0]));
-    ctx.fillStyle = "rgba(255,255,255,0.97)"; ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = Math.max(1.5, r * 0.05); ctx.lineJoin = "round";
-    ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * 0.55, -s * 0.78); ctx.lineTo(-s * 0.25, 0); ctx.lineTo(-s * 0.55, s * 0.78); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-  }
+  // 🎵 화살표를 완전히 빼고, 비트세이버 스타일의 영롱한 순백색 네온 비트 펄스 코어(Dot Note) 렌더링
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = o.color || "#00d2ff";
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(3.5, r * 0.22), 0, Math.PI * 2);
+  ctx.fill();
+
+  // 외곽 네온 링
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+  ctx.lineWidth = Math.max(1.2, r * 0.05);
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(6, r * 0.36), 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -5481,7 +5485,7 @@ games.beat = {
       targetX,
       targetY,
       isLeft,
-      dir: isBomb ? null : q.dir,          // 베는 방향 (0~7, null=점: 아무 방향)
+      dir: null,          // 🎵 화살표 없이 어떤 방향으로든 자유롭게 벨 수 있음 (자유 방향 네온 비트 코어)
       color: isLeft ? "#00d2ff" : "#ff3377",
       isBomb,
       dead: false,
