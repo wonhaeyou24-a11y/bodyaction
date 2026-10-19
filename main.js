@@ -349,13 +349,36 @@ const sfx = {
   },
   end() { const t = ac().currentTime; [784, 659, 784, 1046.5].forEach((f, i) => tone(f, t + i * 0.14, 0.3, "triangle", 0.14)); },
   levelUp() { const t = ac().currentTime; [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.07, 0.25, "square", 0.08)); },
-  saber(x, left) {
-    const t = ac().currentTime, p = panOf(x);
-    // 1. 묵직한 서브우퍼 베이스 임팩트 펀치 (가슴을 울리는 비트세이버 타격감, 175Hz -> 30Hz 하향)
-    tone(left ? 175 : 155, t, 0.14, "sine", 0.46, 30, p);
-    // 2. 찰진 일렉트릭 플라즈마 파열음 (화이트 노이즈 2600Hz + 고속 톱니파 슬라이스 사운드)
-    tone(left ? 1100 : 900, t, 0.08, "sawtooth", 0.22, 260, p);
-    noise(t, 0.09, 0.32, 2600, p);
+  // ⚔️ [비트세이버 스윙 Whoosh] 광선검으로 공기를 가를 때 나는 '웅- 슉!' 플라즈마 풍압음
+  saberSwing(x, left, speed = 1.0) {
+    try {
+      const t = ac().currentTime, p = panOf(x);
+      const intensity = Math.max(0.6, Math.min(1.4, speed));
+      // 1. 공기를 가르는 날카로운 도플러 풍압 노이즈 (High-Pass Whoosh)
+      noise(t, 0.11, 0.22 * intensity, left ? 2200 : 1900, p);
+      // 2. 광선검 고유의 웅- 하는 저주파 플라즈마 자기장 사운드 (Pitch Envelope 90Hz -> 210Hz -> 65Hz)
+      tone(left ? 140 : 125, t, 0.12, "sawtooth", 0.14 * intensity, 65, p);
+      tone(left ? 90 : 80, t + 0.01, 0.13, "sine", 0.20 * intensity, 55, p);
+    } catch {}
+  },
+  // ⚡ [비트세이버 큐브 크런치 Slice] 네온 큐브 블록이 두 동강 날 때의 묵직하고 날카로운 '착! 크런치' 타격감
+  cubeSlice(x, left, isPerfect = false) {
+    try {
+      const t = ac().currentTime, p = panOf(x), pitch = this.comboPitch();
+      // 1. 가슴을 울리는 서브우퍼 베이스 임팩트 (180Hz -> 28Hz 딥 펀치)
+      tone(left ? 185 : 165, t, 0.15, "sine", 0.55, 28, p);
+      // 2. 날카로운 플라즈마 절단 전기 파열음 (Sawtooth 1400Hz -> 300Hz 급감쇠)
+      tone((left ? 1400 : 1200) * pitch, t, 0.08, "sawtooth", 0.28, 320, p);
+      // 3. 단단한 큐브가 부서지는 찰진 크런치 스냅 노이즈 (Snappy High Noise)
+      noise(t, 0.09, 0.36, 3200, p);
+      // 4. 퍼펙트 컷 및 고콤보 시 맑은 크리스탈 타격 배음 추가
+      if (isPerfect || combo >= 8) {
+        tone((isPerfect ? 2093 : 1568) * pitch, t + 0.01, 0.12, "triangle", 0.20, undefined, p);
+      }
+    } catch {}
+  },
+  saber(x, left, isPerfect = false) {
+    this.cubeSlice(x, left, isPerfect);
   },
   spell(x, type) {
     const t = ac().currentTime, p = panOf(x);
@@ -5395,8 +5418,9 @@ games.beat = {
             if (swingNow) {
               swing[i] = true;
               this.lastSwingT[i] = now;
+              // ⚔️ 비트세이버 광선검 스윙음: 공기를 가르는 '웅- 슉!' 풍압음
+              sfx.saberSwing(wPt.x, i === 0, spd / 7.0);
               if (isReadyTime) {
-                sfx.saber(wPt.x, i === 0);
                 burst(wPt.x, wPt.y, i === 0 ? "#00d2ff" : "#ff3377", 8);
               }
             }
@@ -5422,8 +5446,8 @@ games.beat = {
           if (spd > 7.0 && now - this.lastSwingT[i] > 110) {
             swing[i] = true;
             this.lastSwingT[i] = now;
+            sfx.saberSwing(pt.x, i === 0, spd / 7.0);
             if (isReadyTime) {
-              sfx.saber(pt.x, i === 0);
               burst(pt.x, pt.y, i === 0 ? "#00d2ff" : "#ff3377", 8);
             }
           }
@@ -5449,8 +5473,8 @@ games.beat = {
       if (isMouseSwing && now - this.lastSwingT[0] > 100) {
         swing[0] = true; swing[1] = true;
         this.lastSwingT[0] = now;
+        sfx.saberSwing(mx, true, mSpd / 10);
         if (isReadyTime) {
-          sfx.saber(mx, true);
           burst(mx, my, "#00d2ff", 8);
         }
       }
@@ -5567,11 +5591,11 @@ games.beat = {
           const finalScore = j.total * this.multiplier;                  // 점수는 아래 award()에서 한 번만 더해짐 (콤보도 award()가 올림)
           this.energy = Math.min(100, this.energy + 2.8);
           this.screenShake = 0.10;
-          this.beatFlash = 1.0;                                          // 비트 펄스 조명 즉시 점등!
-          sfx.saber(o.x, o.isLeft);
+          this.beatFlash = 1.0;
+          const isPerfect = diffMs <= 60 && j.total >= 95;
+          sfx.cubeSlice(o.x, o.isLeft, isPerfect);
           burst(o.x, o.y, o.color, j.total >= 100 ? 40 : 26);
           this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.3, vr: o.r * 6.5, color: o.color, life: 1.0 });
-          const isPerfect = diffMs <= 60 && j.total >= 95;
           award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
           const note = o.dir != null && j.parts.dir < 10 ? " · 방향!" : j.parts.speed < 25 ? " · 더 힘차게!" : "";
           popup(o.x, o.y - 40, `${isPerfect ? "PERFECT" : "SLASH"} ${j.total}${this.multiplier > 1 ? ` ×${this.multiplier}` : ""}${note}`, isPerfect ? "#ffd700" : o.color);
@@ -6204,8 +6228,8 @@ let readyTimeLeft = READY_SECONDS;
 let lastReadyCount = READY_SECONDS;
 let lastWarmupParticle = 0;
 
-// ⚡ 5초 레디타임 인터랙티브 몸풀기 카운트다운 (장착한 모든 커스튬을 입고 자유롭게 모션 동작 연습)
-function drawReadyCountdown(t, isBodyGame) {
+// ⚡ 10초 레디타임 인터랙티브 몸풀기 카운트다운 (장착한 모든 커스튬을 입고 자유롭게 모션 동작 연습)
+function drawReadyCountdown(t, isBodyGame, isWaitingAudio = false) {
   const cx = W / 2, cy = H * 0.44;
   const currentSec = Math.max(1, Math.ceil(t));
   const fraction = t - Math.floor(t);
@@ -6223,7 +6247,7 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.arc(cx, cy, 280, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. 5초 원형 프로그레스 네온 게이지
+  // 2. 10초 원형 프로그레스 네온 게이지
   const progress = Math.max(0, Math.min(1, (READY_SECONDS - t) / READY_SECONDS));
   ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
   ctx.lineWidth = 10;
@@ -6231,7 +6255,7 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.arc(cx, cy, 110, 0, Math.PI * 2);
   ctx.stroke();
 
-  const numColor = currentSec <= 2 ? "#ff3366" : (currentSec <= 3 ? "#ffb800" : "#00d2ff");
+  const numColor = isWaitingAudio ? "#00e5ff" : (currentSec <= 2 ? "#ff3366" : (currentSec <= 3 ? "#ffb800" : "#00d2ff"));
   ctx.strokeStyle = numColor;
   ctx.lineWidth = 10;
   ctx.lineCap = "round";
@@ -6241,17 +6265,24 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.arc(cx, cy, 110, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
   ctx.stroke();
 
-  // 3. 중앙 대형 펄스 숫자
+  // 3. 중앙 대형 펄스 숫자 또는 사운드 버퍼링 안내
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
   ctx.shadowBlur = 35;
   ctx.shadowColor = numColor;
   ctx.fillStyle = numColor;
-  ctx.font = "900 110px 'Rubik', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(currentSec, 0, 6);
+  if (isWaitingAudio) {
+    ctx.font = "900 28px 'Rubik', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🎵 준비 중...", 0, 6);
+  } else {
+    ctx.font = "900 110px 'Rubik', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(currentSec, 0, 6);
+  }
   ctx.restore();
 
   // 4. 상단 흥겨운 모션 안내 타이틀
@@ -6261,13 +6292,19 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.shadowColor = "#ffb800";
   ctx.fillStyle = "#ffb800";
   ctx.font = "900 24px 'Rubik', sans-serif";
-  ctx.fillText("🕺 READY! 신나게 몸을 풀어보세요!", cx, cy - 150);
+  const titleText = isWaitingAudio
+    ? "🎵 고음질 사운드 최적화 버퍼링 중..."
+    : (mode === "beat" ? "⚔️ 광선검 스윙 사운드(웅- 슉!)를 테스트해 보세요!" : "🕺 READY! 신나게 몸을 풀어보세요!");
+  ctx.fillText(titleText, cx, cy - 150);
 
   ctx.shadowBlur = 8;
   ctx.shadowColor = "#00d2ff";
   ctx.fillStyle = "#a5e7ff";
   ctx.font = "800 16px 'Rubik', sans-serif";
-  ctx.fillText("카메라 앞에서 팔을 흔들거나 스트레칭해 보세요 ✨", cx, cy - 120);
+  const subText = mode === "beat"
+    ? "손을 빠르게 휘두르면 광선검 풍압음과 스파크가 터집니다 ✨"
+    : "카메라 앞에서 팔을 흔들거나 스트레칭해 보세요 ✨";
+  ctx.fillText(subText, cx, cy - 120);
 
   // 5. 모션 동작 감지 시 반짝이 파티클 인터랙션 (재미있는 몸풀기 피드백)
   const now = performance.now();
@@ -6285,14 +6322,16 @@ function drawReadyCountdown(t, isBodyGame) {
   ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
   ctx.font = "700 18px sans-serif";
   ctx.fillStyle = "#ffffff";
-  const guideText = isBodyGame
-    ? "멋진 커스튬을 입고 자유롭게 움직여 보세요!"
-    : "손을 움직여 조준선과 반응성을 체크해 보세요!";
+  const guideText = isWaitingAudio
+    ? "고음질 음악 파일이 곧 재생됩니다. 잠시만 대기해 주세요!"
+    : (isBodyGame
+      ? "멋진 커스튬을 입고 자유롭게 움직여 보세요!"
+      : "손을 움직여 조준선과 반응성을 체크해 보세요!");
   ctx.fillText(guideText, cx, cy + 145);
 
   ctx.font = "600 15px sans-serif";
   ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-  ctx.fillText(`${currentSec}초 후 게임이 시작됩니다!`, cx, cy + 172);
+  ctx.fillText(isWaitingAudio ? "음악 버퍼링 완료 시 자동 시작됩니다" : `${currentSec}초 후 게임이 시작됩니다!`, cx, cy + 172);
 
   ctx.restore();
 }
@@ -6438,7 +6477,7 @@ function frame(now) {
   if (playing && g) {
     if (isReadyTime) {
       try {
-        // ⚡ 5초 레디타임(인터랙티브 모션 몸풀기) 실제 시간 100% 동기화
+        // ⚡ 10초 레디타임(인터랙티브 모션 몸풀기) 실제 시간 100% 동기화
         const elapsedReady = readyStartTime > 0 ? (now - readyStartTime) / 1000 : 0;
         readyTimeLeft = Math.max(0, READY_SECONDS - elapsedReady);
         const curCount = Math.max(1, Math.ceil(readyTimeLeft));
@@ -6447,21 +6486,28 @@ function frame(now) {
           sfx.countdown(false); // 1초마다 통통 튀는 카운트다운 비프음
         }
 
+        // 🛡️ 음원 준비 상태 가드 (Audio Ready Guard):
+        // beat 모드에서 실제 음원 파일이 설정되어 있을 경우, 오디오가 실제로 재생 가능한 상태(readyState >= 2)인지 확인.
+        // 네트워크 지연으로 로딩이 덜 끝났다면 10초가 지나도 "준비 중..." 상태로 최대 3.5초 안전 대기 후 완벽한 상태로 진입.
+        const isAudioReady = (mode !== "beat") || !BGM.beat?.audioFile || (bgmAudio && bgmAudio.readyState >= 2);
+        const maxWaitOver = elapsedReady >= (READY_SECONDS + 3.5);
+        const isWaitingAudio = readyTimeLeft <= 0 && !isAudioReady && !maxWaitOver;
+
         // 준비 시간에도 움직임을 즐길 수 있게: 광선검이 움직이고(슬래시), 캐릭터가 점프·앉기를 해요(러너). 점수·장애물은 없어요
         try { g.warmup?.(dt); } catch (warmErr) { console.warn("Ready warmup guard:", warmErr); }
         // 게임 필드 및 포즈/세이버 렌더링 (플레이어가 자신의 위치와 자세를 실시간 체크)
         try { g.draw(); } catch (drawErr) { console.warn("Ready draw guard:", drawErr); }
 
-        // 🎵 카운트다운 5초 동안 심장을 뛰게 하는 인트로 비트 재생
+        // 🎵 카운트다운 동안 심장을 뛰게 하는 인트로 비트 재생
         try { bgmTick(true); } catch (bgmErr) { console.warn("Ready BGM guard:", bgmErr); }
 
-        // 5초 카운트다운 오버레이 UI 렌더링
-        try { drawReadyCountdown(readyTimeLeft, Boolean(g.body)); } catch (cdErr) { console.warn("Countdown UI guard:", cdErr); }
+        // 10초 카운트다운 오버레이 UI 렌더링 (음원 버퍼링 중이면 대기 상태 반영)
+        try { drawReadyCountdown(readyTimeLeft, Boolean(g.body), isWaitingAudio); } catch (cdErr) { console.warn("Countdown UI guard:", cdErr); }
 
         try { updateLiveHud(); } catch {}
 
-        // 5초 카운트다운 종료 시 본격적인 게임 시작
-        if (readyTimeLeft <= 0) {
+        // 카운트다운 종료 및 음원 준비 완료 시 본격적인 게임 시작
+        if (readyTimeLeft <= 0 && (isAudioReady || maxWaitOver)) {
           isReadyTime = false;
           sfx.countdown(true); // 팡파르 시작음
           triggerWaveBanner("WAVE 1", "START! 지금부터 시작!", false);
