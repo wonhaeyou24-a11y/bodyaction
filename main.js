@@ -7574,8 +7574,13 @@ async function launchGame(modeName, opts = {}) {
     }
   }
 
-  // 🎵 네온 노트 슬래시는 곡을 고르지 않고 매번 랜덤으로 시작해요 (온라인 대결은 방장이 이미 곡을 골랐어요).
-  if (modeName === "beat" && !opts.online) games.beat.chosenTrackId = null;
+  // 🎵 네온 노트 슬래시: 온라인 대결이 아니면 펌프 스타일 트랙 휠 모달을 먼저 오픈하여 곡 선택/미리듣기!
+  if (modeName === "beat" && !opts.online) {
+    loadingBadge?.remove();
+    cardEl?.classList.remove("card-launching");
+    openBeatTrackSelector();
+    return true;
+  }
   
   startGame(modeName, opts);
   setTimeout(() => {
