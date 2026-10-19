@@ -4114,6 +4114,7 @@ games.runner = {
     this.jy = 0;
     this.duck = false;
     rkJump = false;
+    rkDuck = false;
     this.dist = 0;
     this.prevY = null;
     this.prevVUp = 0;
@@ -4151,17 +4152,28 @@ games.runner = {
     const now = performance.now();
 
     if (!useMouse && b) {
-      // 점프/앉기 판정은 jump.js 하나만 써요 (시험으로 검증된 엔진). 예전에는 여기에 가속도·위치 규칙을 더 겹쳐 썼는데,
-      // 앉았다 일어설 때·제자리 걷기·몸을 기울일 때 점프로 오인하고, 얕게 앉으면 앉기를 못 알아봤어요 (node test/runner-sense.mjs 로 비교).
+      // 점프/앉기 판정은 jump.js 하나만 써요 (시험으로 검증된 엔진).
       const sm = jumpSample(b);
       if (sm) {
         const r = stepJump(this.js, sm, dt, now);
         duck = r.duck;
-        if (r.jump && now - this.lastJumpTime > 300) { jump = true; this.lastJumpTime = now; }
+        if (r.jump && now - this.lastJumpTime > 220) {
+          jump = true;
+          this.lastJumpTime = now;
+          duck = false; // 점프 발동 시 앉기 즉시 해제
+        }
         this.seen = true;
       } else {
         this.seen = false;
       }
+    }
+
+    // ⚡ 시작 초기(0.55초) 슬라이딩 오작동 방지: 게임 시작 시 서는 동작 중 앉기 자세 오인 차단
+    if (this.t < 0.55) {
+      duck = false;
+    }
+    if (jump) {
+      duck = false;
     }
 
     // ⚡ 선제 점프 입력 버퍼링: 캐릭터가 착지하기 전(180ms 이내)에 미리 뛰어도 착지 즉시 도약 발동!
@@ -4171,6 +4183,7 @@ games.runner = {
     const shouldJump = jump || (this.jumpBufferUntil > now && this.jy <= 0);
     if (shouldJump && this.jy <= 0) {
       this.jumpBufferUntil = 0;
+      duck = false;
     }
 
     return { jump: shouldJump, duck };
@@ -4179,16 +4192,17 @@ games.runner = {
   // 준비 시간: 내가 뛰고 앉는 대로 캐릭터가 점프·슬라이드해요 (장애물·점수·통계 없음)
   warmup(dt) {
     this.t += dt;
-    const { jump, duck } = this.sense(dt), hs = this.hs(), g = H * 3.4, v0 = Math.sqrt(2 * g * hs * 1.05);
+    const { jump, duck } = this.sense(dt), hs = this.hs(), g = H * 3.6, v0 = Math.sqrt(2 * g * hs * 1.10);
     if (jump && this.jy <= 0) {
       this.vy = v0;
       this.jumpBufferUntil = 0;
+      this.duck = false;
       tone(480, ac().currentTime, 0.16, "triangle", 0.18, 950);
       burst(this.cx(), this.gy() - 8, "#00d2ff", 10);
     }
     this.jy += this.vy * dt; this.vy -= g * dt;
     if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
-    this.duck = duck && this.jy === 0;
+    this.duck = !jump && duck && this.jy === 0;
     for (const line of this.speedLines) {
       line.x -= line.spd * 0.5 * dt;
       if (line.x < -line.len) { line.x = W + Math.random() * 80; line.y = H * (0.2 + Math.random() * 0.55); }
@@ -4227,12 +4241,13 @@ games.runner = {
       const isZeroG = this.event === "zeroG";
 
       // 🌌 무중력 상태 반영 점프 물리 (체공 시간 및 높이 2배)
-      const g = isZeroG ? H * 1.8 : H * 4.4; // ⚡ 날렵하고 탄력적인 착지감
-      const v0 = Math.sqrt(2 * g * hs * (isZeroG ? 1.45 : 1.05));
+      const g = isZeroG ? H * 1.8 : H * 4.2; // ⚡ 날렵하고 탄력적인 착지감
+      const v0 = Math.sqrt(2 * g * hs * (isZeroG ? 1.45 : 1.10));
       if (jump && this.jy <= 0) {
         this.vy = v0;
         this.jumpCount++;
         this.jumpBufferUntil = 0;
+        this.duck = false;
         tone(isZeroG ? 620 : 480, ac().currentTime, 0.16, "triangle", 0.18, 950);
         burst(this.cx(), this.gy() - 8, isZeroG ? "#ff00ff" : "#00d2ff", 16);
         popup(this.cx(), this.gy() - hs * 0.8, isZeroG ? "ZERO-G FLOAT! 🌌" : "JUMP! 🦘", isZeroG ? "#ff77ff" : "#00d2ff");
@@ -4241,9 +4256,9 @@ games.runner = {
       this.vy -= g * dt;
       if (this.jy <= 0) { this.jy = 0; this.vy = 0; }
 
-      // 슬라이딩 앉기
+      // 슬라이딩 앉기 (점프 중이거나 도약 시 절대 억제)
       const wasDuck = this.duck;
-      this.duck = duck && this.jy === 0;
+      this.duck = !jump && duck && this.jy === 0;
       if (!wasDuck && this.duck) {
         this.duckCount++;
         tone(220, ac().currentTime, 0.12, "sine", 0.15, 140);

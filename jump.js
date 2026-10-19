@@ -34,7 +34,11 @@ export function jumpSample(b) {
 }
 
 export function newJumpState() {
-  return { base: null, tl: 0, hist: [], lastDuck: -1e9, lastJump: -1e9, prevY: null, vUp: 0, upFrames: 0, ducking: false, prevUp: false };
+  return {
+    base: null, tl: 0, hist: [], lastDuck: -1e9, lastJump: -1e9,
+    prevY: null, vUp: 0, upFrames: 0, ducking: false, prevUp: false,
+    stillDuckTime: 0, initFrames: 0
+  };
 }
 
 /**
@@ -46,7 +50,11 @@ export function stepJump(s, sm, dt, now) {
   if (sm.tl) s.tl = s.tl ? s.tl + (sm.tl - s.tl) * 0.1 : sm.tl;
   else if (!s.tl) s.tl = sm.swTl || 120;
   const tl = s.tl, y = sm.y;
-  if (s.base == null) s.base = y;
+  if (s.base == null || s.initFrames < 18) {
+    s.initFrames = (s.initFrames || 0) + 1;
+    // 초기 18프레임 동안 가장 똑바로 선(y가 가장 작은) 안정된 기립 자세로 base를 확립
+    s.base = s.base == null ? y : Math.min(s.base, y);
+  }
   if (s.prevY == null) s.prevY = y;
   const safeDt = Math.max(dt, 0.008);
 
@@ -58,12 +66,28 @@ export function stepJump(s, sm, dt, now) {
   while (s.hist.length && now - s.hist[0].t > HIST_MS) s.hist.shift();
 
   const dy = y - s.base;                                              // +면 기준보다 아래(숙임)
-  // 기준선: 거의 안 움직일 때, 숙이거나 공중에 있지 않으면 천천히 따라가요 (뒤로 물러서거나 몸을 펴는 느린 변화에 적응)
-  if (Math.abs(s.vUp) < 0.35 * tl && dy < DUCK_OFF * tl && dy > -0.3 * tl) s.base += dy * Math.min(1, safeDt * 0.8);
+  const isStill = Math.abs(s.vUp) < 0.30 * tl;
 
-  if (s.ducking ? dy > DUCK_OFF * tl : dy > DUCK_ON * tl) { s.ducking = true; s.lastDuck = now; } else s.ducking = false;
+  // ⚡ 1. 기준선(서 있는 키) 동적 적응:
+  // - 사용자가 몸을 펴서 더 위로 서면(dy < 0, 점프가 아닌 정상 움직임): 즉시 사용자의 최대 기립 키로 base를 끌어올림!
+  // - 가만히 서 있을 때(dy < DUCK_OFF * tl): 미세 변화를 천천히 따라감
+  if (dy < 0 && isStill) {
+    s.base += dy * Math.min(1, safeDt * 2.5);
+  } else if (isStill && dy < DUCK_OFF * tl && dy > -0.3 * tl) {
+    s.base += dy * Math.min(1, safeDt * 0.8);
+  }
 
-  let low = y; for (const h of s.hist) if (h.y > low) low = h.y;
+  // ⚡ 2. 앉기(Duck) 상태 판정: 몸이 기준선 근처로 올라오면 해제
+  if (s.ducking ? dy > DUCK_OFF * tl : dy > DUCK_ON * tl) {
+    s.ducking = true;
+    s.lastDuck = now;
+  } else {
+    s.ducking = false;
+  }
+
+  // ⚡ 3. 점프 높이(rise) 및 도약 판정
+  let low = y;
+  for (const h of s.hist) if (h.y > low) low = h.y;
   const rise = low - y;                                               // 최근 0.4초 중 가장 낮은 곳에서 올라온 높이
 
   const up = !s.ducking && now - s.lastDuck > STAND_UP_BLOCK_MS && s.vUp > JUMP_V * tl && rise > JUMP_RISE * tl;
