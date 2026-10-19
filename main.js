@@ -349,31 +349,43 @@ const sfx = {
   },
   end() { const t = ac().currentTime; [784, 659, 784, 1046.5].forEach((f, i) => tone(f, t + i * 0.14, 0.3, "triangle", 0.14)); },
   levelUp() { const t = ac().currentTime; [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.07, 0.25, "square", 0.08)); },
-  // ⚔️ [비트세이버 스윙 Whoosh] 광선검으로 공기를 가를 때 나는 '웅- 슉!' 플라즈마 풍압음
+  // ⚔️ [비트세이버 & 스타워즈급 광선검 스윙 사운드]
+  // 공기를 가르는 날카로운 제트 풍압 + 지이이잉 울리는 플라즈마 에너지 허밍(Plasma Hum & Doppler Whoosh)
   saberSwing(x, left, speed = 1.0) {
     try {
       const t = ac().currentTime, p = panOf(x);
-      const intensity = Math.max(0.6, Math.min(1.4, speed));
-      // 1. 공기를 가르는 날카로운 도플러 풍압 노이즈 (High-Pass Whoosh)
-      noise(t, 0.11, 0.22 * intensity, left ? 2200 : 1900, p);
-      // 2. 광선검 고유의 웅- 하는 저주파 플라즈마 자기장 사운드 (Pitch Envelope 90Hz -> 210Hz -> 65Hz)
-      tone(left ? 140 : 125, t, 0.12, "sawtooth", 0.14 * intensity, 65, p);
-      tone(left ? 90 : 80, t + 0.01, 0.13, "sine", 0.20 * intensity, 55, p);
+      const spd = Math.max(0.7, Math.min(2.0, speed));
+      // 1. 공기를 매섭게 가르는 초고속 풍압 노이즈 (High-Pass Air Tear Whoosh)
+      noise(t, 0.13, 0.42 * spd, left ? 2400 : 2000, p);
+      // 2. 광선검 특유의 살아있는 플라즈마 에너지 험 (Pitch Modulation 120Hz -> 360Hz -> 85Hz)
+      tone((left ? 160 : 135) * spd, t, 0.14, "sawtooth", 0.32 * spd, 85, p);
+      tone((left ? 110 : 95) * spd, t + 0.01, 0.15, "triangle", 0.38 * spd, 65, p);
+      // 3. 고속 스윙 시 플라즈마 자기장 전기 진동음 (Square Sub-harmonic)
+      tone((left ? 280 : 240) * spd, t, 0.08, "square", 0.18 * spd, 120, p);
     } catch {}
   },
-  // ⚡ [비트세이버 큐브 크런치 Slice] 네온 큐브 블록이 두 동강 날 때의 묵직하고 날카로운 '착! 크런치' 타격감
+  // ⚡ [묵직하고 찰진 네온 큐브 슬라이스 크런치 타격음 (4-Layer Studio Impact)]
+  // 1) 808 서브우퍼 바디슬램 + 2) 고전압 레이저 방전 파열음 + 3) 크리스탈 큐브 와장창 크런치 + 4) 퍼펙트 네온 차임
   cubeSlice(x, left, isPerfect = false) {
     try {
       const t = ac().currentTime, p = panOf(x), pitch = this.comboPitch();
-      // 1. 가슴을 울리는 서브우퍼 베이스 임팩트 (180Hz -> 28Hz 딥 펀치)
-      tone(left ? 185 : 165, t, 0.15, "sine", 0.55, 28, p);
-      // 2. 날카로운 플라즈마 절단 전기 파열음 (Sawtooth 1400Hz -> 300Hz 급감쇠)
-      tone((left ? 1400 : 1200) * pitch, t, 0.08, "sawtooth", 0.28, 320, p);
-      // 3. 단단한 큐브가 부서지는 찰진 크런치 스냅 노이즈 (Snappy High Noise)
-      noise(t, 0.09, 0.36, 3200, p);
-      // 4. 퍼펙트 컷 및 고콤보 시 맑은 크리스탈 타격 배음 추가
-      if (isPerfect || combo >= 8) {
-        tone((isPerfect ? 2093 : 1568) * pitch, t + 0.01, 0.12, "triangle", 0.20, undefined, p);
+      // [Layer 1: 가슴을 때리는 묵직한 서브우퍼 베이스 펀치 (210Hz -> 32Hz 딥 킥)]
+      tone(left ? 210 : 185, t, 0.18, "sine", 0.78, 32, p);
+      tone(left ? 120 : 105, t + 0.01, 0.16, "triangle", 0.55, 42, p);
+
+      // [Layer 2: 고전압 플라즈마 레이저 절단 전기 파열음 (Sawtooth 1800Hz -> 360Hz 급속 방전)]
+      tone((left ? 1800 : 1500) * pitch, t, 0.10, "sawtooth", 0.48, 360, p);
+      tone((left ? 950 : 820) * pitch, t + 0.01, 0.08, "square", 0.32, 220, p);
+
+      // [Layer 3: 단단한 네온 큐브가 산산조각 나는 찰진 크런치 스냅 노이즈]
+      noise(t, 0.12, 0.58, 2800, p);
+
+      // [Layer 4: 퍼펙트 컷 및 고콤보 시 영롱한 네온 크리스탈 하모닉 차임]
+      if (isPerfect || combo >= 4) {
+        tone((isPerfect ? 2093 : 1568) * pitch, t + 0.01, 0.15, "triangle", 0.35, undefined, p);
+        if (isPerfect) {
+          tone(2637 * pitch, t + 0.03, 0.18, "sine", 0.28, undefined, p); // E7 영롱한 초고주파 벨
+        }
       }
     } catch {}
   },
@@ -5321,6 +5333,7 @@ games.beat = {
     this.halves = [];
     this.walls = [];
     this.sparkRings = []; // 컷팅 충격파 팽창 링 (NotebookLM)
+    this.slashFlashes = []; // ⚡ 네온 레이저 슬래시 섬광 절단선 (비트세이버 임팩트)
     this.saberTrails = [[], []]; // 듀얼 세이버 네온 잔상 리본 트레일 (PSVR)
     this.laserAngle = 0; // 소실점 회전 레이저 각도
     this.beatFlash = 0; // 비트 싱크 플래시 & 페이드 조명
@@ -5583,12 +5596,12 @@ games.beat = {
             const av = armVel[1 - i];                                   // beat의 i=0은 왼손목(15) → armVel[1]
             let swingNow;
             if (now - av.t < 300) { const sr = stepSwing(this.swingSt[i], av.vN(now), now); swingNow = sr.swing; this.swinging[i] = sr.swinging; }
-            else { swingNow = spd > 7.0 && now - this.lastSwingT[i] > 110; this.swinging[i] = spd > 6.0; }
+            else { swingNow = spd > 5.2 && now - this.lastSwingT[i] > 85; this.swinging[i] = spd > 4.5; }
             if (swingNow) {
               swing[i] = true;
               this.lastSwingT[i] = now;
-              // ⚔️ 비트세이버 광선검 스윙음: 공기를 가르는 '웅- 슉!' 풍압음
-              sfx.saberSwing(wPt.x, i === 0, spd / 7.0);
+              // ⚔️ 비트세이버 & 스타워즈 광선검 스윙음: 공기를 가르는 '웅- 슉!' 풍압 플라즈마 사운드
+              sfx.saberSwing(wPt.x, i === 0, Math.max(0.9, spd / 5.5));
               if (isReadyTime) {
                 burst(wPt.x, wPt.y, i === 0 ? "#00d2ff" : "#ff3377", 8);
               }
@@ -5604,7 +5617,7 @@ games.beat = {
           const prev = this.prevWrist[i] || { x: pt.x, y: pt.y };
           const vx = pt.x - prev.x, vy = pt.y - prev.y, spd = Math.hypot(vx, vy) / Math.max(0.25, dt * 60);
           this.wristVel[i] = { x: vx, y: vy, spd };
-          this.swinging[i] = spd > 6.0;
+          this.swinging[i] = spd > 4.5;
           this.prevWrist[i] = { x: pt.x, y: pt.y };
           const nx = i === 0 ? -0.4 : 0.4;
           const ny = -0.91;
@@ -5612,10 +5625,10 @@ games.beat = {
             base: { x: pt.x, y: pt.y },
             tip: { x: pt.x + nx * 150, y: pt.y + ny * 150 }
           };
-          if (spd > 7.0 && now - this.lastSwingT[i] > 110) {
+          if (spd > 5.2 && now - this.lastSwingT[i] > 85) {
             swing[i] = true;
             this.lastSwingT[i] = now;
-            sfx.saberSwing(pt.x, i === 0, spd / 7.0);
+            sfx.saberSwing(pt.x, i === 0, Math.max(0.9, spd / 5.5));
             if (isReadyTime) {
               burst(pt.x, pt.y, i === 0 ? "#00d2ff" : "#ff3377", 8);
             }
@@ -5637,12 +5650,12 @@ games.beat = {
       this.sabers[0] = { base: { x: mx - 25, y: my + 20 }, tip: { x: mx - 70, y: my - 105 } };
       this.sabers[1] = { base: { x: mx + 25, y: my + 20 }, tip: { x: mx + 70, y: my - 105 } };
 
-      const isMouseSwing = (mouse.down && mSpd > 3) || mSpd > 10;
+      const isMouseSwing = (mouse.down && mSpd > 2.5) || mSpd > 7;
       this.swinging = [isMouseSwing, isMouseSwing];
-      if (isMouseSwing && now - this.lastSwingT[0] > 100) {
+      if (isMouseSwing && now - this.lastSwingT[0] > 85) {
         swing[0] = true; swing[1] = true;
         this.lastSwingT[0] = now;
-        sfx.saberSwing(mx, true, mSpd / 10);
+        sfx.saberSwing(mx, true, Math.max(0.9, mSpd / 8));
         if (isReadyTime) {
           burst(mx, my, "#00d2ff", 8);
         }
@@ -5759,18 +5772,43 @@ games.beat = {
           const diffMs = Math.abs(timeRemaining) * 1000;
           const finalScore = j.total * this.multiplier;                  // 점수는 아래 award()에서 한 번만 더해짐 (콤보도 award()가 올림)
           this.energy = Math.min(100, this.energy + 2.8);
-          this.screenShake = 0.10;
+          // 💥 묵직하고 살아있는 화면 타격 셰이크 진동 반동!
+          this.screenShake = isPerfect ? 0.42 : 0.28;
           this.beatFlash = 1.0;
           const isPerfect = diffMs <= 60 && j.total >= 95;
+
+          // 📳 손끝 햅틱 진동 (모바일/태블릿 지원 시 리얼 손맛)
+          try {
+            if (navigator.vibrate) {
+              navigator.vibrate(isPerfect ? [45, 20, 55] : 35);
+            }
+          } catch {}
+
+          // ⚡ 4중 레이어 큐브 크런치 사운드
           sfx.cubeSlice(o.x, o.isLeft, isPerfect);
-          burst(o.x, o.y, o.color, j.total >= 100 ? 40 : 26);
-          this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.3, vr: o.r * 6.5, color: o.color, life: 1.0 });
+
+          // 🌟 폭발적인 네온 스파크 & 중심 백색 플라즈마 파열
+          burst(o.x, o.y, o.color, isPerfect ? 55 : 38);
+          burst(o.x, o.y, "#ffffff", 18);
+
+          // ⚡ 칼날 궤적을 따라 화면을 가르는 레이저 슬래시 섬광 절단선
+          this.slashFlashes.push({
+            x: o.x, y: o.y,
+            ang: ang,
+            len: o.r * 3.6,
+            color: o.color,
+            life: 1.0
+          });
+
+          this.sparkRings.push({ x: o.x, y: o.y, r: o.r * 0.4, vr: o.r * 8.5, color: o.color, life: 1.0 });
           award(o.x, o.y, finalScore, isPerfect ? "#ffd700" : o.color);
           const note = o.dir != null && j.parts.dir < 10 ? " · 방향!" : j.parts.speed < 25 ? " · 더 힘차게!" : "";
           popup(o.x, o.y - 40, `${isPerfect ? "PERFECT" : "SLASH"} ${j.total}${this.multiplier > 1 ? ` ×${this.multiplier}` : ""}${note}`, isPerfect ? "#ffd700" : o.color);
+
+          // 쪼개진 큐브 반쪽이 폭발적인 횡방향 반동으로 날아감 (넉백 & 고속 회전 강화)
           this.halves.push(
-            { x: o.x - 10, y: o.y, r: o.r, color: o.color, vx: -px * 7, vy: -py * 7 - 2, rot: ang, vRot: -0.2, half: -1, life: 1 },
-            { x: o.x + 10, y: o.y, r: o.r, color: o.color, vx: px * 7, vy: py * 7 - 2, rot: ang, vRot: 0.18, half: 1, life: 1 }
+            { x: o.x - 12, y: o.y, r: o.r, color: o.color, vx: -px * 12 - 2, vy: -py * 12 - 5, rot: ang, vRot: -0.38, half: -1, life: 1 },
+            { x: o.x + 12, y: o.y, r: o.r, color: o.color, vx: px * 12 + 2, vy: py * 12 - 5, rot: ang, vRot: 0.38, half: 1, life: 1 }
           );
           break;
         }
@@ -5798,6 +5836,14 @@ games.beat = {
     }
     this.sparkRings = this.sparkRings.filter((r) => r.life > 0);
 
+    // ⚡ 레이저 슬래시 섬광 절단선 시뮬레이션
+    if (this.slashFlashes && this.slashFlashes.length > 0) {
+      for (const sf of this.slashFlashes) {
+        sf.life -= dt * 6.5;
+      }
+      this.slashFlashes = this.slashFlashes.filter((sf) => sf.life > 0);
+    }
+
     // 쪼개진 큐브 반쪽 파편 물리 이동 & 회전
     if (this.halves.length > 25) this.halves = this.halves.slice(-20);
     for (const h of this.halves) {
@@ -5816,7 +5862,8 @@ games.beat = {
 
     ctx.save();
     if (this.screenShake > 0) {
-      ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+      const shakeMag = this.screenShake * 24;
+      ctx.translate((Math.random() - 0.5) * shakeMag, (Math.random() - 0.5) * shakeMag);
     }
 
     // 1. 비트 펄스 네온 타격 가이드 라인 (Stitch 3D 터널 위의 라이트닝 스트라이크 존)
@@ -5874,6 +5921,30 @@ games.beat = {
       ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
+    }
+
+    // 4-1. ⚡ [레이저 슬래시 섬광 절단선 FX] 칼날 궤적을 따라 화면을 가르는 레이저 플래시
+    if (this.slashFlashes && this.slashFlashes.length > 0) {
+      for (const sf of this.slashFlashes) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = Math.max(0, sf.life);
+        const cos = Math.cos(sf.ang), sin = Math.sin(sf.ang);
+
+        // 외곽 네온 글로우 빔
+        ctx.strokeStyle = sf.color || "#00d2ff";
+        ctx.lineWidth = 14 * sf.life;
+        ctx.beginPath();
+        ctx.moveTo(sf.x - cos * sf.len, sf.y - sin * sf.len);
+        ctx.lineTo(sf.x + cos * sf.len, sf.y + sin * sf.len);
+        ctx.stroke();
+
+        // 내부 고열 순백색 레이저 코어
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 5 * sf.life;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // 5. 전신 포즈 스켈레톤
